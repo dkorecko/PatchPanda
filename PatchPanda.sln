@@ -5,6 +5,8 @@ VisualStudioVersion = 17.12.35506.116 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PatchPanda.Web", "PatchPanda.Web\PatchPanda.Web.csproj", "{BA903208-A976-4BF6-A7D8-5BB55B5D3C07}"
 EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{A4AA4132-34A8-48AE-B485-6E6A6253BF16}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{BA903208-A976-4BF6-A7D8-5BB55B5D3C07}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BA903208-A976-4BF6-A7D8-5BB55B5D3C07}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA903208-A976-4BF6-A7D8-5BB55B5D3C07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4AA4132-34A8-48AE-B485-6E6A6253BF16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4AA4132-34A8-48AE-B485-6E6A6253BF16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4AA4132-34A8-48AE-B485-6E6A6253BF16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4AA4132-34A8-48AE-B485-6E6A6253BF16}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

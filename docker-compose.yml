@@ -1,0 +1,10 @@
+services:
+  patchpanda.web:
+    image: ${DOCKER_REGISTRY-}patchpandaweb
+    build:
+      context: .
+      dockerfile: PatchPanda.Web/Dockerfile
+    volumes:
+      - //var/run/docker.sock:/var/run/docker.sock
+      - /usr/local/bin/docker:/usr/bin/docker  
+    privileged: true

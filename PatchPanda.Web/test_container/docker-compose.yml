@@ -1,0 +1,14 @@
+services:
+    convertx:
+        image: ghcr.io/c4illin/convertx:v0.6.0
+        container_name: convertx
+        restart: unless-stopped
+        ports:
+            - "3000:3000"
+        environment:
+            - JWT_SECRET=aLongAndSecretStringUsedToSignTheJSONWebToken1234 # will use randomUUID() if unset
+        volumes:
+            - convertx:/app/data
+
+volumes:
+    convertx:
