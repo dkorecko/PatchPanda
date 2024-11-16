@@ -1,0 +1,23 @@
+@page "/authorize"
+
+<p>@_token</p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "code")]
+    private string? _code { get; set; }
+
+    private string _clientId = "Ov23liJ787NfIGPoFM4V";
+    private string _clientSecret = "2c65849e667172900ca8ea93c110e992b8a14e2d";
+    private string? _token;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(_code))
+            return;
+
+        var github = new GitHubClient(new ProductHeaderValue("PatchPanda"));
+        var request = new OauthTokenRequest(_clientId, _clientSecret, _code);
+        var token = await github.Oauth.CreateAccessToken(request);
+        _token = token.AccessToken;
+    }
+}

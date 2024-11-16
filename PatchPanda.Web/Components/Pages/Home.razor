@@ -1,7 +1,46 @@
-﻿@page "/"
+@page "/"
 
 <PageTitle>Home</PageTitle>
 
 <h1>Hello, world!</h1>
 
-Welcome to your new app.
+@if(_oauthLoginUrl is null) 
+{
+    <p>Loading</p>
+} else {
+    <a href="@_oauthLoginUrl">Login with GitHub</a>
+}
+
+@code {
+    private string _clientId = "Ov23liJ787NfIGPoFM4V";
+    private string? _oauthLoginUrl;
+
+    protected override void OnInitialized()
+    {
+        var github = new GitHubClient(new ProductHeaderValue("PatchPanda"));
+        var request = new OauthLoginRequest(_clientId)
+            {
+                Scopes = { "user", "notifications" },
+                RedirectUri = new Uri("http://localhost:8080/authorize"),
+            };
+
+        _oauthLoginUrl = github.Oauth.GetGitHubLoginUrl(request).ToString();
+        /*
+        DockerClient client = new DockerClientConfiguration(new Uri("tcp://host.docker.internal:2375")).CreateClient();
+
+        IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
+            new ContainersListParameters() { Limit = 10, }
+        );
+
+        foreach (var container in containers)
+        {
+            if (!container.Image.StartsWith("ghcr.io"))
+                continue;
+
+            Console.WriteLine(
+                $"Container {container.Names[0]}, ID: {container.ID}, Image: {container.Image}"
+            );
+
+        }*/
+    }
+}

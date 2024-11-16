@@ -1,11 +1,11 @@
-using Docker.DotNet;
-using Docker.DotNet.Models;
 using PatchPanda.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
@@ -16,27 +16,12 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 }
 
+app.UseRouting();
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
-
-DockerClient client = new DockerClientConfiguration(
-    new Uri("tcp://host.docker.internal:2375")
-).CreateClient();
-
-IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
-    new ContainersListParameters() { Limit = 10, }
-);
-
-foreach (var container in containers)
-{
-    if (!container.Image.StartsWith("ghcr.io"))
-        continue;
-
-    Console.WriteLine(
-        $"Container {container.Names[0]}, ID: {container.ID}, Image: {container.Image}"
-    );
-}
+app.MapRazorPages();
 
 app.Run();

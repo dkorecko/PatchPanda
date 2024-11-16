@@ -8,3 +8,5 @@ services:
       - //var/run/docker.sock:/var/run/docker.sock
       - /usr/local/bin/docker:/usr/bin/docker  
     privileged: true
+    ports:
+      - "8080:8080"
