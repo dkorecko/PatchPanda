@@ -1,9 +1,17 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 namespace PatchPanda.Web.Services;
 
 public class VersionService
 {
+    private readonly ILogger<VersionService> _logger;
+
+    public VersionService(ILogger<VersionService> logger)
+    {
+        _logger = logger;
+    }
+
     private GitHubClient GetClient() => new(new ProductHeaderValue("PatchPanda"));
 
     public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
@@ -53,12 +61,21 @@ public class VersionService
 
     public Tuple<string, string> GetOwnerRepoName(string url)
     {
-        var uri = new Uri(url);
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length >= 2)
+        try
         {
-            return Tuple.Create(segments[0], segments[1]);
+            var uri = new Uri(url);
+            var segments = uri.AbsolutePath.Trim('/').Split('/');
+            if (segments.Length >= 2)
+            {
+                return Tuple.Create(segments[0], segments[1]);
+            }
+            else
+                throw new ArgumentException("Invalid GitHub repository URL");
         }
-        throw new ArgumentException("Invalid GitHub repository URL");
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error parsing GitHub repository URL: {Url}", url);
+            throw;
+        }
     }
 }
