@@ -12,12 +12,12 @@ public class DataService
     public async Task<IEnumerable<ComposeStack>> GetData()
     {
         if (Constants.COMPOSE_APPS is null)
-            await LoadData();
+            await UpdateData();
 
         return Constants.COMPOSE_APPS!;
     }
 
-    private async Task LoadData()
+    public async Task UpdateData()
     {
         Constants.COMPOSE_APPS = await _dockerService.GetAllComposeStacks();
     }

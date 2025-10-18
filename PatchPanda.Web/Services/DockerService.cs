@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using Docker.DotNet;
 
 namespace PatchPanda.Web.Services;
@@ -114,53 +115,50 @@ public class DockerService
     public async Task Restart(ComposeStack stack)
     {
         var hostPath = _configuration.GetValue<string>("APPS_HOST_PATH");
+        string command = $"compose -f {stack.ConfigFile} restart";
 
+#if !DEBUG
         if (hostPath is null)
             throw new InvalidOperationException("ComposeHostPath configuration is missing.");
 
-        await Process
-            .Start(
-                "docker",
-                $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart"
-            )
-            .WaitForExitAsync();
+        command = $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart";
+#endif
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart",
-            // Key settings for capturing output
+            Arguments = command,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false, // Must be false when redirecting streams
-            CreateNoWindow = true // Optional: useful for background processes
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
 
-        using (var process = new Process { StartInfo = startInfo })
+        using var process = new Process { StartInfo = startInfo };
+        var standardOutput = new StringBuilder();
+        var standardError = new StringBuilder();
+
+        process.OutputDataReceived += (sender, args) => standardOutput.AppendLine(args.Data);
+        process.ErrorDataReceived += (sender, args) => standardError.AppendLine(args.Data);
+
+        process.Start();
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync();
+
+        var stdOut = standardOutput.ToString();
+        var stdErr = standardError.ToString();
+
+        if (!string.IsNullOrWhiteSpace(stdOut))
         {
-            // StringBuilders to hold the output
-            var standardOutput = new System.Text.StringBuilder();
-            var standardError = new System.Text.StringBuilder();
-
-            // Event handlers to capture output asynchronously
-            process.OutputDataReceived += (sender, args) => standardOutput.AppendLine(args.Data);
-            process.ErrorDataReceived += (sender, args) => standardError.AppendLine(args.Data);
-
-            process.Start();
-
-            // Start asynchronous reading of the output streams
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Wait for the process to exit
-            await process.WaitForExitAsync();
-
-            // Now, standardOutput.ToString() and standardError.ToString() contain the logs.
-            // You can write these to a file, database, or your application's log sink.
-
-            // Example: Log to console/file
             _logger.LogInformation("--- STDOUT ---");
             _logger.LogInformation(standardOutput.ToString());
+        }
+
+        if (!string.IsNullOrWhiteSpace(stdErr))
+        {
             _logger.LogInformation("--- STDERR ---");
             _logger.LogInformation(standardError.ToString());
         }

@@ -15,6 +15,17 @@
 }
 else
 {
+    <button class="btn btn-primary" type="button" disabled="@(_isReloading || _isRestarting)" @onclick="ReloadData">
+        @if (_isReloading)
+        {
+            <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+        }
+        else
+        {
+            <span>Recheck containers</span>
+        }
+    </button>
+
     int i = 0;
     <div class="accordion" id="stacksAccordion">
         <Virtualize Items="_composeStacks">
@@ -97,12 +108,18 @@ else
 @code {
     private List<ComposeStack>? _composeStacks;
     private bool _isRestarting;
+    private bool _isReloading;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
             return;
 
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
         _composeStacks = (await _dataService.GetData()).ToList();
         StateHasChanged();
     }
@@ -114,5 +131,14 @@ else
         await _dockerService.Restart(stack);
         _isRestarting = false;
         StateHasChanged();
+    }
+
+    private async Task ReloadData()
+    {
+        _isReloading = true;
+        StateHasChanged();
+        await _dataService.UpdateData();
+        _isReloading = false;
+        await LoadData();
     }
 }
