@@ -83,12 +83,22 @@ else
                             <tbody>
                                 @foreach (var app in context.Apps)
                                 {
+                                    var newestVersion = app.NewerVersions?.FirstOrDefault();
                                     <tr>
                                         <td>@app.Name</td>
                                         <td>@app.GitHubRepo</td>
-                                        <td>@app.Version</td>
+                                        <td><span class="badge text-bg-primary">@app.Version</span></td>
                                         <td>@app.Regex</td>
-                                        <td>@app.NewerVersions?.Count()</td>
+                                        <td>
+                                            @if(newestVersion is null)
+                                            {
+                                                <span class="badge text-bg-success">Up to date</span>
+                                            }
+                                            else
+                                            {
+                                                <span class='badge text-bg-warning'>@newestVersion.VersionNumber</span>
+                                            }
+                                        </td>
                                         <td>@app.CurrentSha</td>
                                         <td>@app.Uptime</td>
                                         <td>
