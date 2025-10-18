@@ -23,7 +23,7 @@
             }
             @foreach(var stack in _composeStacks) 
             {
-                <div class="accordion-item">
+                <div @key=stackId class="accordion-item">
                     <h4 class="accordion-header">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
                             Stack @context.StackName (@context.ConfigFile)
