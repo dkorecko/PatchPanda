@@ -1,4 +1,4 @@
-﻿namespace PatchPanda.Web.DTOs;
+namespace PatchPanda.Web.DTOs;
 
 public class ComposeApp
 {
@@ -11,4 +11,6 @@ public class ComposeApp
     public required string GitHubRepo { get; set; }
 
     public required string Uptime { get; set; }
+
+    public required string Regex { get; set; }
 }

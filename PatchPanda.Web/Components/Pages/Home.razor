@@ -5,7 +5,7 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Compose stacks</h1>
 
 @if (_composeStacks is null)
 {
@@ -53,6 +53,9 @@
                                             Version
                                         </th>
                                         <th scope="col">
+                                            Final regex
+                                        </th>
+                                        <th scope="col">
                                             Current SHA
                                         </th>
                                         <th scope="col">
@@ -70,10 +73,11 @@
                                             <td>@app.Name</td>
                                             <td>@app.GitHubRepo</td>
                                             <td>@app.Version</td>
+                                            <td>@app.Regex</td>
                                             <td>@app.CurrentSha</td>
                                             <td>@app.Uptime</td>
                                             <td>
-                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app.GitHubRepo, app.Version)">Releases</button>
+                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app.GitHubRepo, app.Version, app.Regex)">Releases</button>
                                             </td>
                                         </tr>
                                     }

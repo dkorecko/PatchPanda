@@ -61,31 +61,34 @@ public class DockerService
                     stacks.Add(existingStack);
                 }
 
-                existingStack.Apps.Add(
-                    new ComposeApp
-                    {
-                        Name = container.Labels.TryGetValue(
-                            "com.docker.compose.service",
-                            out var appName
-                        )
-                            ? appName
-                            : container.Names.FirstOrDefault() ?? "N/A",
-                        Version = container.Labels.TryGetValue(
-                            "org.opencontainers.image.version",
-                            out var appVersion
-                        )
-                            ? appVersion
-                            : "N/A",
-                        GitHubRepo = container.Labels.TryGetValue(
-                            "org.opencontainers.image.source",
-                            out var appSource
-                        )
-                            ? appSource
-                            : "N/A",
-                        CurrentSha = container.ImageID,
-                        Uptime = container.Status
-                    }
-                );
+                var app = new ComposeApp
+                {
+                    Name = container.Labels.TryGetValue(
+                        "com.docker.compose.service",
+                        out var appName
+                    )
+                        ? appName
+                        : container.Names.FirstOrDefault() ?? "N/A",
+                    Version = container.Labels.TryGetValue(
+                        "org.opencontainers.image.version",
+                        out var appVersion
+                    )
+                        ? appVersion
+                        : "N/A",
+                    GitHubRepo = container.Labels.TryGetValue(
+                        "org.opencontainers.image.source",
+                        out var appSource
+                    )
+                        ? appSource
+                        : "N/A",
+                    CurrentSha = container.ImageID,
+                    Uptime = container.Status,
+                    Regex = string.Empty
+                };
+
+                app.Regex = VersionHelper.BuildRegexFromVersion(app.Version);
+
+                existingStack.Apps.Add(app);
             }
         }
 
