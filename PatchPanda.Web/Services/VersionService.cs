@@ -25,13 +25,28 @@ public class VersionService
                 Body = x.Body,
                 Name = x.Name,
                 Prerelease = x.Prerelease,
-                VersionNumber = x.TagName
+                VersionNumber = x.TagName,
+                Breaking = x.Body.Has("breaking") || x.Body.Has("critical")
             });
 
-        Constants
+        var targetApp = Constants
             .COMPOSE_APPS!.SelectMany(x => x.Apps)
-            .First(x => x.Name == app.Name)
-            .NewerVersions = newerVersions;
+            .First(x => x.Name == app.Name);
+
+        var alreadyNotified = targetApp
+            .NewerVersions.Where(x => x.Notified)
+            .Select(x => x.VersionNumber)
+            .ToHashSet();
+
+        targetApp.NewerVersions = newerVersions;
+
+        foreach (var version in targetApp.NewerVersions)
+        {
+            if (alreadyNotified.Contains(version.VersionNumber))
+            {
+                version.Notified = true;
+            }
+        }
 
         return newerVersions;
     }

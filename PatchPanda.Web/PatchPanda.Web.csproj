@@ -5,9 +5,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>2c401345-2ffd-4b19-8611-f9cafe5cd8e0</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Devity.Extensions" Version="2025.8.13.2012" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="Octokit" Version="14.0.0" />
   </ItemGroup>

@@ -8,8 +8,6 @@ public class DockerService
 {
     private string DockerSocket { get; init; }
 
-    private string AppsHostPath { get; init; }
-
     private readonly ILogger<DockerService> _logger;
     private readonly IConfiguration _configuration;
 
