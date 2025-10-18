@@ -20,16 +20,20 @@ RUN apt-get update && \
         curl \
         gnupg \
         lsb-release && \
+    \
     # Add Docker's official GPG key
     mkdir -m 0755 -p /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    # Set up the stable repository
+    \
+    # Set up the stable repository, explicitly using 'bookworm' (Debian 12)
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+      bookworm stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    \
     # Install the Docker CLI only
     apt-get update && \
     apt-get install -y docker-ce-cli && \
+    \
     # Clean up
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
