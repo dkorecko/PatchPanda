@@ -7,13 +7,16 @@ public class DockerService
 {
     private string DockerSocket { get; init; }
 
-    public DockerService()
+    private ILogger<DockerService> _logger;
+
+    public DockerService(ILogger<DockerService> logger)
     {
         DockerSocket = "unix:///var/run/docker.sock";
 
 #if DEBUG
         DockerSocket = "npipe://./pipe/docker_engine";
 #endif
+        _logger = logger;
     }
 
     private DockerClient GetClient() =>
@@ -59,6 +62,12 @@ public class DockerService
                     };
 
                     stacks.Add(existingStack);
+
+                    _logger.LogInformation(
+                        "Found new compose stack: {StackName} (Config Hash: {ConfigHash})",
+                        stackName,
+                        configHash
+                    );
                 }
 
                 var app = new ComposeApp
