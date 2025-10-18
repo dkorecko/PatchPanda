@@ -8,6 +8,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<VersionService>();
+builder.Services.AddScoped<DataService>();
 
 var app = builder.Build();
 

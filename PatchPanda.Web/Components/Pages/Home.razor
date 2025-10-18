@@ -2,6 +2,7 @@
 @inject DockerService _dockerService
 @inject FileService _fileService
 @inject VersionService _versionService
+@inject DataService _dataService
 
 <PageTitle>Home</PageTitle>
 
@@ -56,6 +57,9 @@
                                             Final regex
                                         </th>
                                         <th scope="col">
+                                            Newer versions
+                                        </th>
+                                        <th scope="col">
                                             Current SHA
                                         </th>
                                         <th scope="col">
@@ -74,10 +78,11 @@
                                             <td>@app.GitHubRepo</td>
                                             <td>@app.Version</td>
                                             <td>@app.Regex</td>
+                                            <td>@app.NewerVersions?.Count()</td>
                                             <td>@app.CurrentSha</td>
                                             <td>@app.Uptime</td>
                                             <td>
-                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app.GitHubRepo, app.Version, app.Regex)">Releases</button>
+                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app)">Releases</button>
                                             </td>
                                         </tr>
                                     }
@@ -92,7 +97,7 @@
 }
 
 @code {
-    private IList<ComposeStack>? _composeStacks;
+    private List<ComposeStack>? _composeStacks;
     private bool _isRestarting;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -100,7 +105,7 @@
         if (!firstRender)
             return;
 
-        _composeStacks = await _dockerService.GetAllComposeStacks();
+        _composeStacks = (await _dataService.GetData()).ToList();
         StateHasChanged();
     }
 

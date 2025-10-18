@@ -4,21 +4,30 @@ namespace PatchPanda.Web.Services;
 
 public class VersionService
 {
-    private GitHubClient GetClient() => new GitHubClient(new ProductHeaderValue("PatchPanda"));
+    private GitHubClient GetClient() => new(new ProductHeaderValue("PatchPanda"));
 
-    public async Task<IEnumerable<string>> GetNewerVersions(
-        string url,
-        string previousVersion,
-        string regex
-    )
+    public async Task<IEnumerable<string>> GetNewerVersions(ComposeApp app)
     {
         var client = GetClient();
-        var (owner, repo) = GetOwnerRepoName(url);
-        var releases = (
+        var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
+        var allReleases = (
             await client.Repository.Release.GetAll(owner, repo, new ApiOptions { PageSize = 100 })
-        ).Where(x => Regex.IsMatch(x.TagName, regex));
+        );
 
-        return releases.Select(x => x.TagName);
+        var validReleases = allReleases.Where(x =>
+            Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
+        );
+
+        var newerVersions = validReleases
+            .Where(x => x.TagName.IsNewerThan(app.Version))
+            .Select(x => x.TagName);
+
+        Constants
+            .COMPOSE_APPS!.SelectMany(x => x.Apps)
+            .First(x => x.Name == app.Name)
+            .NewerVersions = newerVersions;
+
+        return newerVersions;
     }
 
     public Tuple<string, string> GetOwnerRepoName(string url)
