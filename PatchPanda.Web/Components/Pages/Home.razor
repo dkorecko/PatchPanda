@@ -1,8 +1,7 @@
 @page "/"
 @inject DockerService _dockerService
-@inject FileService _fileService
-@inject VersionService _versionService
 @inject DataService _dataService
+@inject NavigationManager _nav
 
 <PageTitle>Home</PageTitle>
 
@@ -82,7 +81,7 @@
                                             <td>@app.CurrentSha</td>
                                             <td>@app.Uptime</td>
                                             <td>
-                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app)">Releases</button>
+                                                <a target="_blank" href="/versions/@app.Name" class="btn btn-primary">Releases</a>
                                             </td>
                                         </tr>
                                     }

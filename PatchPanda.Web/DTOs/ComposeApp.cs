@@ -6,7 +6,7 @@ public class ComposeApp
 
     public required string Version { get; set; }
 
-    public IEnumerable<string>? NewerVersions { get; set; }
+    public IEnumerable<AppVersion> NewerVersions { get; set; } = [];
 
     public required string CurrentSha { get; set; }
 

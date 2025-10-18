@@ -6,7 +6,7 @@ public class VersionService
 {
     private GitHubClient GetClient() => new(new ProductHeaderValue("PatchPanda"));
 
-    public async Task<IEnumerable<string>> GetNewerVersions(ComposeApp app)
+    public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
     {
         var client = GetClient();
         var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
@@ -20,7 +20,13 @@ public class VersionService
 
         var newerVersions = validReleases
             .Where(x => x.TagName.IsNewerThan(app.Version))
-            .Select(x => x.TagName);
+            .Select(x => new AppVersion()
+            {
+                Body = x.Body,
+                Name = x.Name,
+                Prerelease = x.Prerelease,
+                VersionNumber = x.TagName
+            });
 
         Constants
             .COMPOSE_APPS!.SelectMany(x => x.Apps)

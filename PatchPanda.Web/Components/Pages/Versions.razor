@@ -1,0 +1,65 @@
+@page "/versions/{AppName}"
+@inject DataService _dataService
+@inject VersionService _versionService
+
+<h3>Versions</h3>
+
+@if(_app is null)
+{
+    <div class="spinner-grow" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+}
+else
+{
+    <h4>@_app.Name</h4>
+    <p>
+        Current Version: @_app.Version
+    </p>
+    <p>
+        Newer Versions:
+    </p>
+    @if(!_app.NewerVersions.Any())
+    {
+        <p>No newer versions found.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach(var version in _app.NewerVersions)
+            {
+                <li>
+                    <div>@version.Name</div>
+                    <div>@version.Body</div>
+                    <div>@version.Prerelease</div>
+                    <div>@version.VersionNumber</div>
+                </li>
+            }
+        </ul>
+    }
+}
+
+
+@code {
+    [Parameter]
+    public required string AppName { get; set; }
+
+    private ComposeApp? _app;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var data = await _dataService.GetData();
+
+        var app = data.SelectMany(s => s.Apps).First(a => a.Name == AppName);
+        if(!app.NewerVersions.Any())
+        {
+            await _versionService.GetNewerVersions(app);
+        }
+
+        _app = app;
+        StateHasChanged();
+    }
+}
