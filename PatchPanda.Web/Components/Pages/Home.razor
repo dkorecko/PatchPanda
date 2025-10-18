@@ -1,7 +1,7 @@
 @page "/"
-@using System.Text.Json
 @inject DockerService _dockerService
 @inject FileService _fileService
+@inject VersionService _versionService
 
 <PageTitle>Home</PageTitle>
 
@@ -73,6 +73,7 @@
                                             <td>@app.CurrentSha</td>
                                             <td>@app.Uptime</td>
                                             <td>
+                                                <button type="button" class="btn btn-primary" @onclick="() => _versionService.GetNewerVersions(app.GitHubRepo, app.Version)">Releases</button>
                                             </td>
                                         </tr>
                                     }
