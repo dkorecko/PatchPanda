@@ -124,5 +124,45 @@ public class DockerService
                 $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart"
             )
             .WaitForExitAsync();
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "docker",
+            Arguments = $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart",
+            // Key settings for capturing output
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false, // Must be false when redirecting streams
+            CreateNoWindow = true // Optional: useful for background processes
+        };
+
+        using (var process = new Process { StartInfo = startInfo })
+        {
+            // StringBuilders to hold the output
+            var standardOutput = new System.Text.StringBuilder();
+            var standardError = new System.Text.StringBuilder();
+
+            // Event handlers to capture output asynchronously
+            process.OutputDataReceived += (sender, args) => standardOutput.AppendLine(args.Data);
+            process.ErrorDataReceived += (sender, args) => standardError.AppendLine(args.Data);
+
+            process.Start();
+
+            // Start asynchronous reading of the output streams
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            // Wait for the process to exit
+            await process.WaitForExitAsync();
+
+            // Now, standardOutput.ToString() and standardError.ToString() contain the logs.
+            // You can write these to a file, database, or your application's log sink.
+
+            // Example: Log to console/file
+            _logger.LogInformation("--- STDOUT ---");
+            _logger.LogInformation(standardOutput.ToString());
+            _logger.LogInformation("--- STDERR ---");
+            _logger.LogInformation(standardError.ToString());
+        }
     }
 }
