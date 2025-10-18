@@ -7,9 +7,12 @@ public class DockerService
 {
     private string DockerSocket { get; init; }
 
-    private ILogger<DockerService> _logger;
+    private string AppsHostPath { get; init; }
 
-    public DockerService(ILogger<DockerService> logger)
+    private readonly ILogger<DockerService> _logger;
+    private readonly IConfiguration _configuration;
+
+    public DockerService(ILogger<DockerService> logger, IConfiguration configuration)
     {
         DockerSocket = "unix:///var/run/docker.sock";
 
@@ -17,6 +20,7 @@ public class DockerService
         DockerSocket = "npipe://./pipe/docker_engine";
 #endif
         _logger = logger;
+        _configuration = configuration;
     }
 
     private DockerClient GetClient() =>
@@ -25,9 +29,12 @@ public class DockerService
     public async Task<IList<ContainerListResponse>> GetAllContainers()
     {
         using var dockerClient = GetClient();
-        return await dockerClient.Containers.ListContainersAsync(
+
+        var containers = await dockerClient.Containers.ListContainersAsync(
             new ContainersListParameters { All = true, Limit = 999 }
         );
+
+        return containers;
     }
 
     public async Task<IList<ComposeStack>> GetAllComposeStacks()
@@ -106,6 +113,16 @@ public class DockerService
 
     public async Task Restart(ComposeStack stack)
     {
-        await Process.Start("docker", $"compose -f {stack.ConfigFile} restart").WaitForExitAsync();
+        var hostPath = _configuration.GetValue<string>("APPS_HOST_PATH");
+
+        if (hostPath is null)
+            throw new InvalidOperationException("ComposeHostPath configuration is missing.");
+
+        await Process
+            .Start(
+                "docker",
+                $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart"
+            )
+            .WaitForExitAsync();
     }
 }

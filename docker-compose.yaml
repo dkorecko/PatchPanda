@@ -12,7 +12,10 @@ services:
     restart: unless-stopped
     networks:
       - internal
+    environment:
+      - APPS_HOST_PATH=/home/trixx/Applications/stirling-pdf
     volumes:
+      - /home/trixx/Applications/stirling-pdf:/media/apps:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
 networks:
