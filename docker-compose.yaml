@@ -1,0 +1,20 @@
+version: '2.1'
+
+services:
+  patchpanda:
+    image: patchpanda-app
+    container_name: patchpanda
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5091:8080"
+    restart: unless-stopped
+    networks:
+      - internal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+networks:
+  internal:
+    external: true

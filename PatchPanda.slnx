@@ -1,3 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="docker-compose.yaml" />
+    <File Path="Dockerfile" />
+  </Folder>
   <Project Path="PatchPanda.Web/PatchPanda.Web.csproj" />
 </Solution>
