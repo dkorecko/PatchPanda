@@ -7,35 +7,82 @@
 
 <h1>Hello, world!</h1>
 
-@if (_containers is null || _composePaths is null)
+@if (_composeStacks is null)
 {
 	<div class="spinner-grow" role="status">
 		<span class="sr-only">Loading...</span>
 	</div>
 } else
 {
-	foreach(var container in _containers)
-	{
-		<div>@JsonSerializer.Serialize(container)</div>
-	}
-
-	foreach(var composePath in _composePaths)
-	{
-		<div>@composePath</div>
-	}
+    int i = 0;
+    <div class="accordion" id="stacksAccordion">
+        <Virtualize Items="_composeStacks">
+            @{
+                var stackId = $"stack_{i}";
+                i++;
+            }
+            @foreach(var stack in _composeStacks) 
+            {
+                <div class="accordion-item">
+                    <h4 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
+                            Stack @context.StackName (@context.ConfigFile)
+                        </button>
+                    </h4>
+                    <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
+                        <div class="accordion-body">
+                            <table class="table-striped table-hover table-bordered table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">
+                                            App name
+                                        </th>
+                                        <th scope="col">
+                                            Github Repo
+                                        </th>
+                                        <th scope="col">
+                                            Version
+                                        </th>
+                                        <th scope="col">
+                                            Current SHA
+                                        </th>
+                                        <th scope="col">
+                                            Uptime
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var app in context.Apps)
+                                    {
+                                        <tr>
+                                            <td>@app.Name</td>
+                                            <td>@app.GitHubRepo</td>
+                                            <td>@app.Version</td>
+                                            <td>@app.CurrentSha</td>
+                                            <td>@app.Uptime</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        </Virtualize>
+    </div>
 }
 
 @code {
-	private IList<ContainerListResponse>? _containers;
-	private IList<string>? _composePaths;
+	private IList<ComposeStack>? _composeStacks;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		if (!firstRender)
 			return;
 
-		_containers = await _dockerService.GetAllContainers();
-		_composePaths = _fileService.GetAllComposePaths(FileService.ROOT_DIR, 0);
+		_composeStacks = await _dockerService.GetAllComposeStacks();
 		StateHasChanged();
 	}
+
+
 }
