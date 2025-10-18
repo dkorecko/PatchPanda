@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using Docker.DotNet;
 
 namespace PatchPanda.Web.Services;
@@ -95,7 +96,7 @@ public class DockerService
                         out var appSource
                     )
                         ? appSource
-                        : "N/A",
+                        : null,
                     CurrentSha = container.ImageID,
                     Uptime = container.Status,
                     Regex = string.Empty
@@ -104,6 +105,16 @@ public class DockerService
                 app.Regex = VersionHelper.BuildRegexFromVersion(app.Version);
 
                 existingStack.Apps.Add(app);
+
+                if (app.GitHubRepo is null)
+                {
+                    _logger.LogWarning(
+                        "App {AppName} in stack {StackName} does not have a GitHub repository label, json representation: {Json}",
+                        app.Name,
+                        stackName,
+                        JsonSerializer.Serialize(container)
+                    );
+                }
             }
         }
 

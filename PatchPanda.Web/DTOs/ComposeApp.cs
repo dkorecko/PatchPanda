@@ -10,7 +10,7 @@ public class ComposeApp
 
     public required string CurrentSha { get; set; }
 
-    public required string GitHubRepo { get; set; }
+    public string? GitHubRepo { get; set; }
 
     public required string Uptime { get; set; }
 

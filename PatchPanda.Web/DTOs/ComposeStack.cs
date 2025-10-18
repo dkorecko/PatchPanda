@@ -1,4 +1,4 @@
-﻿namespace PatchPanda.Web.DTOs;
+namespace PatchPanda.Web.DTOs;
 
 public class ComposeStack
 {
