@@ -15,7 +15,7 @@ services:
     environment:
       - APPS_HOST_PATH=/home/trixx/Applications/stirling-pdf
     volumes:
-      - /home/trixx/Applications/stirling-pdf:/media/apps:ro
+      - /home/trixx/Applications/stirling-pdf:/media/apps:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
 networks:
