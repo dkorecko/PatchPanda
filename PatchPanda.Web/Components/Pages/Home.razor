@@ -1,7 +1,33 @@
 ﻿@page "/"
+@using System.Text.Json
+@inject DockerService _dockerService
 
 <PageTitle>Home</PageTitle>
 
 <h1>Hello, world!</h1>
 
-Welcome to your new app.
+@if (_containers is null)
+{
+	<div class="spinner-grow" role="status">
+		<span class="sr-only">Loading...</span>
+	</div>
+} else
+{
+	foreach(var container in _containers)
+	{
+		<div>@JsonSerializer.Serialize(container)</div>
+	}
+}
+
+@code {
+	private IList<ContainerListResponse>? _containers;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender)
+			return;
+
+		_containers = await _dockerService.GetAllContainers();
+		StateHasChanged();
+	}
+}
