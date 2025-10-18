@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using System.Text.Json
 @inject DockerService _dockerService
 @inject FileService _fileService
@@ -31,6 +31,15 @@
                     </h4>
                     <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
                         <div class="accordion-body">
+                            <button class="btn btn-primary" type="button" disabled="@_isRestarting" @onclick="() => RestartStack(stack)">
+                                @if (_isRestarting)
+                                {
+                                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                                } else
+                                {
+                                    <span>Restart</span>
+                                }
+                            </button>
                             <table class="table-striped table-hover table-bordered table">
                                 <thead>
                                     <tr>
@@ -49,6 +58,9 @@
                                         <th scope="col">
                                             Uptime
                                         </th>
+                                        <th scope="col">
+                                            Controls
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -60,6 +72,8 @@
                                             <td>@app.Version</td>
                                             <td>@app.CurrentSha</td>
                                             <td>@app.Uptime</td>
+                                            <td>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -73,16 +87,24 @@
 }
 
 @code {
-	private IList<ComposeStack>? _composeStacks;
+    private IList<ComposeStack>? _composeStacks;
+    private bool _isRestarting;
 
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		if (!firstRender)
-			return;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
 
-		_composeStacks = await _dockerService.GetAllComposeStacks();
-		StateHasChanged();
-	}
+        _composeStacks = await _dockerService.GetAllComposeStacks();
+        StateHasChanged();
+    }
 
-
+    private async Task RestartStack(ComposeStack stack)
+    {
+        _isRestarting = true;
+        StateHasChanged();
+        await _dockerService.Restart(stack);
+        _isRestarting = false;
+        StateHasChanged();
+    }
 }
