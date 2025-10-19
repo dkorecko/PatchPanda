@@ -19,5 +19,18 @@ public class MultiContainerAppDetector
             foreach (var app in group)
                 app.FromMultiContainer = group.Key;
         }
+
+        stack
+            .Apps.Where(x => x.FromMultiContainer is null)
+            .GroupBy(app => app.GitHubRepo)
+            .Where(g => g.Count() > 1 && g.Key is not null)
+            .ToList()
+            .ForEach(group =>
+            {
+                var multiContainerName = group.Key!.Split('/').Last();
+                stack.MultiContainerApps.Add(multiContainerName);
+                foreach (var app in group)
+                    app.FromMultiContainer = multiContainerName;
+            });
     }
 }
