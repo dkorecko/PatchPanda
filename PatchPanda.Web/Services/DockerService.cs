@@ -118,6 +118,8 @@ public class DockerService
             }
         }
 
+        stacks.ForEach(MultiContainerAppDetector.FillMultiContainerApps);
+
         return stacks;
     }
 

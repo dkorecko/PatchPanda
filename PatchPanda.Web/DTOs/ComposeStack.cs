@@ -7,4 +7,6 @@ public class ComposeStack
     public required string ConfigFile { get; set; }
 
     public List<ComposeApp> Apps { get; set; } = [];
+
+    public HashSet<string> MultiContainerApps { get; set; } = [];
 }

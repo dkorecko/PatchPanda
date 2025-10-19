@@ -15,4 +15,6 @@ public class ComposeApp
     public required string Uptime { get; set; }
 
     public required string Regex { get; set; }
+
+    public string? FromMultiContainer { get; set; }
 }

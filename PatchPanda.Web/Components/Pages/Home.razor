@@ -73,6 +73,9 @@ else
                                         Current SHA
                                     </th>
                                     <th scope="col">
+                                        Multi-container
+                                    </th>
+                                    <th scope="col">
                                         Uptime
                                     </th>
                                     <th scope="col">
@@ -108,6 +111,15 @@ else
                                             }
                                         </td>
                                         <td>@app.CurrentSha</td>
+                                        <td>
+                                            @if(app.FromMultiContainer is null)
+                                            {
+                                                <span class="badge text-bg-secondary">None</span>
+                                            } else
+                                            {
+                                                <span class="badge text-bg-info">@app.FromMultiContainer</span>
+                                            }
+                                        </td>
                                         <td>@app.Uptime</td>
                                         <td>
                                             <a target="_blank" href="/versions/@app.Name" class="btn btn-primary">Releases</a>
