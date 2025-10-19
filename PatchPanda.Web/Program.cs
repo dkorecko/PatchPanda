@@ -7,7 +7,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<VersionService>();
-builder.Services.AddScoped<DataService>();
+builder.Services.AddSingleton<DataService>();
 builder.Services.AddScoped<DiscordService>();
 builder.Services.AddScoped<UpdateService>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
