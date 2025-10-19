@@ -44,6 +44,7 @@ public class MultiContainerAppDetector
                 || x.Name.StartsWith($"{remainingApp.Name}_")
             );
 
+            remainingApp.FromMultiContainer = remainingApp.Name;
             stack.MultiContainerApps.Add(remainingApp.Name);
             foreach (var app in matchingApps)
                 app.FromMultiContainer = remainingApp.Name;
