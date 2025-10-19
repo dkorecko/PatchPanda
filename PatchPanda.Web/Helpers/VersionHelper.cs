@@ -43,6 +43,8 @@ public static class VersionHelper
             }
         }
 
+        regex += "$";
+
         return regex;
     }
 
