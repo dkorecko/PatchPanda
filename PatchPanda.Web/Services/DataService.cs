@@ -40,7 +40,11 @@ public class DataService : IDisposable
                 Constants.COMPOSE_APPS = JsonSerializer.Deserialize<IEnumerable<ComposeStack>>(
                     json
                 );
-                _logger.LogInformation("Data retrieved from previous app run.");
+
+                if (Constants.COMPOSE_APPS is null)
+                    await UpdateData();
+                else
+                    _logger.LogInformation("Data retrieved from previous app run.");
             }
             else
             {
