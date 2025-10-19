@@ -32,5 +32,21 @@ public class MultiContainerAppDetector
                 foreach (var app in group)
                     app.FromMultiContainer = multiContainerName;
             });
+
+        var remainingApps = stack.Apps.Where(x => x.FromMultiContainer is null);
+
+        foreach (var remainingApp in remainingApps)
+        {
+            var otherApps = remainingApps.Except([remainingApp]);
+
+            var matchingApps = otherApps.Where(x =>
+                x.Name.StartsWith($"{remainingApp.Name}-")
+                || x.Name.StartsWith($"{remainingApp.Name}_")
+            );
+
+            stack.MultiContainerApps.Add(remainingApp.Name);
+            foreach (var app in matchingApps)
+                app.FromMultiContainer = remainingApp.Name;
+        }
     }
 }
