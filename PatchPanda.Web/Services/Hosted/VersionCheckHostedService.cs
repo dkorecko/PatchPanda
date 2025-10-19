@@ -71,6 +71,10 @@ public class VersionCheckHostedService : IHostedService
                     {
                         var discordService =
                             scope.ServiceProvider.GetRequiredService<DiscordService>();
+                        currentVersionGroup
+                            .Skip(1)
+                            .ToList()
+                            .ForEach(app => versionService.SetNewerVersions(app, newerVersions));
                         await discordService.SendUpdates(
                             mainApp,
                             [.. currentVersionGroup.Skip(1).Select(x => x.Name)]

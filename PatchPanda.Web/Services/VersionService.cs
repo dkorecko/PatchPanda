@@ -50,6 +50,13 @@ public class VersionService
                 Breaking = x.Body.Has("breaking") || x.Body.Has("critical")
             });
 
+        SetNewerVersions(app, newerVersions);
+
+        return newerVersions;
+    }
+
+    public void SetNewerVersions(ComposeApp app, IEnumerable<AppVersion> newerVersions)
+    {
         var targetApp = Constants
             .COMPOSE_APPS!.SelectMany(x => x.Apps)
             .First(x => x.Name == app.Name);
@@ -68,8 +75,6 @@ public class VersionService
                 version.Notified = true;
             }
         }
-
-        return newerVersions;
     }
 
     public Tuple<string, string> GetOwnerRepoName(string url)
