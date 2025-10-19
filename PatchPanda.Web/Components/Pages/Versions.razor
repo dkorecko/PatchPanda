@@ -1,6 +1,7 @@
 @page "/versions/{AppName}"
 @inject DataService _dataService
 @inject VersionService _versionService
+@inject UpdateService _updateService
 
 <h3>Versions</h3>
 
@@ -44,6 +45,32 @@ else
                 </li>
             }
         </ul>
+
+        @if (_updatePlan is not null)
+        {
+            <div class="alert alert-info" role="alert">
+                An update is available for this app!
+            </div>
+
+            <ul>
+                @foreach(var step in _updatePlan)
+                {
+                    <li>
+                        @step
+                    </li>
+                }
+            </ul>
+
+            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@_isUpdating">
+                @if(_isUpdating)
+                {
+                    <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                } else
+                {
+                    <span>Update Now</span>
+                }
+            </button>
+        }
     }
 }
 
@@ -53,29 +80,53 @@ else
     public required string AppName { get; set; }
 
     private ComposeApp? _app;
+    private List<string>? _updatePlan;
     private DateTimeOffset? _rateLimitReset;
+    private bool _isUpdating;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
             return;
 
+        await LoadData();
+    }
+
+    public async Task LoadData()
+    {
         var data = await _dataService.GetData();
 
         var app = data.SelectMany(s => s.Apps).First(a => a.Name == AppName);
-        if(!app.NewerVersions.Any())
+        if (!app.NewerVersions.Any())
         {
             try
             {
                 await _versionService.GetNewerVersions(app);
             }
-            catch(RateLimitException ex)
+            catch (RateLimitException ex)
             {
                 _rateLimitReset = ex.ResetsAt;
             }
         }
 
+        if (app.NewerVersions.Any())
+        {
+            if (_updateService.IsUpdateAvailable(app))
+                _updatePlan = await _updateService.Update(app, true);
+        }
+
         _app = app;
         StateHasChanged();
+    }
+
+    public async Task ExecuteUpdate()
+    {
+        ArgumentNullException.ThrowIfNull(_app);
+
+        _isUpdating = true;
+        StateHasChanged();
+        await _updateService.Update(_app, false);
+        _isUpdating = false;
+        await LoadData();
     }
 }

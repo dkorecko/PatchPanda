@@ -46,7 +46,10 @@ public class DiscordService
             newVersion.Notified = true;
         }
 
-        message.AppendLine($"\n{app.GitHubRepo}");
+        message.AppendLine($"\n{app.GitHubRepo}/releases");
+        message.AppendLine(
+            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{app.Name}"
+        );
 
         var fullMessage = message.ToString();
         const int ChunkSize = 2000;
@@ -70,11 +73,7 @@ public class DiscordService
             flags = 4
         };
         var jsonPayload = JsonSerializer.Serialize(payload);
-        var httpContent = new StringContent(
-            jsonPayload,
-            System.Text.Encoding.UTF8,
-            "application/json"
-        );
+        var httpContent = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
         var response = await httpClient.PostAsync(WebhookUrl, httpContent);
         response.EnsureSuccessStatusCode();
     }

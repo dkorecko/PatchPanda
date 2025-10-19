@@ -9,6 +9,7 @@ builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<VersionService>();
 builder.Services.AddScoped<DataService>();
 builder.Services.AddScoped<DiscordService>();
+builder.Services.AddScoped<UpdateService>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
 
 var app = builder.Build();

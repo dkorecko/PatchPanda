@@ -39,6 +39,7 @@ public class DockerService
 
     public async Task<IList<ComposeStack>> GetAllComposeStacks()
     {
+        var oldDataCopy = Constants.COMPOSE_APPS?.ToList();
         var containers = await GetAllContainers();
 
         List<ComposeStack> stacks = [];
@@ -110,6 +111,12 @@ public class DockerService
                 if (containsMap.Any(app.Name.Contains))
                     app.IsSecondary = true;
 
+                app.NewerVersions =
+                    oldDataCopy
+                        ?.FirstOrDefault(x => x.StackName == existingStack.StackName)
+                        ?.Apps?.FirstOrDefault(x => x.Name == app.Name)
+                        ?.NewerVersions ?? [];
+
                 existingStack.Apps.Add(app);
 
                 if (app.GitHubRepo is null)
@@ -129,22 +136,27 @@ public class DockerService
         return stacks;
     }
 
-    public async Task Restart(ComposeStack stack)
+    public string ComputeConfigFilePath(ComposeStack stack)
     {
         var hostPath = _configuration.GetValue<string>("APPS_HOST_PATH");
-        string command = $"compose -f {stack.ConfigFile} restart";
+        string configPath = stack.ConfigFile;
 
 #if !DEBUG
         if (hostPath is null)
             throw new InvalidOperationException("ComposeHostPath configuration is missing.");
 
-        command = $"compose -f {stack.ConfigFile.Replace(hostPath, "/media/apps")} restart";
+        configPath = stack.ConfigFile.Replace(hostPath, "/media/apps");
 #endif
 
+        return configPath;
+    }
+
+    public async Task RunDockerComposeOnPath(ComposeStack stack, string command)
+    {
         var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = command,
+            Arguments = $"compose -f {ComputeConfigFilePath(stack)} {command}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

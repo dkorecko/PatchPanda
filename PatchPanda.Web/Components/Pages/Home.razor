@@ -162,7 +162,7 @@ else
     {
         _isRestarting = true;
         StateHasChanged();
-        await _dockerService.Restart(stack);
+        await _dockerService.RunDockerComposeOnPath(stack, "restart");
         _isRestarting = false;
         StateHasChanged();
     }
