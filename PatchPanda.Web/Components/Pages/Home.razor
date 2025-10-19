@@ -72,6 +72,9 @@ else
                                         Current SHA
                                     </th>
                                     <th scope="col">
+                                        Target image
+                                    </th>
+                                    <th scope="col">
                                         Notes
                                     </th>
                                     <th scope="col">
@@ -110,6 +113,7 @@ else
                                             }
                                         </td>
                                         <td>@app.CurrentSha</td>
+                                        <td>@app.TargetImage</td>
                                         <td>
                                             @if(app.FromMultiContainer is not null)
                                             {

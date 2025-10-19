@@ -99,6 +99,7 @@ public class DockerService
                         : null,
                     CurrentSha = container.ImageID,
                     Uptime = container.Status,
+                    TargetImage = container.Image,
                     Regex = string.Empty
                 };
 
