@@ -104,6 +104,15 @@ public class DockerService
 
                 app.Regex = VersionHelper.BuildRegexFromVersion(app.Version);
 
+                if (
+                    app.Name.Contains("mongo")
+                    || app.Name.Contains("redis")
+                    || app.Name.Contains("db")
+                    || app.Name.Contains("database")
+                    || app.Name.Contains("cache")
+                )
+                    app.IsSecondary = true;
+
                 existingStack.Apps.Add(app);
 
                 if (app.GitHubRepo is null)

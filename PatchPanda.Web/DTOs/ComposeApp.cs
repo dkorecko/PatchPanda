@@ -17,4 +17,6 @@ public class ComposeApp
     public required string Regex { get; set; }
 
     public string? FromMultiContainer { get; set; }
+
+    public bool IsSecondary { get; set; }
 }

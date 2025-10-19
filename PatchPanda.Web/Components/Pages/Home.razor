@@ -73,7 +73,7 @@ else
                                         Current SHA
                                     </th>
                                     <th scope="col">
-                                        Multi-container
+                                        Notes
                                     </th>
                                     <th scope="col">
                                         Uptime
@@ -112,12 +112,13 @@ else
                                         </td>
                                         <td>@app.CurrentSha</td>
                                         <td>
-                                            @if(app.FromMultiContainer is null)
-                                            {
-                                                <span class="badge text-bg-secondary">None</span>
-                                            } else
+                                            @if(app.FromMultiContainer is not null)
                                             {
                                                 <span class="badge text-bg-info">@app.FromMultiContainer</span>
+                                            }
+                                            @if(app.IsSecondary)
+                                            {
+                                                <span class="badge text-bg-success">DB</span>
                                             }
                                         </td>
                                         <td>@app.Uptime</td>

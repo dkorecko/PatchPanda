@@ -22,7 +22,7 @@ public class VersionCheckHostedService : IHostedService
 
         logger.LogInformation("Service starting");
 
-        //DoWork(null);
+        DoWork(null);
         _timer = new Timer(DoWork, null, TimeSpan.FromHours(2), TimeSpan.FromHours(2));
 
         return Task.CompletedTask;
@@ -48,32 +48,46 @@ public class VersionCheckHostedService : IHostedService
         var dataService = scope.ServiceProvider.GetRequiredService<DataService>();
 
         var currentData = await dataService.GetData();
-        var uniqueApps = currentData.SelectMany(x => x.Apps).DistinctBy(x => x.Name);
+        var uniqueRepoGroups = currentData
+            .SelectMany(x => x.Apps)
+            .DistinctBy(x => x.Name)
+            .Where(x => !x.IsSecondary)
+            .GroupBy(x => x.GitHubRepo);
 
-        foreach (var uniqueApp in uniqueApps.OrderBy(x => x.NewerVersions.Count()))
+        foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
-            try
+            var currentVersionGroups = uniqueRepoGroup.GroupBy(x => x.Version);
+
+            foreach (var currentVersionGroup in currentVersionGroups)
             {
-                List<AppVersion> newerVersions;
-
-                newerVersions = (await versionService.GetNewerVersions(uniqueApp)).ToList();
-
-                if (newerVersions.Any())
+                var mainApp = currentVersionGroup.First();
+                try
                 {
-                    var discordService = scope.ServiceProvider.GetRequiredService<DiscordService>();
-                    await discordService.SendUpdates(uniqueApp);
-                }
+                    List<AppVersion> newerVersions;
 
-                await Task.Delay(5000);
-            }
-            catch (RateLimitException)
-            {
-                var logger = scope.ServiceProvider.GetRequiredService<
-                    ILogger<VersionCheckHostedService>
-                >();
-                logger.LogWarning(
-                    "Rate limit hit when checking for updates, skipping further checks"
-                );
+                    newerVersions = (await versionService.GetNewerVersions(mainApp)).ToList();
+
+                    if (newerVersions.Any())
+                    {
+                        var discordService =
+                            scope.ServiceProvider.GetRequiredService<DiscordService>();
+                        await discordService.SendUpdates(
+                            mainApp,
+                            [.. currentVersionGroup.Skip(1).Select(x => x.Name)]
+                        );
+                    }
+
+                    await Task.Delay(5000);
+                }
+                catch (RateLimitException)
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<
+                        ILogger<VersionCheckHostedService>
+                    >();
+                    logger.LogWarning(
+                        "Rate limit hit when checking for updates, skipping further checks"
+                    );
+                }
             }
         }
     }

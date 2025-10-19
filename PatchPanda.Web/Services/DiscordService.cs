@@ -17,11 +17,13 @@ public class DiscordService
         WebhookUrl = webhookUrl;
     }
 
-    public async Task SendUpdates(ComposeApp app)
+    public async Task SendUpdates(ComposeApp app, string[] otherNames)
     {
         var message = new StringBuilder();
 
-        message.AppendLine($":tada: **{app.Name} UPDATE** :tada:\n");
+        message.AppendLine(
+            $":tada: **{string.Join(" + ", [app, .. otherNames])} UPDATE** :tada:\n"
+        );
         message.AppendLine(":rocket: **Version Details**");
         message.AppendLine($"- **New Version:** `{app.NewerVersions.First().VersionNumber}`");
         message.AppendLine($"- **Previously Used Version:** `{app.Version}`");
