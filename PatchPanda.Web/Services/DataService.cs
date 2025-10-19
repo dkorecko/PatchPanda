@@ -23,7 +23,7 @@ public class DataService : IDisposable
     {
         string path = "C:\\Users\\PC\\Coding\\self-host\\data.json";
 #if !DEBUG
-        path = "/media/data.json";
+        path = "/media/data/data.json";
 #endif
         return path;
     }
