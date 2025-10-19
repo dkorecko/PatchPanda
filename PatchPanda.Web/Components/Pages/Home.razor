@@ -28,11 +28,10 @@ else
 
     int i = 0;
     <div class="accordion" id="stacksAccordion">
-        <Virtualize Items="_composeStacks">
-            @{
-                var stackId = $"stack_{i}";
-                i++;
-            }
+        @foreach (var context in _composeStacks)
+        {
+            var stackId = $"stack_{i}";
+            i++;
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
@@ -132,7 +131,7 @@ else
                     </div>
                 </div>
             </div>
-        </Virtualize>
+        }
     </div>
 }
 
