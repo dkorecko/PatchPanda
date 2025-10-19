@@ -26,33 +26,40 @@ public class VersionService
         if (apiInfo is not null && apiInfo.RateLimit.Remaining == 0)
             throw new RateLimitException(apiInfo.RateLimit.Reset);
 
-        var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
-        var allReleases = (
-            await client.Repository.Release.GetAll(
-                owner,
-                repo,
-                new ApiOptions { PageSize = 100, PageCount = 1 }
-            )
-        );
+        try
+        {
+            var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
+            var allReleases = (
+                await client.Repository.Release.GetAll(
+                    owner,
+                    repo,
+                    new ApiOptions { PageSize = 100, PageCount = 1 }
+                )
+            );
 
-        var validReleases = allReleases.Where(x =>
-            Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
-        );
+            var validReleases = allReleases.Where(x =>
+                Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
+            );
 
-        var newerVersions = validReleases
-            .Where(x => x.TagName.IsNewerThan(app.Version))
-            .Select(x => new AppVersion()
-            {
-                Body = x.Body,
-                Name = x.Name,
-                Prerelease = x.Prerelease,
-                VersionNumber = x.TagName,
-                Breaking = x.Body.Has("breaking") || x.Body.Has("critical")
-            });
+            var newerVersions = validReleases
+                .Where(x => x.TagName.IsNewerThan(app.Version))
+                .Select(x => new AppVersion()
+                {
+                    Body = x.Body,
+                    Name = x.Name,
+                    Prerelease = x.Prerelease,
+                    VersionNumber = x.TagName,
+                    Breaking = x.Body.Has("breaking") || x.Body.Has("critical")
+                });
 
-        SetNewerVersions(app, newerVersions);
+            SetNewerVersions(app, newerVersions);
 
-        return newerVersions;
+            return newerVersions;
+        }
+        catch (RateLimitExceededException ex)
+        {
+            throw new RateLimitException(ex.Reset);
+        }
     }
 
     public void SetNewerVersions(ComposeApp app, IEnumerable<AppVersion> newerVersions)

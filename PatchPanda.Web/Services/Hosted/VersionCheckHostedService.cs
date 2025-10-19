@@ -91,6 +91,7 @@ public class VersionCheckHostedService : IHostedService
                     logger.LogWarning(
                         "Rate limit hit when checking for updates, skipping further checks"
                     );
+                    return;
                 }
             }
         }
