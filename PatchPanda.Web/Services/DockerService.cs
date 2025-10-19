@@ -104,13 +104,9 @@ public class DockerService
 
                 app.Regex = VersionHelper.BuildRegexFromVersion(app.Version);
 
-                if (
-                    app.Name.Contains("mongo")
-                    || app.Name.Contains("redis")
-                    || app.Name.Contains("db")
-                    || app.Name.Contains("database")
-                    || app.Name.Contains("cache")
-                )
+                string[] containsMap = ["mongo", "redis", "db", "database", "cache", "postgres"];
+
+                if (containsMap.Any(app.Name.Contains))
                     app.IsSecondary = true;
 
                 existingStack.Apps.Add(app);

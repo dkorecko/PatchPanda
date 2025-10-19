@@ -22,7 +22,7 @@ public class DiscordService
         var message = new StringBuilder();
 
         message.AppendLine(
-            $":tada: **{string.Join(" + ", [app, .. otherNames])} UPDATE** :tada:\n"
+            $":tada: **{string.Join(" + ", [app.Name, .. otherNames])} UPDATE** :tada:\n"
         );
         message.AppendLine(":rocket: **Version Details**");
         message.AppendLine($"- **New Version:** `{app.NewerVersions.First().VersionNumber}`");
