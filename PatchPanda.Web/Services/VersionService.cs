@@ -16,6 +16,9 @@ public class VersionService
 
     public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
     {
+        if (app.GitHubRepo is null)
+            return [];
+
         var client = GetClient();
         var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
         var allReleases = (

@@ -86,7 +86,15 @@ else
                                     var newestVersion = app.NewerVersions?.FirstOrDefault();
                                     <tr>
                                         <td>@app.Name</td>
-                                        <td>@app.GitHubRepo</td>
+                                        <td>
+                                            @if(app.GitHubRepo is null)
+                                            {
+                                                <span class="badge text-bg-warning">Missing</span>
+                                            } else
+                                            {
+                                                @app.GitHubRepo
+                                            }
+                                        </td>
                                         <td><span class="badge text-bg-primary">@app.Version</span></td>
                                         <td>@app.Regex</td>
                                         <td>
