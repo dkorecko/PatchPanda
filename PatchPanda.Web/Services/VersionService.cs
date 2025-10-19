@@ -20,6 +20,12 @@ public class VersionService
             return [];
 
         var client = GetClient();
+
+        var apiInfo = client.GetLastApiInfo();
+
+        if (apiInfo is not null && apiInfo.RateLimit.Remaining == 0)
+            throw new RateLimitException(apiInfo.RateLimit.Reset);
+
         var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
         var allReleases = (
             await client.Repository.Release.GetAll(

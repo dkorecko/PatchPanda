@@ -50,26 +50,31 @@ public class VersionCheckHostedService : IHostedService
         var currentData = await dataService.GetData();
         var uniqueApps = currentData.SelectMany(x => x.Apps).DistinctBy(x => x.Name);
 
-        foreach (var uniqueApp in uniqueApps)
+        foreach (var uniqueApp in uniqueApps.OrderBy(x => x.NewerVersions.Count()))
         {
-            List<AppVersion> newerVersions;
-
             try
             {
+                List<AppVersion> newerVersions;
+
                 newerVersions = (await versionService.GetNewerVersions(uniqueApp)).ToList();
-            }
-            catch (ApiException)
-            {
-                throw;
-            }
 
-            if (newerVersions.Any())
-            {
-                var discordService = scope.ServiceProvider.GetRequiredService<DiscordService>();
-                await discordService.SendUpdates(uniqueApp);
-            }
+                if (newerVersions.Any())
+                {
+                    var discordService = scope.ServiceProvider.GetRequiredService<DiscordService>();
+                    await discordService.SendUpdates(uniqueApp);
+                }
 
-            await Task.Delay(60000);
+                await Task.Delay(5000);
+            }
+            catch (RateLimitException)
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<
+                    ILogger<VersionCheckHostedService>
+                >();
+                logger.LogWarning(
+                    "Rate limit hit when checking for updates, skipping further checks"
+                );
+            }
         }
     }
 }
