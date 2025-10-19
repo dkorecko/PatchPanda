@@ -16,6 +16,7 @@ services:
       - APPS_HOST_PATH=/home/trixx/Applications
     volumes:
       - /home/trixx/Applications:/media/apps:rw
+      - ./data.json:/media/data.json:rw 
       - /var/run/docker.sock:/var/run/docker.sock:rw
 
 networks:
