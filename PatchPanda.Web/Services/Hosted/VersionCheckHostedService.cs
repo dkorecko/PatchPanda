@@ -53,7 +53,7 @@ public class VersionCheckHostedService : IHostedService
             .DistinctBy(x => x.Name)
             .Where(x => !x.IsSecondary)
             .GroupBy(x => x.GitHubRepo)
-            .OrderBy(x => x.First().NewerVersions.Count());
+            .OrderBy(x => x.Sum(y => y.NewerVersions.Count()));
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
