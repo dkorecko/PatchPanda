@@ -35,7 +35,14 @@ else
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
-                        Stack @context.StackName (@context.ConfigFile)
+                        <b>@context.StackName</b>
+                        @if(context.Apps.Count(x => x.NewerVersions.Any()) > 0)
+                        {
+                            <span class="badge text-bg-warning ms-2">@context.Apps.Count(x => x.NewerVersions.Any()) updates</span>
+                        } else
+                        {
+                            <span class="badge text-bg-success ms-2">All up-to-date</span>
+                        }
                     </button>
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
