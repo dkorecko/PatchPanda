@@ -43,6 +43,10 @@ else
                         {
                             <span class="badge text-bg-success ms-2">All up-to-date</span>
                         }
+                        @if(context.Apps.Any(x => x.GitHubRepo is null && !x.IsSecondary))
+                        {
+                            <span class="badge text-bg-danger ms-2">Missing GitHub repo</span>
+                        }
                     </button>
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
