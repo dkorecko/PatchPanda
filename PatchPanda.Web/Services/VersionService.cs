@@ -22,7 +22,11 @@ public class VersionService
         var client = GetClient();
         var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
         var allReleases = (
-            await client.Repository.Release.GetAll(owner, repo, new ApiOptions { PageSize = 100 })
+            await client.Repository.Release.GetAll(
+                owner,
+                repo,
+                new ApiOptions { PageSize = 100, PageCount = 1 }
+            )
         );
 
         var validReleases = allReleases.Where(x =>
