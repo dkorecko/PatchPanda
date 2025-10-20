@@ -28,7 +28,7 @@ else
 
     int i = 0;
     <div class="accordion" id="stacksAccordion">
-        @foreach (var context in _composeStacks)
+        @foreach (var context in _composeStacks.OrderBy(x => x.StackName))
         {
             var stackId = $"stack_{i}";
             i++;
@@ -100,6 +100,9 @@ else
                                         Uptime
                                     </th>
                                     <th scope="col">
+                                        Last version check
+                                    </th>
+                                    <th scope="col">
                                         Controls
                                     </th>
                                 </tr>
@@ -162,6 +165,7 @@ else
                                             }
                                         </td>
                                         <td>@app.Uptime</td>
+                                        <td>@(app.LastVersionCheck.Equals(DateTime.MinValue) ? "Never" : app.LastVersionCheck.ToReadableStringWithTime())</td>
                                         <td>
                                             <a target="_blank" href="/versions/@app.Name" class="btn btn-primary">Releases</a>
                                         </td>
