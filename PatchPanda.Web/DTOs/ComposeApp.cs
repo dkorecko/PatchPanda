@@ -21,4 +21,6 @@ public class ComposeApp
     public string? FromMultiContainer { get; set; }
 
     public bool IsSecondary { get; set; }
+
+    public DateTime LastVersionCheck { get; set; } = DateTime.MinValue;
 }

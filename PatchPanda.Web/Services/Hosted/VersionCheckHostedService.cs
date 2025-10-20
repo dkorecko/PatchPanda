@@ -55,7 +55,7 @@ public class VersionCheckHostedService : IHostedService
             .Where(x => !x.IsSecondary)
             .GroupBy(x => x.GitHubRepo)
             .Where(x => x.Key is not null)
-            .OrderBy(x => x.Sum(y => y.NewerVersions.Count()));
+            .OrderBy(x => x.First().LastVersionCheck);
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
@@ -99,6 +99,10 @@ public class VersionCheckHostedService : IHostedService
                             [.. currentVersionGroup.Skip(1).Select(x => x.Name)]
                         );
                     }
+
+                    currentVersionGroup
+                        .ToList()
+                        .ForEach(app => app.LastVersionCheck = DateTime.Now);
 
                     await Task.Delay(5000);
                 }
