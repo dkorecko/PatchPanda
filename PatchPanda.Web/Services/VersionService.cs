@@ -18,6 +18,11 @@ public class VersionService
         if (app.GitHubRepo is null)
             return [];
 
+        _logger.LogInformation(
+            "Going to initiate request to get newer versions for app {AppName}",
+            app.Name
+        );
+
         var client = GetClient();
 
         var apiInfo = client.GetLastApiInfo();
@@ -52,6 +57,8 @@ public class VersionService
                 });
 
             SetNewerVersions(app, newerVersions);
+
+            _logger.LogInformation("Success");
 
             return newerVersions;
         }

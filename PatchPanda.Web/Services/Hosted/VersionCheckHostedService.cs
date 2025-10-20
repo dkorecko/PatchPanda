@@ -46,6 +46,7 @@ public class VersionCheckHostedService : IHostedService
         using var scope = _serviceProvider.CreateScope();
         var versionService = scope.ServiceProvider.GetRequiredService<VersionService>();
         var dataService = scope.ServiceProvider.GetRequiredService<DataService>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<VersionCheckHostedService>>();
 
         var currentData = await dataService.GetData();
         var uniqueRepoGroups = currentData
@@ -57,11 +58,25 @@ public class VersionCheckHostedService : IHostedService
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
+            logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
+
             var currentVersionGroups = uniqueRepoGroup.GroupBy(x => x.Version);
 
             foreach (var currentVersionGroup in currentVersionGroups)
             {
+                logger.LogInformation(
+                    "Checking version group: {Repo} {Version}",
+                    uniqueRepoGroup.Key,
+                    currentVersionGroup.Key
+                );
+                logger.LogInformation("Got {Count} containers", currentVersionGroup.Count());
+
                 var mainApp = currentVersionGroup.First();
+
+                logger.LogInformation(
+                    "Selected {MainApp} as main application for getting releases",
+                    mainApp.Name
+                );
                 try
                 {
                     List<AppVersion> newerVersions;
