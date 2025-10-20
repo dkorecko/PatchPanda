@@ -58,7 +58,11 @@ public class VersionService
 
             SetNewerVersions(app, newerVersions);
 
-            _logger.LogInformation("Success");
+            _logger.LogInformation(
+                "Got {Count} newer versions, newest is {Newest}",
+                newerVersions.Count(),
+                newerVersions.FirstOrDefault()?.VersionNumber ?? "None found"
+            );
 
             return newerVersions;
         }
