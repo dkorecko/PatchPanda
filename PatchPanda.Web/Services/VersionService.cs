@@ -15,7 +15,7 @@ public class VersionService
 
     public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
     {
-        if (app.GitHubRepo is null || app.Version is null)
+        if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
             return [];
 
         _logger.LogInformation(

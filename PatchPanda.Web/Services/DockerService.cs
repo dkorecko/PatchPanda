@@ -104,7 +104,9 @@ public class DockerService
                     Regex = string.Empty
                 };
 
-                app.Regex = VersionHelper.BuildRegexFromVersion(app.Version);
+                app.Regex = app.Version is not null
+                    ? VersionHelper.BuildRegexFromVersion(app.Version)
+                    : null;
 
                 string[] containsMap = ["mongo", "redis", "db", "database", "cache", "postgres"];
 
@@ -119,10 +121,10 @@ public class DockerService
 
                 existingStack.Apps.Add(app);
 
-                if (app.GitHubRepo is null || app.Version is null)
+                if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
                 {
                     _logger.LogWarning(
-                        "App {AppName} in stack {StackName} does not have GitHub repo/version, json representation: {Json}",
+                        "App {AppName} in stack {StackName} does not have GitHub repo/version/regex, json representation: {Json}",
                         app.Name,
                         stackName,
                         JsonSerializer.Serialize(container)

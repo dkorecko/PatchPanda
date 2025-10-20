@@ -51,6 +51,10 @@ else
                         {
                             <span class="badge text-bg-danger ms-2">Missing version</span>
                         }
+                        @if (context.Apps.Any(x => x.Regex is null && !x.IsSecondary))
+                        {
+                            <span class="badge text-bg-danger ms-2">Missing regex</span>
+                        }
                     </button>
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
@@ -125,7 +129,16 @@ else
                                                 <span class="badge text-bg-primary">@app.Version</span>
                                             }
                                         </td>
-                                        <td>@app.Regex</td>
+                                        <td>
+                                            @if (app.Regex is null)
+                                            {
+                                                <span class="badge text-bg-warning">Missing</span>
+                                            }
+                                            else
+                                            {
+                                                @app.Regex
+                                            }
+                                        </td>
                                         <td>
                                             @if(newestVersion is null)
                                             {
