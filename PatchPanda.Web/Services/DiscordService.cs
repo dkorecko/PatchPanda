@@ -26,7 +26,7 @@ public class DiscordService
         );
         message.AppendLine(":rocket: **Version Details**");
         message.AppendLine($"- **New Version:** `{app.NewerVersions.First().VersionNumber}`");
-        message.AppendLine($"- **Previously Used Version:** `{app.Version}`");
+        message.AppendLine($"- **Previously Used Version:** `{app.Version ?? "Missing"}`");
         message.AppendLine(
             $"- **Breaking Change:** {(app.NewerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
         );

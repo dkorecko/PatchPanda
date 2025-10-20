@@ -54,13 +54,16 @@ public class VersionCheckHostedService : IHostedService
             .DistinctBy(x => x.Name)
             .Where(x => !x.IsSecondary)
             .GroupBy(x => x.GitHubRepo)
+            .Where(x => x.Key is not null)
             .OrderBy(x => x.Sum(y => y.NewerVersions.Count()));
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
             logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
 
-            var currentVersionGroups = uniqueRepoGroup.GroupBy(x => x.Version);
+            var currentVersionGroups = uniqueRepoGroup
+                .GroupBy(x => x.Version)
+                .Where(x => x.Key is not null);
 
             foreach (var currentVersionGroup in currentVersionGroups)
             {

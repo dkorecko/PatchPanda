@@ -47,6 +47,10 @@ else
                         {
                             <span class="badge text-bg-danger ms-2">Missing GitHub repo</span>
                         }
+                        @if (context.Apps.Any(x => x.Version is null && !x.IsSecondary))
+                        {
+                            <span class="badge text-bg-danger ms-2">Missing version</span>
+                        }
                     </button>
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
@@ -111,7 +115,16 @@ else
                                                 @app.GitHubRepo
                                             }
                                         </td>
-                                        <td><span class="badge text-bg-primary">@app.Version</span></td>
+                                        <td>
+                                            @if (app.Version is null)
+                                            {
+                                                <span class="badge text-bg-warning">Missing</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge text-bg-primary">@app.Version</span>
+                                            }
+                                        </td>
                                         <td>@app.Regex</td>
                                         <td>
                                             @if(newestVersion is null)

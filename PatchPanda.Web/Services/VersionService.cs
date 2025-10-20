@@ -15,7 +15,7 @@ public class VersionService
 
     public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
     {
-        if (app.GitHubRepo is null)
+        if (app.GitHubRepo is null || app.Version is null)
             return [];
 
         _logger.LogInformation(
@@ -59,9 +59,13 @@ public class VersionService
             SetNewerVersions(app, newerVersions);
 
             _logger.LogInformation(
-                "Got {Count} newer versions, newest is {Newest}",
+                "Got {Count} newer versions, newest is {Newest}. Looked for regex {Regex}, received {ValidReleaseCount} valid releases from GitHub, example tag name {TagName} and name {Name} of release.",
                 newerVersions.Count(),
-                newerVersions.FirstOrDefault()?.VersionNumber ?? "None found"
+                newerVersions.FirstOrDefault()?.VersionNumber ?? "None found",
+                app.Regex,
+                validReleases.Count(),
+                validReleases.FirstOrDefault()?.TagName ?? "N/A",
+                validReleases.FirstOrDefault()?.Name ?? "N/A"
             );
 
             return newerVersions;

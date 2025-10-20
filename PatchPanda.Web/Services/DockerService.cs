@@ -91,7 +91,7 @@ public class DockerService
                         out var appVersion
                     )
                         ? appVersion
-                        : "N/A",
+                        : null,
                     GitHubRepo = container.Labels.TryGetValue(
                         "org.opencontainers.image.source",
                         out var appSource
@@ -119,10 +119,10 @@ public class DockerService
 
                 existingStack.Apps.Add(app);
 
-                if (app.GitHubRepo is null)
+                if (app.GitHubRepo is null || app.Version is null)
                 {
                     _logger.LogWarning(
-                        "App {AppName} in stack {StackName} does not have a GitHub repository label, json representation: {Json}",
+                        "App {AppName} in stack {StackName} does not have GitHub repo/version, json representation: {Json}",
                         app.Name,
                         stackName,
                         JsonSerializer.Serialize(container)
