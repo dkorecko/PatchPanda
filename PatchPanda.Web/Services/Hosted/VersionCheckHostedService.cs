@@ -101,9 +101,6 @@ public class VersionCheckHostedService : IHostedService
                 }
                 catch (RateLimitException)
                 {
-                    var logger = scope.ServiceProvider.GetRequiredService<
-                        ILogger<VersionCheckHostedService>
-                    >();
                     logger.LogWarning(
                         "Rate limit hit when checking for updates, skipping further checks"
                     );

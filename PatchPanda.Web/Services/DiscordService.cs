@@ -44,6 +44,12 @@ public class DiscordService
             message.AppendLine(newVersion.Body);
             message.AppendLine("\n");
             newVersion.Notified = true;
+
+            Constants
+                .COMPOSE_APPS!.SelectMany(x => x.Apps)
+                .Where(x => otherNames.Contains(x.Name))
+                .ToList()
+                .ForEach(app => app.NewerVersions.ToList().ForEach(v => v.Notified = true));
         }
 
         message.AppendLine($"\n{app.GitHubRepo}/releases");

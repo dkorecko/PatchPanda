@@ -4,13 +4,13 @@ namespace PatchPanda.Web.Services;
 
 public class DataService : IDisposable
 {
-    private readonly DockerService _dockerService;
     private readonly ILogger<DataService> _logger;
+    private readonly IServiceScopeFactory _serviceProvider;
 
-    public DataService(DockerService dockerService, ILogger<DataService> logger)
+    public DataService(ILogger<DataService> logger, IServiceScopeFactory serviceProvider)
     {
-        _dockerService = dockerService;
         _logger = logger;
+        _serviceProvider = serviceProvider;
     }
 
     public void Dispose()
@@ -57,6 +57,8 @@ public class DataService : IDisposable
 
     public async Task UpdateData()
     {
-        Constants.COMPOSE_APPS = await _dockerService.GetAllComposeStacks();
+        using var scope = _serviceProvider.CreateScope();
+        var dockerService = scope.ServiceProvider.GetRequiredService<DockerService>();
+        Constants.COMPOSE_APPS = await dockerService.GetAllComposeStacks();
     }
 }
