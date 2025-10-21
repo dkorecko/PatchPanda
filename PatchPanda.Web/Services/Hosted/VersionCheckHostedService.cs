@@ -22,7 +22,7 @@ public class VersionCheckHostedService : IHostedService
 
         logger.LogInformation("Service starting");
 
-        //DoWork(null);
+        DoWork(null);
         _timer = new Timer(DoWork, null, TimeSpan.FromHours(2), TimeSpan.FromHours(2));
 
         return Task.CompletedTask;

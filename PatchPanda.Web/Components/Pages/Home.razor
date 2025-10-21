@@ -150,6 +150,11 @@ else
                                             else
                                             {
                                                 <span class='badge text-bg-warning'>@newestVersion.VersionNumber</span>
+
+                                                if(newestVersion.Notified)
+                                                {
+                                                    <span class="badge text-bg-info ms-1">Notified</span>
+                                                }
                                             }
                                         </td>
                                         <td>@app.CurrentSha</td>
