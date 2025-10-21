@@ -167,21 +167,11 @@ public class DockerService
                 )
                 .FirstOrDefault();
 
-            if (runningStack.StackName == "ai-stack")
-                _logger.LogInformation(
-                    $"FOUND IT, {runningStack.StackName}, {runningStack.ConfigFile}, existing stack: {existingStack}"
-                );
-
             if (existingStack is null)
             {
                 db.Stacks.Add(runningStack);
                 continue;
             }
-            //_logger.LogInformation(
-            //    "Found running stack {StackName}, config file {ConfigFile}",
-            //    runningStack.StackName,
-            //    runningStack.ConfigFile
-            //);
 
             foreach (var runningContainer in runningStack.Apps)
             {
@@ -189,25 +179,8 @@ public class DockerService
                     .Apps.Where(x => x.Name == runningContainer.Name)
                     .FirstOrDefault();
 
-                if (runningStack.StackName == "ai-stack")
-                    _logger.LogInformation(
-                        $"Got container {runningContainer.Name}, existing {existingContainer?.Name ?? "wut"}, version running {runningContainer.Version}, existing {existingContainer?.Version ?? "wut"}"
-                    );
-
                 if (existingContainer is not null)
                 {
-                    //_logger.LogInformation(
-                    //    "Found newer version of container {ContainerName}, current running {Version} version",
-                    //    existingContainer.Name,
-                    //    runningContainer.Version
-                    //);
-                    existingContainer.Uptime = runningContainer.Uptime;
-                    existingContainer.CurrentSha = runningContainer.CurrentSha;
-                    existingContainer.GitHubRepo = runningContainer.GitHubRepo;
-                    existingContainer.Version = runningContainer.Version;
-                    existingContainer.TargetImage = runningContainer.TargetImage;
-                    existingContainer.Regex = runningContainer.Regex;
-
                     if (
                         existingContainer.NewerVersions.Any()
                         && existingContainer.Version != runningContainer.Version
@@ -215,6 +188,13 @@ public class DockerService
                     {
                         existingContainer.NewerVersions.Clear();
                     }
+
+                    existingContainer.Uptime = runningContainer.Uptime;
+                    existingContainer.CurrentSha = runningContainer.CurrentSha;
+                    existingContainer.GitHubRepo = runningContainer.GitHubRepo;
+                    existingContainer.Version = runningContainer.Version;
+                    existingContainer.TargetImage = runningContainer.TargetImage;
+                    existingContainer.Regex = runningContainer.Regex;
                 }
                 else
                     existingStack.Apps.Add(runningContainer);

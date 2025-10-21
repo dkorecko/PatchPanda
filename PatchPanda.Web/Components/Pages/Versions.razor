@@ -136,6 +136,7 @@ else
         _isUpdating = true;
         StateHasChanged();
         await _updateService.Update(_app, false);
+        await Task.Delay(1000);
         _isUpdating = false;
         await LoadData();
     }
