@@ -43,23 +43,8 @@ public class DockerService
         return containers;
     }
 
-    public async Task ResetComposeStacks()
+    public async Task<List<ComposeStack>> GetRunningStacks()
     {
-        using var db = _dbContextFactory.CreateDbContext();
-
-        var existingStacks = await db
-            .Stacks.Include(x => x.Apps)
-            .ThenInclude(x => x.NewerVersions)
-            .ToListAsync();
-
-        var existingMultiContainerApps = await db.MultiContainerApps.ToListAsync();
-        db.MultiContainerApps.RemoveRange(existingMultiContainerApps);
-
-        var existingApps = existingStacks.SelectMany(x => x.Apps).ToList();
-        db.Stacks.RemoveRange(existingStacks);
-        db.Containers.RemoveRange(existingApps);
-        db.AppVersions.RemoveRange(existingApps.SelectMany(x => x.NewerVersions));
-
         var containers = await GetAllContainers();
 
         List<ComposeStack> stacks = [];
@@ -88,14 +73,6 @@ public class DockerService
                             ? configFile
                             : "N/A"
                     };
-
-                    existingStack.Id =
-                        existingStacks
-                            ?.FirstOrDefault(x =>
-                                x.StackName == existingStack.StackName
-                                && x.ConfigFile == existingStack.ConfigFile
-                            )
-                            ?.Id ?? 0;
 
                     stacks.Add(existingStack);
 
@@ -154,18 +131,6 @@ public class DockerService
                 if (containsMap.Any(app.Name.Contains))
                     app.IsSecondary = true;
 
-                app.NewerVersions =
-                    existingStacks
-                        ?.FirstOrDefault(x => x.StackName == existingStack.StackName)
-                        ?.Apps?.FirstOrDefault(x => x.Name == app.Name)
-                        ?.NewerVersions ?? [];
-
-                app.Id =
-                    existingStacks
-                        ?.SelectMany(x => x.Apps)
-                        .FirstOrDefault(x => x.Name == app.Name && x.GitHubRepo == app.GitHubRepo)
-                        ?.Id ?? 0;
-
                 existingStack.Apps.Add(app);
 
                 if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
@@ -180,9 +145,69 @@ public class DockerService
             }
         }
 
-        stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
+        return stacks;
+    }
 
-        db.Stacks.AddRange(stacks);
+    public async Task ResetComposeStacks()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var existingStacks = await db
+            .Stacks.Include(x => x.Apps)
+            .ThenInclude(x => x.NewerVersions)
+            .ToListAsync();
+
+        var runningStacks = await GetRunningStacks();
+
+        foreach (var runningStack in runningStacks)
+        {
+            var existingStack = existingStacks
+                .Where(x =>
+                    runningStack.StackName == x.StackName && runningStack.ConfigFile == x.ConfigFile
+                )
+                .FirstOrDefault();
+
+            if (existingStack is null)
+            {
+                db.Stacks.Add(runningStack);
+                continue;
+            }
+
+            foreach (var runningContainer in runningStack.Apps)
+            {
+                var existingContainer = existingStack
+                    .Apps.Where(x => x.Name == runningContainer.Name)
+                    .FirstOrDefault();
+
+                if (existingContainer is not null)
+                {
+                    existingContainer.Uptime = runningContainer.Uptime;
+                    existingContainer.CurrentSha = runningContainer.CurrentSha;
+                    existingContainer.GitHubRepo = runningContainer.GitHubRepo;
+                    existingContainer.Version = runningContainer.Version;
+                    existingContainer.TargetImage = runningContainer.TargetImage;
+                    existingContainer.Regex = runningContainer.Regex;
+
+                    if (
+                        existingContainer.NewerVersions.Any()
+                        && existingContainer.Version != runningContainer.Version
+                    )
+                    {
+                        existingContainer.NewerVersions.Clear();
+                    }
+                }
+                else
+                    existingStack.Apps.Add(runningContainer);
+            }
+        }
+
+        db.MultiContainerApps.RemoveRange(db.MultiContainerApps);
+
+        await db.SaveChangesAsync();
+
+        var stacks = await db.Stacks.Include(x => x.Apps).ToListAsync();
+
+        stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
 
         await db.SaveChangesAsync();
     }
