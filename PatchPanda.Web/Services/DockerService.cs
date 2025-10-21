@@ -181,6 +181,11 @@ public class DockerService
 
                 if (existingContainer is not null)
                 {
+                    _logger.LogInformation(
+                        "Found newer version of container {ContainerName}, current running {Version} version",
+                        existingContainer.Name,
+                        runningContainer.Version
+                    );
                     existingContainer.Uptime = runningContainer.Uptime;
                     existingContainer.CurrentSha = runningContainer.CurrentSha;
                     existingContainer.GitHubRepo = runningContainer.GitHubRepo;
