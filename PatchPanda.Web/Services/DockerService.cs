@@ -50,9 +50,15 @@ public class DockerService
         var existingStacks = await db
             .Stacks.Include(x => x.Apps)
             .ThenInclude(x => x.NewerVersions)
-            .AsNoTracking()
             .ToListAsync();
+
+        var existingMultiContainerApps = await db.MultiContainerApps.ToListAsync();
+        db.MultiContainerApps.RemoveRange(existingMultiContainerApps);
+
+        var existingApps = existingStacks.SelectMany(x => x.Apps).ToList();
         db.Stacks.RemoveRange(existingStacks);
+        db.Containers.RemoveRange(existingApps);
+        db.AppVersions.RemoveRange(existingApps.SelectMany(x => x.NewerVersions));
 
         var containers = await GetAllContainers();
 
@@ -173,9 +179,6 @@ public class DockerService
                 }
             }
         }
-
-        var existingMultiContainerApps = await db.MultiContainerApps.ToListAsync();
-        db.MultiContainerApps.RemoveRange(existingMultiContainerApps);
 
         stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
 
