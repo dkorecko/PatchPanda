@@ -41,16 +41,12 @@ public class DataService : IDisposable
                     json
                 );
 
-                if (Constants.COMPOSE_APPS is null)
-                    await UpdateData();
-                else
+                if (Constants.COMPOSE_APPS is not null)
                     _logger.LogInformation("Data retrieved from previous app run.");
             }
-            else
-            {
-                await UpdateData();
-            }
         }
+
+        await UpdateData();
 
         return Constants.COMPOSE_APPS!;
     }
