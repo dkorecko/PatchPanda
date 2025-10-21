@@ -172,6 +172,11 @@ public class DockerService
                 db.Stacks.Add(runningStack);
                 continue;
             }
+            _logger.LogInformation(
+                "Found running stack {StackName}, config file {ConfigFile}",
+                runningStack.StackName,
+                runningStack.ConfigFile
+            );
 
             foreach (var runningContainer in runningStack.Apps)
             {
