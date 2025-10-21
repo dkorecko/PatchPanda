@@ -2,8 +2,10 @@ namespace PatchPanda.Web.Helpers;
 
 public class MultiContainerAppDetector
 {
-    public static void FillMultiContainerApps(ComposeStack stack)
+    public static void FillMultiContainerApps(ComposeStack stack, DataContext db)
     {
+        var remainingApps = stack.Apps.ToList();
+
         foreach (
             var group in stack.Apps.GroupBy(app =>
                 app.Name.Contains('-')
@@ -15,25 +17,31 @@ public class MultiContainerAppDetector
             if (group.Key is null || group.Count() < 2)
                 continue;
 
-            stack.MultiContainerApps.Add(group.Key);
-            foreach (var app in group)
-                app.FromMultiContainer = group.Key;
+            var multiContainerApp = new MultiContainerApp
+            {
+                AppName = group.Key,
+                Containers = group.ToList()
+            };
+
+            db.MultiContainerApps.Add(multiContainerApp);
         }
 
-        stack
-            .Apps.Where(x => x.FromMultiContainer is null)
+        remainingApps
             .GroupBy(app => app.GitHubRepo)
             .Where(g => g.Count() > 1 && g.Key is not null)
             .ToList()
             .ForEach(group =>
             {
                 var multiContainerName = group.Key!.Split('/').Last();
-                stack.MultiContainerApps.Add(multiContainerName);
-                foreach (var app in group)
-                    app.FromMultiContainer = multiContainerName;
-            });
 
-        var remainingApps = stack.Apps.Where(x => x.FromMultiContainer is null);
+                var multiContainerApp = new MultiContainerApp
+                {
+                    AppName = multiContainerName,
+                    Containers = group.ToList()
+                };
+
+                db.MultiContainerApps.Add(multiContainerApp);
+            });
 
         foreach (var remainingApp in remainingApps)
         {
@@ -47,10 +55,13 @@ public class MultiContainerAppDetector
             if (!matchingApps.Any())
                 continue;
 
-            remainingApp.FromMultiContainer = remainingApp.Name;
-            stack.MultiContainerApps.Add(remainingApp.Name);
-            foreach (var app in matchingApps)
-                app.FromMultiContainer = remainingApp.Name;
+            var multiContainerApp = new MultiContainerApp
+            {
+                AppName = remainingApp.Name,
+                Containers = [remainingApp, .. matchingApps]
+            };
+
+            db.MultiContainerApps.Add(multiContainerApp);
         }
     }
 }

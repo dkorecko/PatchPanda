@@ -7,7 +7,12 @@ public class DiscordService
 {
     private string WebhookUrl { get; init; }
 
-    public DiscordService(IConfiguration configuration)
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
+
+    public DiscordService(
+        IConfiguration configuration,
+        IDbContextFactory<DataContext> dbContextFactory
+    )
     {
         var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
 
@@ -15,28 +20,35 @@ public class DiscordService
             throw new InvalidOperationException("DISCORD_WEBHOOK_URL configuration is missing.");
 
         WebhookUrl = webhookUrl;
+        _dbContextFactory = dbContextFactory;
     }
 
-    public async Task SendUpdates(ComposeApp app, string[] otherNames)
+    public async Task SendUpdates(Container container, Container[] otherContainers)
     {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var newerVersions = (
+            await db.Containers.Include(x => x.NewerVersions).FirstAsync(x => x.Id == container.Id)
+        ).NewerVersions.Where(x => !x.Notified);
+
         var message = new StringBuilder();
 
         message.AppendLine(
-            $":tada: **{string.Join(" + ", [app.Name, .. otherNames])} UPDATE** :tada:\n"
+            $":tada: **{string.Join(" + ", [container.Name, .. otherContainers.Select(x => x.Name)])} UPDATE** :tada:\n"
         );
         message.AppendLine(":rocket: **Version Details**");
-        message.AppendLine($"- **New Version:** `{app.NewerVersions.First().VersionNumber}`");
-        message.AppendLine($"- **Previously Used Version:** `{app.Version ?? "Missing"}`");
+        message.AppendLine($"- **New Version:** `{newerVersions.First().VersionNumber}`");
+        message.AppendLine($"- **Previously Used Version:** `{container.Version ?? "Missing"}`");
         message.AppendLine(
-            $"- **Breaking Change:** {(app.NewerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
+            $"- **Breaking Change:** {(newerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
         );
         message.AppendLine(
-            $"- **Prerelease:** {(app.NewerVersions.Any(x => x.Prerelease) ? "Yes :x:" : "No :white_check_mark:")}"
+            $"- **Prerelease:** {(newerVersions.Any(x => x.Prerelease) ? "Yes :x:" : "No :white_check_mark:")}"
         );
 
         message.AppendLine("\n");
 
-        foreach (var newVersion in app.NewerVersions)
+        foreach (var newVersion in newerVersions)
         {
             message.AppendLine(
                 $":scroll: **Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}**\n"
@@ -44,17 +56,11 @@ public class DiscordService
             message.AppendLine(newVersion.Body);
             message.AppendLine("\n");
             newVersion.Notified = true;
-
-            Constants
-                .COMPOSE_APPS!.SelectMany(x => x.Apps)
-                .Where(x => otherNames.Contains(x.Name))
-                .ToList()
-                .ForEach(app => app.NewerVersions.ToList().ForEach(v => v.Notified = true));
         }
 
-        message.AppendLine($"\n{app.GitHubRepo}/releases");
+        message.AppendLine($"\n{container.GitHubRepo}/releases");
         message.AppendLine(
-            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{app.Name}"
+            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{container.Name}"
         );
 
         var fullMessage = message.ToString();
@@ -67,6 +73,8 @@ public class DiscordService
             fullMessage = fullMessage.Length > ChunkSize ? fullMessage[ChunkSize..] : string.Empty;
             await Task.Delay(1000);
         }
+
+        await db.SaveChangesAsync();
     }
 
     public async Task SendWebhook(string content)

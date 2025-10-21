@@ -1,5 +1,5 @@
-@page "/versions/{AppName}"
-@inject DataService _dataService
+@page "/versions/{ContainerId:int}"
+@inject IDbContextFactory<DataContext> _dbContextFactory
 @inject VersionService _versionService
 @inject UpdateService _updateService
 
@@ -8,7 +8,6 @@
 @if(_app is null)
 {
     <div class="spinner-grow" role="status">
-        <span class="sr-only">Loading...</span>
     </div>
 }
 else
@@ -86,9 +85,9 @@ else
 
 @code {
     [Parameter]
-    public required string AppName { get; set; }
+    public required int ContainerId { get; set; }
 
-    private ComposeApp? _app;
+    private Container? _app;
     private List<string>? _updatePlan;
     private DateTimeOffset? _rateLimitReset;
     private bool _isUpdating;
@@ -103,14 +102,16 @@ else
 
     public async Task LoadData()
     {
-        var data = await _dataService.GetData();
+        using var db = _dbContextFactory.CreateDbContext();
 
-        var app = data.SelectMany(s => s.Apps).First(a => a.Name == AppName);
+        var app = await db.Containers.Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
+
         if (!app.NewerVersions.Any())
         {
             try
             {
-                await _versionService.GetNewerVersions(app);
+                var otherApps = await db.Containers.Where(x => x.Version == app.Version && x.GitHubRepo == app.GitHubRepo).ToListAsync();
+                await _versionService.GetNewerVersions(app, [ ..otherApps]);
             }
             catch (RateLimitException ex)
             {

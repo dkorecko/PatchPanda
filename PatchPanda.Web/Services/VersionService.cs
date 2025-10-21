@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Octokit;
 
 namespace PatchPanda.Web.Services;
 
@@ -6,11 +7,16 @@ public class VersionService
 {
     private readonly ILogger<VersionService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
 
     private string? Username { get; init; }
     private string? Password { get; init; }
 
-    public VersionService(ILogger<VersionService> logger, IConfiguration configuration)
+    public VersionService(
+        ILogger<VersionService> logger,
+        IConfiguration configuration,
+        IDbContextFactory<DataContext> dbContextFactory
+    )
     {
         _logger = logger;
         _configuration = configuration;
@@ -22,6 +28,8 @@ public class VersionService
             _logger.LogWarning(
                 "GitHub credentials are not set in environment variables. You may run into rate limiting issues."
             );
+
+        _dbContextFactory = dbContextFactory;
     }
 
     private GitHubClient GetClient()
@@ -37,7 +45,10 @@ public class VersionService
         return client;
     }
 
-    public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
+    public async Task<IEnumerable<AppVersion>> GetNewerVersions(
+        Container app,
+        Container[] otherApps
+    )
     {
         if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
             return [];
@@ -69,6 +80,14 @@ public class VersionService
                 Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
             );
 
+            using var db = _dbContextFactory.CreateDbContext();
+
+            List<Container> allApps = [app, .. otherApps];
+
+            var targetApps = await db
+                .Containers.Where(x => allApps.Select(y => y.Id).Contains(x.Id))
+                .ToListAsync();
+
             var newerVersions = validReleases
                 .Where(x => x.TagName.IsNewerThan(app.Version))
                 .Select(x => new AppVersion()
@@ -77,10 +96,24 @@ public class VersionService
                     Name = x.Name,
                     Prerelease = x.Prerelease,
                     VersionNumber = x.TagName,
-                    Breaking = x.Body.Has("breaking") || x.Body.Has("critical")
+                    Breaking = x.Body.Has("breaking") || x.Body.Has("critical"),
+                    Applications = targetApps
                 });
 
-            SetNewerVersions(app, newerVersions);
+            var appNewerVersions = await db
+                .AppVersions.Include(x => x.Applications)
+                .Where(av => av.Applications.Any(a => a.Id == app.Id))
+                .ToListAsync();
+
+            var notSeenNewVersions = newerVersions
+                .Where(nv => !appNewerVersions.Any(av => av.VersionNumber == nv.VersionNumber))
+                .ToList();
+
+            db.AppVersions.AddRange(notSeenNewVersions);
+
+            targetApps.ForEach(a => a.LastVersionCheck = DateTime.Now);
+
+            await db.SaveChangesAsync();
 
             _logger.LogInformation(
                 "Got {Count} newer versions, newest is {Newest}. Looked for regex {Regex}, received {ValidReleaseCount} valid releases from GitHub, example tag name {TagName} and name {Name} of release.",
@@ -92,33 +125,11 @@ public class VersionService
                 validReleases.FirstOrDefault()?.Name ?? "N/A"
             );
 
-            return newerVersions;
+            return notSeenNewVersions;
         }
         catch (RateLimitExceededException ex)
         {
             throw new RateLimitException(ex.Reset, ex.Limit);
-        }
-    }
-
-    public void SetNewerVersions(ComposeApp app, IEnumerable<AppVersion> newerVersions)
-    {
-        var targetApp = Constants
-            .COMPOSE_APPS!.SelectMany(x => x.Apps)
-            .First(x => x.Name == app.Name);
-
-        var alreadyNotified = targetApp
-            .NewerVersions.Where(x => x.Notified)
-            .Select(x => x.VersionNumber)
-            .ToHashSet();
-
-        targetApp.NewerVersions = newerVersions;
-
-        foreach (var version in targetApp.NewerVersions)
-        {
-            if (alreadyNotified.Contains(version.VersionNumber))
-            {
-                version.Notified = true;
-            }
         }
     }
 

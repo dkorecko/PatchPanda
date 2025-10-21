@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using PatchPanda.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,12 +8,32 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<VersionService>();
-builder.Services.AddSingleton<DataService>();
 builder.Services.AddScoped<DiscordService>();
 builder.Services.AddScoped<UpdateService>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
 
+var connectionString =
+    $"Server={builder.Configuration.GetValue<string>("DB_HOST")};Database={builder.Configuration.GetValue<string>("DB_NAME", "patchpanda")};Uid={builder.Configuration.GetValue<string>("DB_USERNAME", "patchpanda")};Pwd={builder.Configuration.GetValue<string>("DB_PASSWORD")};";
+Console.WriteLine(connectionString);
+builder.Services.AddDbContextFactory<DataContext>(opt =>
+    opt.UseMySql(
+        connectionString,
+        ServerVersion.Create(
+            new System.Version("8.0.36"),
+            Pomelo.EntityFrameworkCore.MySql.Infrastructure.ServerType.MySql
+        )
+    )
+);
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<DataContext>()!;
+
+    if (dbContext.Database.IsRelational())
+        dbContext.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

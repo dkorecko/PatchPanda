@@ -1,7 +1,8 @@
 global using Devity.Extensions;
 global using Docker.DotNet.Models;
-global using Octokit;
-global using PatchPanda.Web.DTOs;
+global using Microsoft.EntityFrameworkCore;
+global using PatchPanda.Web.Db;
+global using PatchPanda.Web.Entities;
 global using PatchPanda.Web.Exceptions;
 global using PatchPanda.Web.Helpers;
 global using PatchPanda.Web.Services;

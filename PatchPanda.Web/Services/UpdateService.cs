@@ -5,23 +5,27 @@ namespace PatchPanda.Web.Services;
 public class UpdateService
 {
     private readonly DockerService _dockerService;
-    private readonly DataService _dataService;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
 
-    public UpdateService(DockerService dockerService, DataService dataService)
+    public UpdateService(
+        DockerService dockerService,
+        IDbContextFactory<DataContext> dbContextFactory
+    )
     {
         _dockerService = dockerService;
-        _dataService = dataService;
+        _dbContextFactory = dbContextFactory;
     }
 
-    public bool IsUpdateAvailable(ComposeApp app) =>
-        app.FromMultiContainer is null && !app.IsSecondary;
+    public bool IsUpdateAvailable(Container app) =>
+        app.MultiContainerAppId is null && !app.IsSecondary;
 
-    public async Task<List<string>> Update(ComposeApp app, bool planOnly)
+    public async Task<List<string>> Update(Container app, bool planOnly)
     {
         if (!IsUpdateAvailable(app))
             throw new Exception("Update is not available.");
 
-        var stack = Constants.COMPOSE_APPS!.First(x => x.Apps.Any(a => a.Name == app.Name));
+        using var db = _dbContextFactory.CreateDbContext();
+        var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
         var configPath = _dockerService.ComputeConfigFilePath(stack);
         var configFileContent = File.ReadAllText(configPath);
 
@@ -31,7 +35,7 @@ public class UpdateService
 
         var updateSteps = new List<string>
         {
-            $"In folder: {stack.ConfigFile}",
+            $"In folder: {configPath}",
             $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}",
             $"Pull image for container {app.Name}",
             $"Stop image for container {app.Name}",
@@ -52,7 +56,7 @@ public class UpdateService
 
         app.NewerVersions = [];
 
-        await _dataService.UpdateData();
+        await _dockerService.ResetComposeStacks();
 
         return updateSteps;
     }

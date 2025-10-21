@@ -4,6 +4,7 @@ public class VersionCheckHostedService : IHostedService
 {
     private readonly IServiceScopeFactory _serviceProvider;
     private Timer? _timer;
+    private bool _pushedOnce;
 
     public VersionCheckHostedService(IServiceScopeFactory serviceProvider)
     {
@@ -45,16 +46,34 @@ public class VersionCheckHostedService : IHostedService
     {
         using var scope = _serviceProvider.CreateScope();
         var versionService = scope.ServiceProvider.GetRequiredService<VersionService>();
-        var dataService = scope.ServiceProvider.GetRequiredService<DataService>();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<
+            IDbContextFactory<DataContext>
+        >();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<VersionCheckHostedService>>();
 
-        var currentData = await dataService.GetData();
-        var uniqueRepoGroups = currentData
-            .SelectMany(x => x.Apps)
-            .DistinctBy(x => x.Name)
-            .Where(x => !x.IsSecondary)
-            .GroupBy(x => x.GitHubRepo)
-            .Where(x => x.Key is not null)
+        using var db = dbContextFactory.CreateDbContext();
+
+        var containers = await db
+            .Containers.Include(x => x.NewerVersions)
+            .Where(x => !x.IsSecondary && x.GitHubRepo != null)
+            .ToListAsync();
+
+        if (!containers.Any())
+        {
+            if (_pushedOnce)
+                return;
+
+            var dockerService = scope.ServiceProvider.GetRequiredService<DockerService>();
+            await dockerService.ResetComposeStacks();
+            DoWork(null);
+            _pushedOnce = true;
+            return;
+        }
+
+        _pushedOnce = false;
+
+        var uniqueRepoGroups = containers
+            .GroupBy(x => x.GitHubRepo!)
             .OrderBy(x => x.First().LastVersionCheck);
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
@@ -82,27 +101,20 @@ public class VersionCheckHostedService : IHostedService
                 );
                 try
                 {
-                    List<AppVersion> newerVersions;
+                    var otherApps = currentVersionGroup.Skip(1);
 
-                    newerVersions = (await versionService.GetNewerVersions(mainApp)).ToList();
+                    var newerVersions = await versionService.GetNewerVersions(
+                        mainApp,
+                        [.. otherApps]
+                    );
 
-                    if (newerVersions.Any())
+                    if (newerVersions.Any() || mainApp.NewerVersions.Any(x => !x.Notified))
                     {
                         var discordService =
                             scope.ServiceProvider.GetRequiredService<DiscordService>();
-                        currentVersionGroup
-                            .Skip(1)
-                            .ToList()
-                            .ForEach(app => versionService.SetNewerVersions(app, newerVersions));
-                        await discordService.SendUpdates(
-                            mainApp,
-                            [.. currentVersionGroup.Skip(1).Select(x => x.Name)]
-                        );
-                    }
 
-                    currentVersionGroup
-                        .ToList()
-                        .ForEach(app => app.LastVersionCheck = DateTime.Now);
+                        await discordService.SendUpdates(mainApp, [.. otherApps]);
+                    }
 
                     await Task.Delay(5000);
                 }

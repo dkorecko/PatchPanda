@@ -1,6 +1,6 @@
 @page "/"
 @inject DockerService _dockerService
-@inject DataService _dataService
+@inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
 
 <PageTitle>Home</PageTitle>
@@ -160,9 +160,9 @@ else
                                         <td>@app.CurrentSha</td>
                                         <td>@app.TargetImage</td>
                                         <td>
-                                            @if(app.FromMultiContainer is not null)
+                                            @if(app.MultiContainerApp is not null)
                                             {
-                                                <span class="badge text-bg-info">@app.FromMultiContainer</span>
+                                                <span class="badge text-bg-info">@app.MultiContainerApp.AppName</span>
                                             }
                                             @if(app.IsSecondary)
                                             {
@@ -172,7 +172,7 @@ else
                                         <td>@app.Uptime</td>
                                         <td>@(app.LastVersionCheck.Equals(DateTime.MinValue) ? "Never" : app.LastVersionCheck.ToReadableStringWithTime())</td>
                                         <td>
-                                            <a target="_blank" href="/versions/@app.Name" class="btn btn-primary">Releases</a>
+                                            <a target="_blank" href="/versions/@app.Id" class="btn btn-primary">Releases</a>
                                         </td>
                                     </tr>
                                 }
@@ -200,7 +200,15 @@ else
 
     private async Task LoadData()
     {
-        _composeStacks = (await _dataService.GetData()).ToList();
+        using var db = _dbContextFactory.CreateDbContext();
+
+        _composeStacks = await db.Stacks
+            .Include(x => x.Apps)
+            .ThenInclude(x => x.NewerVersions)
+            .Include(x => x.Apps)
+            .ThenInclude(x => x.MultiContainerApp)
+            .ToListAsync();
+
         StateHasChanged();
     }
 
@@ -217,7 +225,7 @@ else
     {
         _isReloading = true;
         StateHasChanged();
-        await _dataService.UpdateData();
+        await _dockerService.ResetComposeStacks();
         _isReloading = false;
         await LoadData();
     }

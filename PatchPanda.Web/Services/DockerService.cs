@@ -11,8 +11,13 @@ public class DockerService
 
     private readonly ILogger<DockerService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
 
-    public DockerService(ILogger<DockerService> logger, IConfiguration configuration)
+    public DockerService(
+        ILogger<DockerService> logger,
+        IConfiguration configuration,
+        IDbContextFactory<DataContext> dbContextFactory
+    )
     {
         DockerSocket = "unix:///var/run/docker.sock";
 
@@ -21,6 +26,7 @@ public class DockerService
 #endif
         _logger = logger;
         _configuration = configuration;
+        _dbContextFactory = dbContextFactory;
     }
 
     private DockerClient GetClient() =>
@@ -37,9 +43,16 @@ public class DockerService
         return containers;
     }
 
-    public async Task<IList<ComposeStack>> GetAllComposeStacks()
+    public async Task ResetComposeStacks()
     {
-        var oldDataCopy = Constants.COMPOSE_APPS?.ToList();
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var existingStacks = await db
+            .Stacks.Include(x => x.Apps)
+            .ThenInclude(x => x.NewerVersions)
+            .ToListAsync();
+        db.Stacks.RemoveRange(existingStacks);
+
         var containers = await GetAllContainers();
 
         List<ComposeStack> stacks = [];
@@ -69,6 +82,14 @@ public class DockerService
                             : "N/A"
                     };
 
+                    existingStack.Id =
+                        existingStacks
+                            ?.FirstOrDefault(x =>
+                                x.StackName == existingStack.StackName
+                                && x.ConfigFile == existingStack.ConfigFile
+                            )
+                            ?.Id ?? 0;
+
                     stacks.Add(existingStack);
 
                     _logger.LogInformation(
@@ -78,7 +99,7 @@ public class DockerService
                     );
                 }
 
-                var app = new ComposeApp
+                var app = new Container
                 {
                     Name = container.Labels.TryGetValue(
                         "com.docker.compose.service",
@@ -98,7 +119,9 @@ public class DockerService
                     CurrentSha = container.ImageID,
                     Uptime = container.Status,
                     TargetImage = container.Image,
-                    Regex = string.Empty
+                    Regex = string.Empty,
+                    Stack = existingStack,
+                    StackId = existingStack.Id,
                 };
 
                 if (
@@ -125,10 +148,16 @@ public class DockerService
                     app.IsSecondary = true;
 
                 app.NewerVersions =
-                    oldDataCopy
+                    existingStacks
                         ?.FirstOrDefault(x => x.StackName == existingStack.StackName)
                         ?.Apps?.FirstOrDefault(x => x.Name == app.Name)
                         ?.NewerVersions ?? [];
+
+                app.Id =
+                    existingStacks
+                        ?.SelectMany(x => x.Apps)
+                        .FirstOrDefault(x => x.Name == app.Name && x.GitHubRepo == app.GitHubRepo)
+                        ?.Id ?? 0;
 
                 existingStack.Apps.Add(app);
 
@@ -144,9 +173,14 @@ public class DockerService
             }
         }
 
-        stacks.ForEach(MultiContainerAppDetector.FillMultiContainerApps);
+        var existingMultiContainerApps = await db.MultiContainerApps.ToListAsync();
+        db.MultiContainerApps.RemoveRange(existingMultiContainerApps);
 
-        return stacks;
+        stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
+
+        db.Stacks.AddRange(stacks);
+
+        await db.SaveChangesAsync();
     }
 
     public string ComputeConfigFilePath(ComposeStack stack)
