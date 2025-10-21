@@ -86,7 +86,9 @@ public class DockerService
                     )
                         ? appName
                         : container.Names.FirstOrDefault() ?? "N/A",
-                    Version = container.Image.Contains(':') ? container.Image.Split(':')[1] : null,
+                    Version = container.Image.Contains(':')
+                        ? container.Image.Split(':', 2)[1]
+                        : null,
                     GitHubRepo = container.Labels.TryGetValue(
                         "org.opencontainers.image.source",
                         out var appSource
