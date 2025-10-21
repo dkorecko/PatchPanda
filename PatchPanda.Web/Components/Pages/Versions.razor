@@ -38,10 +38,19 @@ else
             @foreach(var version in _app.NewerVersions)
             {
                 <li>
-                    <div>@version.Name</div>
-                    <div>@version.Body</div>
-                    <div>@version.Prerelease</div>
-                    <div>@version.VersionNumber</div>
+                    <div>
+                        <b><u>@version.Name</u></b>
+                        <b>(@version.VersionNumber)</b>
+                        @if(version.Prerelease)
+                        {
+                            <b class="ms-2">[PRERELEASE]</b>
+                        }
+                        @if(version.Breaking)
+                        {
+                            <b class="ms-2">[BREAKING]</b>
+                        }
+                    </div>
+                    <div>@((MarkupString) version.Body.Replace("\r\n", "<br/>").Replace("\n", "<br/>"))</div>
                 </li>
             }
         </ul>
