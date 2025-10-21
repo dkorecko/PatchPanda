@@ -52,7 +52,7 @@ public class VersionService
         var apiInfo = client.GetLastApiInfo();
 
         if (apiInfo is not null && apiInfo.RateLimit.Remaining == 0)
-            throw new RateLimitException(apiInfo.RateLimit.Reset);
+            throw new RateLimitException(apiInfo.RateLimit.Reset, apiInfo.RateLimit.Limit);
 
         try
         {
@@ -96,7 +96,7 @@ public class VersionService
         }
         catch (RateLimitExceededException ex)
         {
-            throw new RateLimitException(ex.Reset);
+            throw new RateLimitException(ex.Reset, ex.Limit);
         }
     }
 

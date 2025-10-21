@@ -106,10 +106,12 @@ public class VersionCheckHostedService : IHostedService
 
                     await Task.Delay(5000);
                 }
-                catch (RateLimitException)
+                catch (RateLimitException ex)
                 {
                     logger.LogWarning(
-                        "Rate limit hit when checking for updates, skipping further checks"
+                        "Rate limit {Limit} hit when checking for updates, skipping further checks until {Reset}",
+                        ex.Limit,
+                        ex.ResetsAt
                     );
                     return;
                 }
