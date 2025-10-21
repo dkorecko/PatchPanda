@@ -189,6 +189,11 @@ public class DockerService
                     .Apps.Where(x => x.Name == runningContainer.Name)
                     .FirstOrDefault();
 
+                if (runningStack.StackName == "ai-stack")
+                    _logger.LogInformation(
+                        $"Got container {runningContainer.Name}, existing {existingContainer?.Name ?? "wut"}, version running {runningContainer.Version}, existing {existingContainer?.Version ?? "wut"}"
+                    );
+
                 if (existingContainer is not null)
                 {
                     //_logger.LogInformation(
