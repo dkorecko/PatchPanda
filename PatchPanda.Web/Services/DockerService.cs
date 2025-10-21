@@ -86,12 +86,7 @@ public class DockerService
                     )
                         ? appName
                         : container.Names.FirstOrDefault() ?? "N/A",
-                    Version = container.Labels.TryGetValue(
-                        "org.opencontainers.image.version",
-                        out var appVersion
-                    )
-                        ? appVersion
-                        : null,
+                    Version = container.Image.Contains(':') ? container.Image.Split(':')[1] : null,
                     GitHubRepo = container.Labels.TryGetValue(
                         "org.opencontainers.image.source",
                         out var appSource
@@ -103,6 +98,20 @@ public class DockerService
                     TargetImage = container.Image,
                     Regex = string.Empty
                 };
+
+                if (
+                    app.Version is null
+                    || app.Version.StartsWith("latest")
+                    || app.Version.StartsWith("sha")
+                )
+                {
+                    app.Version = container.Labels.TryGetValue(
+                        "org.opencontainers.image.version",
+                        out var appVersion
+                    )
+                        ? appVersion
+                        : null;
+                }
 
                 app.Regex = app.Version is not null
                     ? VersionHelper.BuildRegexFromVersion(app.Version)
