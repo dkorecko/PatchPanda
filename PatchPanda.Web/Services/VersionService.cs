@@ -5,13 +5,37 @@ namespace PatchPanda.Web.Services;
 public class VersionService
 {
     private readonly ILogger<VersionService> _logger;
+    private readonly IConfiguration _configuration;
 
-    public VersionService(ILogger<VersionService> logger)
+    private string? Username { get; init; }
+    private string? Password { get; init; }
+
+    public VersionService(ILogger<VersionService> logger, IConfiguration configuration)
     {
         _logger = logger;
+        _configuration = configuration;
+
+        Username = _configuration["GITHUB_USERNAME"];
+        Password = _configuration["GITHUB_PASSWORD"];
+
+        if (Username is null || Password is null)
+            _logger.LogWarning(
+                "GitHub credentials are not set in environment variables. You may run into rate limiting issues."
+            );
     }
 
-    private GitHubClient GetClient() => new(new ProductHeaderValue("PatchPanda"));
+    private GitHubClient GetClient()
+    {
+        var client = new GitHubClient(new ProductHeaderValue("PatchPanda"));
+
+        if (Username is not null && Password is not null)
+        {
+            var tokenAuth = new Credentials(Username, Password);
+            client.Credentials = tokenAuth;
+        }
+
+        return client;
+    }
 
     public async Task<IEnumerable<AppVersion>> GetNewerVersions(ComposeApp app)
     {
