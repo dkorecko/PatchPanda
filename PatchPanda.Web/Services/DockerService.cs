@@ -50,6 +50,7 @@ public class DockerService
         var existingStacks = await db
             .Stacks.Include(x => x.Apps)
             .ThenInclude(x => x.NewerVersions)
+            .AsNoTracking()
             .ToListAsync();
         db.Stacks.RemoveRange(existingStacks);
 
