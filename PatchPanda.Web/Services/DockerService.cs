@@ -167,16 +167,21 @@ public class DockerService
                 )
                 .FirstOrDefault();
 
+            if (runningStack.StackName == "ai-stack")
+                _logger.LogInformation(
+                    $"FOUND IT, {runningStack.StackName}, {runningStack.ConfigFile}, existing stack: {existingStack}"
+                );
+
             if (existingStack is null)
             {
                 db.Stacks.Add(runningStack);
                 continue;
             }
-            _logger.LogInformation(
-                "Found running stack {StackName}, config file {ConfigFile}",
-                runningStack.StackName,
-                runningStack.ConfigFile
-            );
+            //_logger.LogInformation(
+            //    "Found running stack {StackName}, config file {ConfigFile}",
+            //    runningStack.StackName,
+            //    runningStack.ConfigFile
+            //);
 
             foreach (var runningContainer in runningStack.Apps)
             {
@@ -186,11 +191,11 @@ public class DockerService
 
                 if (existingContainer is not null)
                 {
-                    _logger.LogInformation(
-                        "Found newer version of container {ContainerName}, current running {Version} version",
-                        existingContainer.Name,
-                        runningContainer.Version
-                    );
+                    //_logger.LogInformation(
+                    //    "Found newer version of container {ContainerName}, current running {Version} version",
+                    //    existingContainer.Name,
+                    //    runningContainer.Version
+                    //);
                     existingContainer.Uptime = runningContainer.Uptime;
                     existingContainer.CurrentSha = runningContainer.CurrentSha;
                     existingContainer.GitHubRepo = runningContainer.GitHubRepo;
