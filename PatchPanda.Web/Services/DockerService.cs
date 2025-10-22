@@ -158,6 +158,7 @@ public class DockerService
             .ToListAsync();
 
         var runningStacks = await GetRunningStacks();
+        var foundStacks = new List<ComposeStack>();
 
         foreach (var runningStack in runningStacks)
         {
@@ -173,14 +174,18 @@ public class DockerService
                 continue;
             }
 
+            foundStacks.Add(existingStack);
+
             foreach (var runningContainer in runningStack.Apps)
             {
                 var existingContainer = existingStack
                     .Apps.Where(x => x.Name == runningContainer.Name)
                     .FirstOrDefault();
+                var foundApps = new List<Container>();
 
                 if (existingContainer is not null)
                 {
+                    foundApps.Add(existingContainer);
                     if (
                         existingContainer.NewerVersions.Any()
                         && existingContainer.Version != runningContainer.Version
@@ -195,11 +200,30 @@ public class DockerService
                     existingContainer.Version = runningContainer.Version;
                     existingContainer.TargetImage = runningContainer.TargetImage;
                     existingContainer.Regex = runningContainer.Regex;
+
+                    foundApps.Add(existingContainer);
                 }
                 else
                     existingStack.Apps.Add(runningContainer);
+
+                foundApps
+                    .Except(foundApps)
+                    .ToList()
+                    .ForEach(app =>
+                    {
+                        db.Containers.Remove(app);
+                    });
             }
         }
+
+        existingStacks
+            .Except(foundStacks)
+            .ToList()
+            .ForEach(stack =>
+            {
+                db.Containers.RemoveRange(stack.Apps);
+                db.Stacks.Remove(stack);
+            });
 
         db.MultiContainerApps.RemoveRange(db.MultiContainerApps);
 
