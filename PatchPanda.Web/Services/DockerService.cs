@@ -129,7 +129,7 @@ public class DockerService
                     ? VersionHelper.BuildRegexFromVersion(app.Version)
                     : null;
 
-                await app.SetGitHubRepo(container, _versionService);
+                await app.SetGitHubRepo(container, _versionService, _logger);
 
                 string[] containsMap = ["mongo", "redis", "db", "database", "cache", "postgres"];
 

@@ -8,7 +8,8 @@ public static class ParsingHelper
     public static async Task SetGitHubRepo(
         this Container container,
         ContainerListResponse response,
-        VersionService versionService
+        VersionService versionService,
+        ILogger logger
     )
     {
         List<string> repos = [];
@@ -24,10 +25,17 @@ public static class ParsingHelper
         foreach (var match in matches)
         {
             container.GitHubRepo = match;
-            var versions = await versionService.GetNewerVersions(container, []);
+            try
+            {
+                var versions = await versionService.GetNewerVersions(container, []);
 
-            if (versions.Any())
-                return;
+                if (versions.Any())
+                    return;
+            }
+            catch
+            {
+                logger.LogInformation("Failed to get versions for combination {Match}", match);
+            }
         }
     }
 
