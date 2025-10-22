@@ -17,7 +17,7 @@ public static class ParsingHelper
         var fullResponse = JsonSerializer.Serialize(response);
 
         var matches = Regex
-            .Matches(fullResponse, @"https://github.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+")
+            .Matches(fullResponse, @"https://github.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+")
             .Select(x => x.Value)
             .Select(CleanUpUrl)
             .Distinct();
