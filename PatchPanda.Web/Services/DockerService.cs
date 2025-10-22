@@ -12,11 +12,13 @@ public class DockerService
     private readonly ILogger<DockerService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
+    private readonly VersionService _versionService;
 
     public DockerService(
         ILogger<DockerService> logger,
         IConfiguration configuration,
-        IDbContextFactory<DataContext> dbContextFactory
+        IDbContextFactory<DataContext> dbContextFactory,
+        VersionService versionService
     )
     {
         DockerSocket = "unix:///var/run/docker.sock";
@@ -27,6 +29,7 @@ public class DockerService
         _logger = logger;
         _configuration = configuration;
         _dbContextFactory = dbContextFactory;
+        _versionService = versionService;
     }
 
     private DockerClient GetClient() =>
@@ -125,6 +128,8 @@ public class DockerService
                 app.Regex = app.Version is not null
                     ? VersionHelper.BuildRegexFromVersion(app.Version)
                     : null;
+
+                await app.SetGitHubRepo(container, _versionService);
 
                 string[] containsMap = ["mongo", "redis", "db", "database", "cache", "postgres"];
 
