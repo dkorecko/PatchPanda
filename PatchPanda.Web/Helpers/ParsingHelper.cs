@@ -18,6 +18,7 @@ public static class ParsingHelper
         var matches = Regex
             .Matches(fullResponse, @"https://github.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+")
             .Select(x => x.Value)
+            .Select(CleanUpUrl)
             .Distinct();
 
         foreach (var match in matches)
@@ -29,4 +30,7 @@ public static class ParsingHelper
                 return;
         }
     }
+
+    private static string CleanUpUrl(string input) =>
+        "https://" + string.Join('/', input.Replace("https://", string.Empty).Split('/').Take(3));
 }
