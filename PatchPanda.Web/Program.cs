@@ -14,7 +14,6 @@ builder.Services.AddHostedService<VersionCheckHostedService>();
 
 var connectionString =
     $"Server={builder.Configuration.GetValue<string>("DB_HOST")};Database={builder.Configuration.GetValue<string>("DB_NAME", "patchpanda")};Uid={builder.Configuration.GetValue<string>("DB_USERNAME", "patchpanda")};Pwd={builder.Configuration.GetValue<string>("DB_PASSWORD")};";
-Console.WriteLine(connectionString);
 builder.Services.AddDbContextFactory<DataContext>(opt =>
 {
     opt.UseMySql(
