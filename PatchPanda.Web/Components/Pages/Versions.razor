@@ -108,7 +108,7 @@ else
     {
         using var db = _dbContextFactory.CreateDbContext();
 
-        var app = await db.Containers.Include(x => x.MultiContainerApp).Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
+        var app = await db.Containers.Include(x => x.MultiContainerApp).ThenInclude(x => x!.Containers).Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
 
         if (app.NewerVersions.Any())
         {
