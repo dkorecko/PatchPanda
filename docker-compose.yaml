@@ -17,7 +17,7 @@ services:
     env_file:
       - .env
     volumes:
-      - /home/trixx/Applications:/media/apps:rw
+      - /home/trixx/Applications:/home/trixx/Applications:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
 
 networks:

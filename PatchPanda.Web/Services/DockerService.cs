@@ -243,16 +243,7 @@ public class DockerService
 
     public string ComputeConfigFilePath(ComposeStack stack)
     {
-        var hostPath = _configuration.GetValue<string>("APPS_HOST_PATH");
         string configPath = stack.ConfigFile;
-
-#if !DEBUG
-        if (hostPath is null)
-            throw new InvalidOperationException("ComposeHostPath configuration is missing.");
-
-        configPath = stack.ConfigFile.Replace(hostPath, "/media/apps");
-#endif
-
         return configPath;
     }
 
