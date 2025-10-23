@@ -56,10 +56,11 @@ public static class ParsingHelper
         if (versionCounts.Any())
         {
             var bestChoice = versionCounts.MaxBy(x => x.Value.Count);
+
             container.GitHubRepo = bestChoice.Key;
-            container.GitHubVersionRegex = VersionHelper.BuildRegexFromVersion(
-                bestChoice.Value.First().TagName
-            );
+            container.GitHubVersionRegex = bestChoice.Value.Any()
+                ? VersionHelper.BuildRegexFromVersion(bestChoice.Value.First().TagName)
+                : null;
 
             if (versionCounts.Count > 1)
             {
