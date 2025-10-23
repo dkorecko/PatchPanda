@@ -11,13 +11,21 @@ public static class PresenterHelper
 
         foreach (
             var url in Regex
-                .Matches(currentInput, @"\[([a-fA-F0-9]+)\]\((https?:\/\/[^\s\)]+)\)")
+                .Matches(currentInput, @"\[([a-zA-Z0-9 ]+)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
                 .ToList()
         )
         {
             currentInput = currentInput.Replace(
                 url.Value,
                 $"<a href=\"{url.Groups[2].Value}\" target=\"_blank\">{url.Groups[1].Value}</a>"
+            );
+        }
+
+        foreach (var bold in Regex.Matches(currentInput, @"\*\*([\w ]+)\*\*").ToList())
+        {
+            currentInput = currentInput.Replace(
+                bold.Value,
+                $"<strong>{bold.Groups[1].Value}</strong>"
             );
         }
 
