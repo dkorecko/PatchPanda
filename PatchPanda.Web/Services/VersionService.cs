@@ -45,17 +45,11 @@ public class VersionService
         return client;
     }
 
-    public async Task<IEnumerable<AppVersion>> GetNewerVersions(
-        Container app,
-        Container[] otherApps
-    )
+    public async Task<IReadOnlyList<Release>> GetVersions(string repoUrl)
     {
-        if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
-            return [];
-
         _logger.LogInformation(
-            "Going to initiate request to get newer versions for app {AppName}",
-            app.Name
+            "Going to initiate request to get newer versions for repo {RepoUrl}",
+            repoUrl
         );
 
         var client = GetClient();
@@ -67,7 +61,7 @@ public class VersionService
 
         try
         {
-            var (owner, repo) = GetOwnerRepoName(app.GitHubRepo);
+            var (owner, repo) = GetOwnerRepoName(repoUrl);
             var allReleases = (
                 await client.Repository.Release.GetAll(
                     owner,
@@ -76,61 +70,76 @@ public class VersionService
                 )
             );
 
-            var validReleases = allReleases.Where(x =>
-                Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
-            );
+            _logger.LogInformation("Got {Count} releases.", allReleases.Count);
 
-            using var db = _dbContextFactory.CreateDbContext();
-
-            List<Container> allApps = [app, .. otherApps];
-
-            var targetApps = await db
-                .Containers.Where(x => allApps.Select(y => y.Id).Contains(x.Id))
-                .ToListAsync();
-
-            var newerVersions = validReleases
-                .Where(x => x.TagName.IsNewerThan(app.Version))
-                .Select(x => new AppVersion()
-                {
-                    Body = x.Body,
-                    Name = x.Name,
-                    Prerelease = x.Prerelease,
-                    VersionNumber = x.TagName,
-                    Breaking = x.Body.Has("breaking") || x.Body.Has("critical"),
-                    Applications = targetApps
-                });
-
-            var appNewerVersions = await db
-                .AppVersions.Include(x => x.Applications)
-                .Where(av => av.Applications.Any(a => a.Id == app.Id))
-                .ToListAsync();
-
-            var notSeenNewVersions = newerVersions
-                .Where(nv => !appNewerVersions.Any(av => av.VersionNumber == nv.VersionNumber))
-                .ToList();
-
-            db.AppVersions.AddRange(notSeenNewVersions);
-
-            targetApps.ForEach(a => a.LastVersionCheck = DateTime.Now);
-
-            await db.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Got {Count} newer versions, newest is {Newest}. Looked for regex {Regex}, received {ValidReleaseCount} valid releases from GitHub, example tag name {TagName} and name {Name} of release.",
-                newerVersions.Count(),
-                newerVersions.FirstOrDefault()?.VersionNumber ?? "None found",
-                app.Regex,
-                validReleases.Count(),
-                validReleases.FirstOrDefault()?.TagName ?? "N/A",
-                validReleases.FirstOrDefault()?.Name ?? "N/A"
-            );
-
-            return notSeenNewVersions;
+            return allReleases;
         }
         catch (RateLimitExceededException ex)
         {
             throw new RateLimitException(ex.Reset, ex.Limit);
         }
+    }
+
+    public async Task<IEnumerable<AppVersion>> GetNewerVersions(
+        Container app,
+        Container[] otherApps
+    )
+    {
+        if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
+            return [];
+
+        var allReleases = await GetVersions(app.GitHubRepo);
+
+        var validReleases = allReleases.Where(x =>
+            Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
+        );
+
+        using var db = _dbContextFactory.CreateDbContext();
+
+        List<Container> allApps = [app, .. otherApps];
+
+        var targetApps = await db
+            .Containers.Where(x => allApps.Select(y => y.Id).Contains(x.Id))
+            .ToListAsync();
+
+        var newerVersions = validReleases
+            .Where(x => x.TagName.IsNewerThan(app.Version))
+            .Select(x => new AppVersion()
+            {
+                Body = x.Body,
+                Name = x.Name,
+                Prerelease = x.Prerelease,
+                VersionNumber = x.TagName,
+                Breaking = x.Body.Has("breaking") || x.Body.Has("critical"),
+                Applications = targetApps
+            });
+
+        var appNewerVersions = await db
+            .AppVersions.Include(x => x.Applications)
+            .Where(av => av.Applications.Any(a => a.Id == app.Id))
+            .ToListAsync();
+
+        var notSeenNewVersions = newerVersions
+            .Where(nv => !appNewerVersions.Any(av => av.VersionNumber == nv.VersionNumber))
+            .ToList();
+
+        db.AppVersions.AddRange(notSeenNewVersions);
+
+        targetApps.ForEach(a => a.LastVersionCheck = DateTime.Now);
+
+        await db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Got {Count} newer versions, newest is {Newest}. Looked for regex {Regex}, received {ValidReleaseCount} valid releases from GitHub, example tag name {TagName} and name {Name} of release.",
+            newerVersions.Count(),
+            newerVersions.FirstOrDefault()?.VersionNumber ?? "None found",
+            app.Regex,
+            validReleases.Count(),
+            validReleases.FirstOrDefault()?.TagName ?? "N/A",
+            validReleases.FirstOrDefault()?.Name ?? "N/A"
+        );
+
+        return notSeenNewVersions;
     }
 
     public Tuple<string, string> GetOwnerRepoName(string url)

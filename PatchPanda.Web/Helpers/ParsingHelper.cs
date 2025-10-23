@@ -16,27 +16,35 @@ public static class ParsingHelper
 
         var fullResponse = JsonSerializer.Serialize(response);
 
-        var matches = Regex
+        var githubMatches = Regex
             .Matches(fullResponse, @"https://github.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+")
             .Select(x => x.Value)
             .Select(CleanUpUrl)
             .Distinct();
 
-        foreach (var match in matches)
+        var ghcrMatches = Regex
+            .Matches(fullResponse, @"ghcr.io\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+")
+            .Select(x => CleanUpUrl(x.Value))
+            .Distinct();
+
+        Dictionary<string, int> versionCounts = [];
+
+        foreach (var match in githubMatches.Concat(ghcrMatches).Distinct())
         {
-            container.GitHubRepo = match;
             try
             {
-                var versions = await versionService.GetNewerVersions(container, []);
+                var versions = await versionService.GetVersions(match);
 
-                if (versions.Any())
-                    return;
+                versionCounts.Add(match, versions.Count);
             }
             catch
             {
                 logger.LogInformation("Failed to get versions for combination {Match}", match);
             }
         }
+
+        if (versionCounts.Any())
+            container.GitHubRepo = versionCounts.MaxBy(x => x.Value).Key;
     }
 
     private static string CleanUpUrl(string input) =>
