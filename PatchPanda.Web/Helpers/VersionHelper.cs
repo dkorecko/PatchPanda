@@ -53,57 +53,16 @@ public static class VersionHelper
         string cleanedVersion1 = version1.TrimStart('v');
         string cleanedVersion2 = version2.TrimStart('v');
 
-        var periodSplit1 = cleanedVersion1.Split('.');
-        var periodSplit2 = cleanedVersion2.Split('.');
+        var numbers1 = Regex.Matches(cleanedVersion1, @"\d+");
+        var numbers2 = Regex.Matches(cleanedVersion2, @"\d+");
 
-        for (int i = 0; i < periodSplit1.Length; i++)
+        if (numbers1.Count != numbers2.Count)
+            return false;
+
+        for (int i = 0; i < numbers1.Count; i++)
         {
-            bool result1 = int.TryParse(periodSplit1[i], out int num1);
-            bool result2 = int.TryParse(periodSplit2[i], out int num2);
-
-            if (!result1 || !result2)
-                return false;
-
-            if (num1 > num2)
-                return true;
-            else if (num1 < num2)
-                return false;
-        }
-
-        var dashSplit1 = periodSplit1[^1].Split('-');
-        var dashSplit2 = periodSplit2[^1].Split('-');
-
-        for (int i = 0; i < dashSplit1.Length; i++)
-        {
-            bool result1 = int.TryParse(dashSplit1[i], out int num1);
-            bool result2 = int.TryParse(dashSplit2[i], out int num2);
-
-            if (!result1 || !result2)
-            {
-                // contains something else (like -r or -ls), let's go to regex
-                var match1 = Regex.Match(dashSplit1[i], @"\d+");
-                var match2 = Regex.Match(dashSplit2[i], @"\d+");
-
-                if (match1.Success && match2.Success)
-                {
-                    if (
-                        !dashSplit1[i].StartsWith(dashSplit2[i].Replace(match2.Value, string.Empty))
-                    )
-                        return false;
-
-                    num1 = int.Parse(match1.Value);
-                    num2 = int.Parse(match2.Value);
-
-                    if (num1 > num2)
-                        return true;
-                    else if (num1 < num2)
-                        return false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            int num1 = int.Parse(numbers1[i].Value);
+            int num2 = int.Parse(numbers2[i].Value);
 
             if (num1 > num2)
                 return true;

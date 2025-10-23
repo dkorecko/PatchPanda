@@ -110,7 +110,11 @@ public class VersionService
                 Name = x.Name,
                 Prerelease = x.Prerelease,
                 VersionNumber = x.TagName,
-                Breaking = x.Body.Has("breaking") || x.Body.Has("critical"),
+                Breaking =
+                    x.Body.Has("breaking")
+                    || x.Body.Has("critical")
+                    || x.Body.Has("review before")
+                    || x.Body.Has("before upgrad"),
                 Applications = targetApps
             });
 
