@@ -12,8 +12,6 @@ services:
     restart: unless-stopped
     networks:
       - internal
-    environment:
-      - APPS_HOST_PATH=/home/trixx/Applications
     env_file:
       - .env
     volumes:
