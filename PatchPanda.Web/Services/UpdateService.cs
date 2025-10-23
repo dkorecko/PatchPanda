@@ -36,9 +36,9 @@ public class UpdateService
         {
             $"In folder: {configPath}",
             $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}",
-            $"Pull image for container {app.Name}",
-            $"Stop image for container {app.Name}",
-            $"Start image for container {app.Name}"
+            $"Pull images for stack {stack.StackName}",
+            $"Stop stack {stack.StackName}",
+            $"Start stack {stack.StackName}"
         };
 
         if (planOnly)
