@@ -91,6 +91,8 @@ namespace PatchPanda.Web.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Regex = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    GitHubVersionRegex = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     MultiContainerAppId = table.Column<int>(type: "int", nullable: true),
                     IsSecondary = table.Column<bool>(type: "tinyint(1)", nullable: false),
                     LastVersionCheck = table.Column<DateTime>(type: "datetime(6)", nullable: false),

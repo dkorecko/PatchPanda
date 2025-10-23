@@ -16,12 +16,20 @@ public class UpdateService
         _dbContextFactory = dbContextFactory;
     }
 
-    public bool IsUpdateAvailable(Container app) => !app.IsSecondary;
+    public bool IsUpdateAvailable(Container app) =>
+        !app.IsSecondary
+        || app.Regex is null
+        || app.GitHubVersionRegex is null
+        || app.Version is null;
 
     public async Task<List<string>> Update(Container app, bool planOnly)
     {
         if (!IsUpdateAvailable(app))
             throw new Exception("Update is not available.");
+
+        ArgumentNullException.ThrowIfNull(app.Regex);
+        ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
+        ArgumentNullException.ThrowIfNull(app.Version);
 
         using var db = _dbContextFactory.CreateDbContext();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
@@ -29,8 +37,24 @@ public class UpdateService
         var configFileContent = File.ReadAllText(configPath);
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-        var resultingImage =
-            app.TargetImage.Split(':')[0] + ':' + app.NewerVersions.First().VersionNumber;
+
+        var targetVersion = app.NewerVersions.First();
+        string newVersion = targetVersion.VersionNumber;
+
+        if (!Regex.Match(targetVersion.VersionNumber, app.Regex).Success)
+        {
+            var githubRegexWithoutSuffixAndPrefix = app
+                .GitHubVersionRegex.Replace("^v", "^")
+                .TrimEnd('$');
+            var match = Regex.Match(app.Version, githubRegexWithoutSuffixAndPrefix);
+
+            if (!match.Success)
+                throw new Exception("Could not match versions for update.");
+
+            newVersion = app.Version.Replace(match.Value, newVersion.TrimStart('v'));
+        }
+
+        var resultingImage = app.TargetImage.Split(':')[0] + ':' + newVersion;
 
         var updateSteps = new List<string>
         {

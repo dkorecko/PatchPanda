@@ -53,7 +53,11 @@ else
                         }
                         @if (context.Apps.Any(x => x.Regex is null && !x.IsSecondary))
                         {
-                            <span class="badge text-bg-danger ms-2">Missing regex</span>
+                            <span class="badge text-bg-danger ms-2">Missing tag regex</span>
+                        }
+                        @if (context.Apps.Any(x => x.GitHubVersionRegex is null && !x.IsSecondary))
+                        {
+                            <span class="badge text-bg-danger ms-2">Missing GitHub regex</span>
                         }
                     </button>
                 </h4>
@@ -146,11 +150,18 @@ else
                                         <td>
                                             @if (app.Regex is null)
                                             {
-                                                <span class="badge text-bg-warning">Missing</span>
+                                                <span class="badge text-bg-warning">Missing tag regex</span>
                                             }
                                             else
                                             {
-                                                @app.Regex
+                                                <div>Tag: @app.Regex</div>
+                                            }
+                                            @if(app.GitHubVersionRegex is null)
+                                            {
+                                                <span class="badge text-bg-warning ms-1">Missing GitHub regex</span>
+                                            } else
+                                            {
+                                                <div>GitHub: @app.GitHubVersionRegex</div>
                                             }
                                         </td>
                                         <td>

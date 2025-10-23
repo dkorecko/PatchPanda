@@ -16,7 +16,9 @@ public class Container : AbstractEntity
 
     public required string TargetImage { get; set; }
 
-    public required string? Regex { get; set; }
+    public string? Regex { get; set; }
+
+    public string? GitHubVersionRegex { get; set; }
 
     public int? MultiContainerAppId { get; set; }
 

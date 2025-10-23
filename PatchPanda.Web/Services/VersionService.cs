@@ -85,13 +85,14 @@ public class VersionService
         Container[] otherApps
     )
     {
-        if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
+        if (app.GitHubRepo is null || app.Version is null || app.GitHubVersionRegex is null)
             return [];
 
         var allReleases = await GetVersions(app.GitHubRepo);
 
         var validReleases = allReleases.Where(x =>
-            Regex.IsMatch(x.TagName, app.Regex) || Regex.IsMatch(x.Name, app.Regex)
+            Regex.IsMatch(x.TagName, app.GitHubVersionRegex)
+            || Regex.IsMatch(x.Name, app.GitHubVersionRegex)
         );
 
         using var db = _dbContextFactory.CreateDbContext();

@@ -107,6 +107,9 @@ namespace PatchPanda.Web.Migrations
                     b.Property<string>("GitHubRepo")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("GitHubVersionRegex")
+                        .HasColumnType("longtext");
+
                     b.Property<bool>("IsSecondary")
                         .HasColumnType("tinyint(1)");
 

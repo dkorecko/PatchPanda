@@ -129,7 +129,12 @@ public class DockerService
 
                 existingStack.Apps.Add(app);
 
-                if (app.GitHubRepo is null || app.Version is null || app.Regex is null)
+                if (
+                    app.GitHubRepo is null
+                    || app.Version is null
+                    || app.Regex is null
+                    || app.GitHubVersionRegex is null
+                )
                 {
                     _logger.LogWarning(
                         "App {AppName} in stack {StackName} does not have GitHub repo/version/regex, json representation: {Json}",
@@ -193,9 +198,11 @@ public class DockerService
                     existingContainer.Uptime = runningContainer.Uptime;
                     existingContainer.CurrentSha = runningContainer.CurrentSha;
                     existingContainer.GitHubRepo = runningContainer.GitHubRepo;
+                    existingContainer.SecondaryGitHubRepos = runningContainer.SecondaryGitHubRepos;
                     existingContainer.Version = runningContainer.Version;
                     existingContainer.TargetImage = runningContainer.TargetImage;
                     existingContainer.Regex = runningContainer.Regex;
+                    existingContainer.GitHubVersionRegex = runningContainer.GitHubVersionRegex;
 
                     foundApps.Add(existingContainer);
                 }

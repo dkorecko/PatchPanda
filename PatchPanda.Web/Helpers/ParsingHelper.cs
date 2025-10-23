@@ -28,7 +28,7 @@ public static class ParsingHelper
 
         var imageMatches = Regex.Matches(response.Image, @"([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+):");
 
-        Dictionary<Tuple<string, string>, int> versionCounts = [];
+        Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>> versionCounts = [];
 
         foreach (
             var match in githubMatches
@@ -45,7 +45,7 @@ public static class ParsingHelper
             {
                 var versions = await versionService.GetVersions(match);
 
-                versionCounts.Add(match, versions.Count);
+                versionCounts.Add(match, versions);
             }
             catch
             {
@@ -55,13 +55,16 @@ public static class ParsingHelper
 
         if (versionCounts.Any())
         {
-            var bestChoice = versionCounts.MaxBy(x => x.Value).Key;
-            container.GitHubRepo = bestChoice;
+            var bestChoice = versionCounts.MaxBy(x => x.Value.Count);
+            container.GitHubRepo = bestChoice.Key;
+            container.GitHubVersionRegex = VersionHelper.BuildRegexFromVersion(
+                bestChoice.Value.First().TagName
+            );
 
             if (versionCounts.Count > 1)
             {
                 container.SecondaryGitHubRepos = versionCounts
-                    .Where(x => x.Key != bestChoice)
+                    .Where(x => x.Key != bestChoice.Key)
                     .Select(x => x.Key)
                     .ToList();
             }
