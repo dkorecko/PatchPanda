@@ -16,8 +16,7 @@ public class UpdateService
         _dbContextFactory = dbContextFactory;
     }
 
-    public bool IsUpdateAvailable(Container app) =>
-        app.MultiContainerAppId is null && !app.IsSecondary;
+    public bool IsUpdateAvailable(Container app) => !app.IsSecondary;
 
     public async Task<List<string>> Update(Container app, bool planOnly)
     {

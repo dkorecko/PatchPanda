@@ -13,6 +13,10 @@
 else
 {
     <h4>@_app.Name</h4>
+    @if(_app.MultiContainerApp is not null)
+    {
+        <b>All affected apps:</b> @string.Join(", ", _app.MultiContainerApp.Containers.Select(x => x.Name))
+    }
     <p>
         Current Version: @(_app.Version ?? "Missing")
     </p>
@@ -104,20 +108,7 @@ else
     {
         using var db = _dbContextFactory.CreateDbContext();
 
-        var app = await db.Containers.Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
-
-        if (!app.NewerVersions.Any())
-        {
-            try
-            {
-                var otherApps = await db.Containers.Where(x => x.Version == app.Version && x.GitHubRepo == app.GitHubRepo).ToListAsync();
-                await _versionService.GetNewerVersions(app, [ ..otherApps]);
-            }
-            catch (RateLimitException ex)
-            {
-                _rateLimitReset = ex.ResetsAt;
-            }
-        }
+        var app = await db.Containers.Include(x => x.MultiContainerApp).Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
 
         if (app.NewerVersions.Any())
         {
