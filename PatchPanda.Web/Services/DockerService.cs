@@ -10,13 +10,11 @@ public class DockerService
     private string DockerSocket { get; init; }
 
     private readonly ILogger<DockerService> _logger;
-    private readonly IConfiguration _configuration;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly VersionService _versionService;
 
     public DockerService(
         ILogger<DockerService> logger,
-        IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
         VersionService versionService
     )
@@ -27,7 +25,6 @@ public class DockerService
         DockerSocket = "npipe://./pipe/docker_engine";
 #endif
         _logger = logger;
-        _configuration = configuration;
         _dbContextFactory = dbContextFactory;
         _versionService = versionService;
     }
