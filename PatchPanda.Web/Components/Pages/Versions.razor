@@ -49,7 +49,7 @@ else
                             <b class="ms-2">[BREAKING]</b>
                         }
                     </div>
-                    <div>@((MarkupString) version.Body.Replace("\r\n", "<br/>").Replace("\n", "<br/>"))</div>
+                    <div>@(version.Body.ToMarkupString())</div>
                 </li>
             }
         </ul>
