@@ -60,7 +60,7 @@ public class DiscordService
 
         message.AppendLine($"\n{container.GitHubRepo}/releases");
         message.AppendLine(
-            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{container.Name}"
+            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{container.Id}"
         );
 
         var fullMessage = message.ToString();
