@@ -32,12 +32,12 @@ public class MultiContainerAppDetector
             .ToList()
             .ForEach(group =>
             {
-                var multiContainerName = group.Key!.Split('/').Last();
+                var multiContainerName = group.Key!.Item2;
 
                 var multiContainerApp = new MultiContainerApp
                 {
                     AppName = multiContainerName,
-                    Containers = group.ToList()
+                    Containers = [.. group]
                 };
 
                 db.MultiContainerApps.Add(multiContainerApp);

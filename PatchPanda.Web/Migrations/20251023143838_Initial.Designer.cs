@@ -12,7 +12,7 @@ using PatchPanda.Web.Db;
 namespace PatchPanda.Web.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251021121635_Initial")]
+    [Migration("20251023143838_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -124,6 +124,9 @@ namespace PatchPanda.Web.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("Regex")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SecondaryGitHubRepos")
                         .HasColumnType("longtext");
 
                     b.Property<int>("StackId")

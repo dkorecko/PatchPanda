@@ -16,20 +16,30 @@ public static class ParsingHelper
 
         var fullResponse = JsonSerializer.Serialize(response);
 
-        var githubMatches = Regex
-            .Matches(fullResponse, @"https://github.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+")
-            .Select(x => x.Value)
-            .Select(CleanUpUrl)
-            .Distinct();
+        var githubMatches = Regex.Matches(
+            fullResponse,
+            @"https://github.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)"
+        );
 
-        var ghcrMatches = Regex
-            .Matches(fullResponse, @"ghcr.io\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+")
-            .Select(x => CleanUpUrl(x.Value))
-            .Distinct();
+        var ghcrMatches = Regex.Matches(
+            fullResponse,
+            @"ghcr.io\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)"
+        );
 
-        Dictionary<string, int> versionCounts = [];
+        var imageMatches = Regex.Matches(response.Image, @"([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+):");
 
-        foreach (var match in githubMatches.Concat(ghcrMatches).Distinct())
+        Dictionary<Tuple<string, string>, int> versionCounts = [];
+
+        foreach (
+            var match in githubMatches
+                .Concat(ghcrMatches)
+                .Concat(imageMatches)
+                .Select(x => new Tuple<string, string>(
+                    x.Groups[1].Value.ToLower(),
+                    x.Groups[2].Value.ToLower()
+                ))
+                .Distinct()
+        )
         {
             try
             {
@@ -44,9 +54,17 @@ public static class ParsingHelper
         }
 
         if (versionCounts.Any())
-            container.GitHubRepo = versionCounts.MaxBy(x => x.Value).Key;
-    }
+        {
+            var bestChoice = versionCounts.MaxBy(x => x.Value).Key;
+            container.GitHubRepo = bestChoice;
 
-    private static string CleanUpUrl(string input) =>
-        "https://" + string.Join('/', input.Replace("https://", string.Empty).Split('/').Take(3));
+            if (versionCounts.Count > 1)
+            {
+                container.SecondaryGitHubRepos = versionCounts
+                    .Where(x => x.Key != bestChoice)
+                    .Select(x => x.Key)
+                    .ToList();
+            }
+        }
+    }
 }

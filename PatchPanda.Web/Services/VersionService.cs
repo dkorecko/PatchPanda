@@ -45,11 +45,12 @@ public class VersionService
         return client;
     }
 
-    public async Task<IReadOnlyList<Release>> GetVersions(string repoUrl)
+    public async Task<IReadOnlyList<Release>> GetVersions(Tuple<string, string> repo)
     {
         _logger.LogInformation(
-            "Going to initiate request to get newer versions for repo {RepoUrl}",
-            repoUrl
+            "Going to initiate request to get newer versions for {RepoOwner}/{RepoName}",
+            repo.Item1,
+            repo.Item2
         );
 
         var client = GetClient();
@@ -61,11 +62,10 @@ public class VersionService
 
         try
         {
-            var (owner, repo) = GetOwnerRepoName(repoUrl);
             var allReleases = (
                 await client.Repository.Release.GetAll(
-                    owner,
-                    repo,
+                    repo.Item1,
+                    repo.Item2,
                     new ApiOptions { PageSize = 100, PageCount = 1 }
                 )
             );
@@ -146,25 +146,5 @@ public class VersionService
         );
 
         return notSeenNewVersions;
-    }
-
-    public Tuple<string, string> GetOwnerRepoName(string url)
-    {
-        try
-        {
-            var uri = new Uri(url);
-            var segments = uri.AbsolutePath.Trim('/').Split('/');
-            if (segments.Length >= 2)
-            {
-                return Tuple.Create(segments[0], segments[1]);
-            }
-            else
-                throw new ArgumentException("Invalid GitHub repository URL");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error parsing GitHub repository URL: {Url}", url);
-            throw;
-        }
     }
 }

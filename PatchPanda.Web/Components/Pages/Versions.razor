@@ -23,13 +23,7 @@ else
     <p>
         Newer Versions:
     </p>
-    @if(_rateLimitReset.HasValue)
-    {
-        <div class="alert alert-warning" role="alert">
-            Rate limit exceeded while fetching newer versions. The rate limit should reset at @_rateLimitReset.Value.ToLocalTime().ToString("f").
-        </div>
-    }
-    else if (!_app.NewerVersions.Any())
+    if (!_app.NewerVersions.Any())
     {
         <div class="alert alert-success" role="alert">
             This app is up to date!
@@ -93,7 +87,6 @@ else
 
     private Container? _app;
     private List<string>? _updatePlan;
-    private DateTimeOffset? _rateLimitReset;
     private bool _isUpdating;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

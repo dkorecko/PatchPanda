@@ -8,7 +8,9 @@ public class Container : AbstractEntity
 
     public required string CurrentSha { get; set; }
 
-    public required string? GitHubRepo { get; set; }
+    public Tuple<string, string>? GitHubRepo { get; set; }
+
+    public List<Tuple<string, string>>? SecondaryGitHubRepos { get; set; }
 
     public required string Uptime { get; set; }
 

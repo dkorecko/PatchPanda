@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
 namespace PatchPanda.Web.Db;
 
 public class DataContext(DbContextOptions<DataContext> options) : DbContext(options)
@@ -32,5 +35,44 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
             .Entity<Container>()
             .HasMany(x => x.NewerVersions)
             .WithMany(x => x.Applications);
+
+        var tupleStringConverter = new ValueConverter<Tuple<string, string>?, string?>(
+            v => v == null ? null : v.Item1 + "/" + v.Item2,
+            v =>
+                v == null
+                    ? null
+                    : Tuple.Create(
+                        v.Split('/', StringSplitOptions.None)[0],
+                        v.Split('/', StringSplitOptions.None)[1]
+                    )
+        );
+
+        var jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.General);
+
+        var listStringConverter = new ValueConverter<List<Tuple<string, string>>?, string?>(
+            v =>
+                JsonSerializer.Serialize(
+                    v,
+                    typeof(List<Tuple<string, string>>),
+                    jsonSerializerOptions
+                ),
+            v =>
+                v == null
+                    ? null
+                    : JsonSerializer.Deserialize<List<Tuple<string, string>>>(
+                        v,
+                        jsonSerializerOptions
+                    ) ?? new List<Tuple<string, string>>()
+        );
+
+        modelBuilder
+            .Entity<Container>()
+            .Property(x => x.GitHubRepo)
+            .HasConversion(tupleStringConverter);
+
+        modelBuilder
+            .Entity<Container>()
+            .Property(x => x.SecondaryGitHubRepos)
+            .HasConversion(listStringConverter);
     }
 }

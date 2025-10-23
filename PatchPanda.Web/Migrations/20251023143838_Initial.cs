@@ -83,6 +83,8 @@ namespace PatchPanda.Web.Migrations
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     GitHubRepo = table.Column<string>(type: "longtext", nullable: true)
                         .Annotation("MySql:CharSet", "utf8mb4"),
+                    SecondaryGitHubRepos = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     Uptime = table.Column<string>(type: "longtext", nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     TargetImage = table.Column<string>(type: "longtext", nullable: false)

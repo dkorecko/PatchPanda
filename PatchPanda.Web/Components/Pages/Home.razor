@@ -108,7 +108,7 @@ else
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var app in context.Apps)
+                                @foreach (var app in context.Apps.OrderBy(x => x.Name))
                                 {
                                     var newestVersion = app.NewerVersions?.FirstOrDefault();
                                     <tr>
@@ -119,7 +119,18 @@ else
                                                 <span class="badge text-bg-warning">Missing</span>
                                             } else
                                             {
-                                                <a href="@app.GitHubRepo" target="_blank">@app.GitHubRepo</a>
+                                                var repoCombination = app.GitHubRepo.Item1 + "/" + app.GitHubRepo.Item2;
+                                                <a href="https://github.com/@repoCombination" target="_blank">@repoCombination</a>
+
+                                                if(app.SecondaryGitHubRepos is not null)
+                                                {
+                                                    <div>Secondary:</div>
+                                                    @foreach(var secondary in app.SecondaryGitHubRepos)
+                                                    {
+                                                        var secondaryRepoCombination = secondary.Item1 + "/" + secondary.Item2;
+                                                        <a href="https://github.com/@secondaryRepoCombination" target="_blank">@secondaryRepoCombination</a>
+                                                    }
+                                                }
                                             }
                                         </td>
                                         <td>

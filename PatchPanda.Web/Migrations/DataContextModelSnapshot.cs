@@ -123,6 +123,9 @@ namespace PatchPanda.Web.Migrations
                     b.Property<string>("Regex")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("SecondaryGitHubRepos")
+                        .HasColumnType("longtext");
+
                     b.Property<int>("StackId")
                         .HasColumnType("int");
 

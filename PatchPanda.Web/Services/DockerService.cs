@@ -94,12 +94,6 @@ public class DockerService
                     Version = container.Image.Contains(':')
                         ? container.Image.Split(':', 2)[1]
                         : null,
-                    GitHubRepo = container.Labels.TryGetValue(
-                        "org.opencontainers.image.source",
-                        out var appSource
-                    )
-                        ? appSource
-                        : null,
                     CurrentSha = container.ImageID,
                     Uptime = container.Status,
                     TargetImage = container.Image,

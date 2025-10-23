@@ -58,7 +58,9 @@ public class DiscordService
             newVersion.Notified = true;
         }
 
-        message.AppendLine($"\n{container.GitHubRepo}/releases");
+        message.AppendLine(
+            $"\nhttps://github.com/{container.GitHubRepo!.Item1}/{container.GitHubRepo.Item2}/releases"
+        );
         message.AppendLine(
             $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{container.Id}"
         );
