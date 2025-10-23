@@ -115,8 +115,6 @@ public class VersionCheckHostedService : IHostedService
 
                         await discordService.SendUpdates(mainApp, [.. otherApps]);
                     }
-
-                    await Task.Delay(5000);
                 }
                 catch (RateLimitException ex)
                 {
