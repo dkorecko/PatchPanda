@@ -114,7 +114,9 @@ public class VersionService
                     x.Body.Has("breaking")
                     || x.Body.Has("critical")
                     || x.Body.Has("review before")
-                    || x.Body.Has("before upgrad"),
+                    || x.Body.Has("before upgrad")
+                    || x.Body.Has("important")
+                    || x.Body.Has("warning"),
                 Applications = targetApps
             });
 
