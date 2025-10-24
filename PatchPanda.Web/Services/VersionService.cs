@@ -117,7 +117,7 @@ public class VersionService
                     || x.Body.Has("review before")
                     || x.Body.Has("before upgrad")
                     || x.Body.Has("important")
-                    || x.Body.Has("warning"),
+                    || x.Body.Contains("Warning"),
                 Applications = targetApps
             });
 
