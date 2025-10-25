@@ -22,7 +22,11 @@ public class UpdateService
         || app.GitHubVersionRegex is null
         || app.Version is null;
 
-    public async Task<List<string>> Update(Container app, bool planOnly)
+    public async Task<List<string>> Update(
+        Container app,
+        bool planOnly,
+        Action<string>? outputCallback = null
+    )
     {
         if (!IsUpdateAvailable(app))
             throw new Exception("Update is not available.");
@@ -73,9 +77,9 @@ public class UpdateService
             File.ReadAllText(configPath).Replace(app.TargetImage, resultingImage)
         );
 
-        await _dockerService.RunDockerComposeOnPath(stack, "pull");
-        await _dockerService.RunDockerComposeOnPath(stack, "down");
-        await _dockerService.RunDockerComposeOnPath(stack, "up -d");
+        await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
+        await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
+        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
         app.NewerVersions = [];
 

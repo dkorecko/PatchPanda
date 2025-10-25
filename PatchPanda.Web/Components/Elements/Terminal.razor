@@ -1,0 +1,45 @@
+@inject IJSRuntime _jsRuntime
+@implements IAsyncDisposable
+
+<div class="terminal-output" id="terminal-output">
+    @foreach (var line in _terminalOutput.ToList())
+    {
+        <div class="terminal-line">@line</div>
+    }
+</div>
+
+@code {
+    private IJSObjectReference? _jsModule;
+    private List<string> _terminalOutput = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _terminalOutput.Clear();
+        _jsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Elements/Terminal.razor.js");
+    }
+
+    public async Task NewLine(string line)
+    {
+        _terminalOutput.Add(line);
+        await InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            if (_jsModule is not null)
+            {
+                await _jsModule.InvokeVoidAsync("scrollTerminalToBottom");
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule is not null)
+        {
+            await _jsModule.DisposeAsync();
+        }
+    }
+
+}

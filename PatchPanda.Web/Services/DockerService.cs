@@ -245,7 +245,11 @@ public class DockerService
         return configPath;
     }
 
-    public async Task RunDockerComposeOnPath(ComposeStack stack, string command)
+    public async Task RunDockerComposeOnPath(
+        ComposeStack stack,
+        string command,
+        Action<string>? outputCallback = null
+    )
     {
         var startInfo = new ProcessStartInfo
         {
@@ -261,8 +265,23 @@ public class DockerService
         var standardOutput = new StringBuilder();
         var standardError = new StringBuilder();
 
-        process.OutputDataReceived += (sender, args) => standardOutput.AppendLine(args.Data);
-        process.ErrorDataReceived += (sender, args) => standardError.AppendLine(args.Data);
+        process.OutputDataReceived += (sender, args) =>
+        {
+            if (args.Data != null)
+            {
+                standardOutput.AppendLine(args.Data);
+                outputCallback?.Invoke(args.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, args) =>
+        {
+            if (args.Data != null)
+            {
+                standardError.AppendLine(args.Data);
+                outputCallback?.Invoke(args.Data);
+            }
+        };
 
         process.Start();
 

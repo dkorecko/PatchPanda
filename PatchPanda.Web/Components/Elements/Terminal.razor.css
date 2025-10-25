@@ -1,0 +1,42 @@
+﻿.terminal-output {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #3e3e3e;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    scroll-behavior: smooth;
+}
+
+.terminal-line {
+    margin: 0;
+    padding: 2px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
+    .terminal-line:empty::before {
+        content: "\00a0";
+    }
+
+.terminal-output::-webkit-scrollbar {
+    width: 10px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+    background: #2d2d2d;
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 5px;
+}
+
+    .terminal-output::-webkit-scrollbar-thumb:hover {
+        background: #777;
+    }

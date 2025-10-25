@@ -1,4 +1,4 @@
-@page "/versions/{ContainerId:int}"
+﻿@page "/versions/{ContainerId:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject VersionService _versionService
 @inject UpdateService _updateService
@@ -76,6 +76,14 @@ else
                     <span>Update Now</span>
                 }
             </button>
+
+            @if (_isUpdating)
+            {
+                <div class="mb-4 mt-4">
+                    <h5>Update Progress:</h5>
+                    <Terminal @ref=_terminal/>
+                </div>
+            }
         }
     }
 }
@@ -88,6 +96,7 @@ else
     private Container? _app;
     private List<string>? _updatePlan;
     private bool _isUpdating;
+    private Terminal _terminal = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -119,7 +128,12 @@ else
 
         _isUpdating = true;
         StateHasChanged();
-        await _updateService.Update(_app, false);
+
+        await _updateService.Update(_app, false, async (output) =>
+        {
+            await _terminal.NewLine(output);
+        });
+
         await Task.Delay(1000);
         _isUpdating = false;
         await LoadData();
