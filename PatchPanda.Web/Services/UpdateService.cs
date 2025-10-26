@@ -35,13 +35,17 @@ public class UpdateService
         ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
         ArgumentNullException.ThrowIfNull(app.Version);
 
+        List<string> updateSteps = [];
+
         using var db = _dbContextFactory.CreateDbContext();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
         var configPath = _dockerService.ComputeConfigFilePath(stack);
+
+        updateSteps.Add($"In folder: {configPath}");
+
         var configFileContent = File.ReadAllText(configPath);
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-
         var targetVersion = app.NewerVersions.First();
         string newVersion = targetVersion.VersionNumber;
 
@@ -58,24 +62,79 @@ public class UpdateService
             newVersion = app.Version.Replace(match.Value, newVersion.TrimStart('v'));
         }
 
-        var resultingImage = app.TargetImage.Split(':')[0] + ':' + newVersion;
+        string? envFile = null;
+        string? envFileContent = null;
+        string? resultingImage = null;
+        string? currentEnvLine = null;
+        string? targetEnvLine = null;
 
-        var updateSteps = new List<string>
+        if (matches == 0) // Did not find in main config, check .env
         {
-            $"In folder: {configPath}",
-            $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}",
-            $"Pull images for stack {stack.StackName}",
-            $"Stop stack {stack.StackName}",
-            $"Start stack {stack.StackName}"
-        };
+            var envVariable = Regex.Match(
+                configFileContent,
+                "\\${([a-zA-Z0-9\\-_]+):-[a-zA-Z0-9\\-_]+}"
+            );
+
+            if (
+                envVariable.Success
+                && configFileContent.Contains(
+                    app.TargetImage.Split(':')[0] + $":{envVariable.Value}"
+                )
+            )
+            {
+                envFile = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, ".env");
+
+                if (File.Exists(envFile))
+                {
+                    envFileContent = File.ReadAllText(envFile);
+                    var envVarRegex = Regex.Escape(envVariable.Groups[1].Value);
+                    var targetImageSecondPortion = app.TargetImage.Split(':')[1];
+                    currentEnvLine = Regex
+                        .Match(
+                            envFileContent,
+                            $"{envVarRegex}={Regex.Escape(targetImageSecondPortion)}"
+                        )
+                        .Value;
+
+                    targetEnvLine = currentEnvLine.Replace(targetImageSecondPortion, newVersion);
+
+                    updateSteps.Add($"Looking at {envFile} .env file");
+                    updateSteps.Add(
+                        $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
+                    );
+                }
+            }
+        }
+        else
+        {
+            resultingImage = app.TargetImage.Split(':')[0] + ':' + newVersion;
+
+            updateSteps.Add(
+                $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}"
+            );
+        }
+
+        updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
         if (planOnly)
             return updateSteps;
 
-        File.WriteAllText(
-            configPath,
-            File.ReadAllText(configPath).Replace(app.TargetImage, resultingImage)
-        );
+        if (resultingImage is not null)
+        {
+            File.WriteAllText(
+                configPath,
+                configFileContent.Replace(app.TargetImage, resultingImage)
+            );
+        }
+        else if (
+            envFile is not null
+            && envFileContent is not null
+            && currentEnvLine is not null
+            && targetEnvLine is not null
+        )
+        {
+            File.WriteAllText(envFile, envFileContent.Replace(currentEnvLine, targetEnvLine));
+        }
 
         await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
         await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
