@@ -55,7 +55,12 @@ public static class ParsingHelper
 
         if (versionCounts.Any())
         {
-            var bestChoice = versionCounts.MaxBy(x => x.Value.Count);
+            var bestChoice = versionCounts
+                .OrderByDescending(x =>
+                    x.Value.Any(y => container.Version?.IsSameVersionAs(y.TagName) == true)
+                )
+                .ThenByDescending(x => x.Value.Count)
+                .First();
 
             container.GitHubRepo = bestChoice.Key;
             container.GitHubVersionRegex = bestChoice.Value.Any()
