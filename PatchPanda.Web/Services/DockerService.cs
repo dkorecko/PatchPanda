@@ -163,11 +163,9 @@ public class DockerService
 
         foreach (var runningStack in runningStacks)
         {
-            var existingStack = existingStacks
-                .Where(x =>
-                    runningStack.StackName == x.StackName && runningStack.ConfigFile == x.ConfigFile
-                )
-                .FirstOrDefault();
+            var existingStack = existingStacks.FirstOrDefault(x =>
+                runningStack.StackName == x.StackName && runningStack.ConfigFile == x.ConfigFile
+            );
 
             if (existingStack is null)
             {
