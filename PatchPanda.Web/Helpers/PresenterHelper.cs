@@ -11,7 +11,7 @@ public static class PresenterHelper
 
         foreach (
             var url in Regex
-                .Matches(currentInput, @"\[([a-zA-Z0-9 ]+)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
+                .Matches(currentInput, @"\[(.+)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
                 .ToList()
         )
         {
