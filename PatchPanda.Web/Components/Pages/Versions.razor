@@ -1,9 +1,9 @@
-﻿@page "/versions/{ContainerId:int}"
+@page "/versions/{ContainerId:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject VersionService _versionService
 @inject UpdateService _updateService
 
-<h3>Versions</h3>
+<PageTitle>Versions - @Constants.APP_NAME</PageTitle>
 
 @if(_app is null)
 {
@@ -12,6 +12,7 @@
 }
 else
 {
+    <PageTitle>@_app.Name versions - @Constants.APP_NAME</PageTitle>
     <h4>@_app.Name</h4>
     @if(_app.MultiContainerApp is not null)
     {

@@ -85,7 +85,7 @@ public class DiscordService
         var payload = new
         {
             content,
-            username = "PatchPanda",
+            username = Constants.APP_NAME,
             flags = 4
         };
         var jsonPayload = JsonSerializer.Serialize(payload);
