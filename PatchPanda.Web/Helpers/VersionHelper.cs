@@ -8,7 +8,12 @@ public static class VersionHelper
     {
         string regex = "^";
 
-        if (version.StartsWith('v'))
+        if (version.Contains('@'))
+        {
+            var atSplit = version.Split('@');
+            regex += Regex.Escape(atSplit[0]) + "@";
+        }
+        else if (version.StartsWith('v'))
             regex += "v";
 
         string cleanedVersion = version.TrimStart('v');
@@ -73,6 +78,9 @@ public static class VersionHelper
     {
         string cleanedVersion1 = version1.TrimStart('v');
         string cleanedVersion2 = version2.TrimStart('v');
+
+        if (cleanedVersion1.Contains('@'))
+            cleanedVersion1 = cleanedVersion1.Split('@')[1];
 
         var numbers1 = Regex.Matches(cleanedVersion1, @"\d+");
         var numbers2 = Regex.Matches(cleanedVersion2, @"\d+");
