@@ -23,7 +23,33 @@
 
     public async Task NewLine(string line)
     {
+        var cleanedLine = line.TrimStart();
+
+        if (cleanedLine.Contains(' '))
+        {
+            foreach(var printedLine in _terminalOutput.ToList())
+            {
+                var cleanedPrintedLine = printedLine.TrimStart();
+
+                if(!cleanedLine.Contains(' ') || !cleanedPrintedLine.Contains(' '))
+                    continue;
+
+                var cleanedLineSplit = cleanedLine.Split(' ');
+                var cleanedPrintedLineSplit = cleanedPrintedLine.Split(' ');
+
+                if (cleanedLineSplit[0].Equals(cleanedPrintedLineSplit[0]) && (!cleanedLine.StartsWith("Container") || (cleanedLineSplit.Length > 1 && cleanedPrintedLineSplit.Length > 1 && cleanedLineSplit[1].Equals(cleanedPrintedLineSplit[1]))))
+                {
+                    var index = _terminalOutput.IndexOf(printedLine);
+                    _terminalOutput[index] = line;
+
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+            }
+        }
+
         _terminalOutput.Add(line);
+
         await InvokeAsync(async () =>
         {
             StateHasChanged();
