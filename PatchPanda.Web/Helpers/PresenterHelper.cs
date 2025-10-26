@@ -7,11 +7,19 @@ public static class PresenterHelper
 {
     public static MarkupString ToMarkupString(this string input)
     {
-        var currentInput = input.Replace("\r\n", "<br/>").Replace("\n", "<br/>");
+        var currentInput = input;
+
+        foreach (var url in Regex.Matches(currentInput, @" (https:\/\/[\S]+)").ToList())
+        {
+            currentInput = currentInput.Replace(
+                url.Value,
+                $"<a href=\"{url.Groups[1].Value}\" target=\"_blank\">{url.Groups[1].Value}</a>"
+            );
+        }
 
         foreach (
             var url in Regex
-                .Matches(currentInput, @"\[(.+)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
+                .Matches(currentInput, @"\[([\S ]+?)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
                 .ToList()
         )
         {
@@ -28,6 +36,8 @@ public static class PresenterHelper
                 $"<strong>{bold.Groups[1].Value}</strong>"
             );
         }
+
+        currentInput = currentInput.Replace("\r\n", "<br/>").Replace("\n", "<br/>");
 
         return new MarkupString(currentInput);
     }
