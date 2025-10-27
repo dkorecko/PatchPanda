@@ -35,7 +35,7 @@ else
         <ul>
             @foreach(var version in _app.NewerVersions)
             {
-                <li>
+                <li class='@(version.Ignored ? "text-body-tertiary" : string.Empty)'>
                     <div>
                         <b><u>@version.Name</u></b>
                         <b>(@version.VersionNumber)</b>
@@ -46,6 +46,12 @@ else
                         @if(version.Breaking)
                         {
                             <b class="ms-2">[BREAKING]</b>
+                        }
+                        @if(version.Ignored)
+                        {
+                            <span class="badge bg-secondary ms-2">Ignored</span>
+                        } else {
+                            <button class="btn btn-outline-primary" @onclick="async () => await ToggleIgnoreVersion(version)">Ignore this version</button>
                         }
                     </div>
                     <div>@(version.Body.ToMarkupString())</div>
@@ -138,5 +144,13 @@ else
         await Task.Delay(1000);
         _isUpdating = false;
         await LoadData();
+    }
+
+    public async Task ToggleIgnoreVersion(AppVersion version)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        version.Ignored = !version.Ignored;
+        await db.AppVersions.Where(x => x.Id == version.Id).ExecuteUpdateAsync(x => x.SetProperty(setter => setter.Ignored, version.Ignored));
     }
 }

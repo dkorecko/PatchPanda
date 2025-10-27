@@ -53,7 +53,14 @@ public class UpdateService
         {
             var githubRegexWithoutSuffixAndPrefix = app
                 .GitHubVersionRegex.Replace("^v", "^")
+                .TrimStart('^')
                 .TrimEnd('$');
+
+            if (githubRegexWithoutSuffixAndPrefix.Contains('@'))
+                githubRegexWithoutSuffixAndPrefix = githubRegexWithoutSuffixAndPrefix.Split('@')[1];
+
+            githubRegexWithoutSuffixAndPrefix = "^" + githubRegexWithoutSuffixAndPrefix;
+
             var match = Regex.Match(app.Version, githubRegexWithoutSuffixAndPrefix);
 
             if (!match.Success)

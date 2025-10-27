@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @inject DockerService _dockerService
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
@@ -31,14 +31,15 @@ else
         @foreach (var context in _composeStacks.OrderBy(x => x.StackName))
         {
             var stackId = $"stack_{i}";
+            var appsWithNewerVersions = context.Apps.Where(x => x.NewerVersions.Any(y => !y.Ignored)).ToList();
             i++;
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
                         <b>@context.StackName</b>
-                        @if(context.Apps.Count(x => x.NewerVersions.Any()) > 0)
+                        @if (appsWithNewerVersions.Count > 0)
                         {
-                            <span class="badge text-bg-warning ms-2">@context.Apps.Count(x => x.NewerVersions.Any()) updates</span>
+                            <span class="badge text-bg-warning ms-2">@appsWithNewerVersions.Count updates</span>
                         } else
                         {
                             <span class="badge text-bg-success ms-2">All up-to-date</span>
@@ -114,7 +115,7 @@ else
                             <tbody>
                                 @foreach (var app in context.Apps.OrderBy(x => x.Name))
                                 {
-                                    var newestVersion = app.NewerVersions?.FirstOrDefault();
+                                    var newestVersion = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
                                     <tr>
                                         <td>@app.Name</td>
                                         <td>
@@ -167,7 +168,14 @@ else
                                         <td>
                                             @if(newestVersion is null)
                                             {
+                                                var ignoredVersions = app.NewerVersions.Where(x => x.Ignored).ToList();
+
                                                 <span class="badge text-bg-success">Up to date</span>
+
+                                                if(ignoredVersions.Count > 0)
+                                                {
+                                                    <span class="badge text-bg-light ms-1">@ignoredVersions.Count ignored versions</span>
+                                                }
                                             }
                                             else
                                             {

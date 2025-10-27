@@ -14,5 +14,7 @@ public class AppVersion : AbstractEntity
 
     public bool Notified { get; set; }
 
+    public bool Ignored { get; set; }
+
     public virtual List<Container> Applications { get; set; } = [];
 }
