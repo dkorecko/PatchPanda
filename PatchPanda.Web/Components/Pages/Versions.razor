@@ -125,6 +125,8 @@ else
                 _updatePlan = await _updateService.Update(app, true);
         }
 
+        app.NewerVersions.Sort((x, y) => VersionHelper.NewerComparison(x.VersionNumber, y.VersionNumber));
+
         _app = app;
         StateHasChanged();
     }

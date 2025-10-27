@@ -82,6 +82,9 @@ public static class VersionHelper
         if (cleanedVersion1.Contains('@'))
             cleanedVersion1 = cleanedVersion1.Split('@')[1];
 
+        if (cleanedVersion2.Contains('@'))
+            cleanedVersion2 = cleanedVersion2.Split('@')[1];
+
         var numbers1 = Regex.Matches(cleanedVersion1, @"\d+");
         var numbers2 = Regex.Matches(cleanedVersion2, @"\d+");
 
@@ -100,5 +103,15 @@ public static class VersionHelper
         }
 
         return false;
+    }
+
+    public static int NewerComparison(string version1, string version2)
+    {
+        if (version1.IsNewerThan(version2))
+            return -1;
+        else if (version2.IsNewerThan(version1))
+            return 1;
+        else
+            return 0;
     }
 }
