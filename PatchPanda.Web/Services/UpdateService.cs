@@ -47,26 +47,18 @@ public class UpdateService
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
         var targetVersion = app.NewerVersions.First();
-        string newVersion = targetVersion.VersionNumber;
+        var newVersion = targetVersion.VersionNumber;
+        var adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
+        var versionMatch = Regex.Match(newVersion, adjustedRegex);
 
-        if (!Regex.Match(targetVersion.VersionNumber, app.Regex).Success)
+        if (versionMatch.Success)
         {
-            var githubRegexWithoutSuffixAndPrefix = app
-                .GitHubVersionRegex.Replace("^v", "^")
-                .TrimStart('^')
-                .TrimEnd('$');
-
-            if (githubRegexWithoutSuffixAndPrefix.Contains('@'))
-                githubRegexWithoutSuffixAndPrefix = githubRegexWithoutSuffixAndPrefix.Split('@')[1];
-
-            githubRegexWithoutSuffixAndPrefix = "^" + githubRegexWithoutSuffixAndPrefix;
-
-            var match = Regex.Match(app.Version, githubRegexWithoutSuffixAndPrefix);
+            var match = Regex.Match(app.Version, app.Regex);
 
             if (!match.Success)
                 throw new Exception("Could not match versions for update.");
 
-            newVersion = app.Version.Replace(match.Value, newVersion.TrimStart('v'));
+            newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
         }
 
         string? envFile = null;
