@@ -18,9 +18,7 @@ public static class PresenterHelper
         }
 
         foreach (
-            var url in Regex
-                .Matches(currentInput, @"\[([\S ]+?)\]\((https:\/\/[a-zA-Z0-9.\/-]+)\)")
-                .ToList()
+            var url in Regex.Matches(currentInput, @"\[([\S ]+?)\]\((https:\/\/[\S]+?)\)").ToList()
         )
         {
             currentInput = currentInput.Replace(
