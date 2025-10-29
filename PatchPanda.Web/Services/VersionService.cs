@@ -1,5 +1,7 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Octokit;
+using PatchPanda.Web.Helpers;
 
 namespace PatchPanda.Web.Services;
 
@@ -103,6 +105,19 @@ public class VersionService
             .Containers.Where(x => allApps.Select(y => y.Id).Contains(x.Id))
             .ToListAsync();
 
+        List<Release> additionalReleases = [];
+
+        if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Any())
+        {
+            foreach (var repo in app.SecondaryGitHubRepos)
+            {
+                var versions = await GetVersions(repo);
+
+                if (versions.Any())
+                    additionalReleases.AddRange(versions);
+            }
+        }
+
         var newerVersions = validReleases
             .Where(x => x.TagName.IsNewerThan(app.Version))
             .Select(x => new AppVersion()
@@ -111,13 +126,7 @@ public class VersionService
                 Name = x.Name,
                 Prerelease = x.Prerelease,
                 VersionNumber = x.TagName,
-                Breaking =
-                    x.Body.Has("breaking")
-                    || x.Body.Has("critical")
-                    || x.Body.Has("review before")
-                    || x.Body.Has("before upgrad")
-                    || x.Body.Has("important")
-                    || x.Body.Contains("Warning"),
+                Breaking = false,
                 Applications = targetApps
             });
 
@@ -129,6 +138,25 @@ public class VersionService
         var notSeenNewVersions = newerVersions
             .Where(nv => !appNewerVersions.Any(av => av.VersionNumber == nv.VersionNumber))
             .ToList();
+
+        notSeenNewVersions.Sort(
+            (a, b) => VersionHelper.NewerComparison(a.VersionNumber, b.VersionNumber)
+        );
+
+        UpdateBodiesWithSecondaryReleaseNotes(notSeenNewVersions, app, additionalReleases);
+
+        notSeenNewVersions.ForEach(x =>
+        {
+            if (
+                x.Body.Has("breaking")
+                || x.Body.Has("critical")
+                || x.Body.Has("review before")
+                || x.Body.Has("before upgrad")
+                || x.Body.Has("important")
+                || x.Body.Contains("Warning")
+            )
+                x.Breaking = true;
+        });
 
         db.AppVersions.AddRange(notSeenNewVersions);
 
@@ -147,5 +175,66 @@ public class VersionService
         );
 
         return notSeenNewVersions;
+    }
+
+    public void UpdateBodiesWithSecondaryReleaseNotes(
+        List<AppVersion> newVersions,
+        Container app,
+        List<Release> secondaryReleases
+    )
+    {
+        ArgumentNullException.ThrowIfNull(app.Version);
+
+        var remainingSecondaryReleases = secondaryReleases.ToList();
+
+        remainingSecondaryReleases.Sort(
+            (a, b) => VersionHelper.NewerComparison(a.TagName, b.TagName)
+        );
+
+        var matchingCurrentAdditionalRelease = remainingSecondaryReleases.FirstOrDefault(ar =>
+            ar.TagName.TrimStart('v') == app.Version.Split("-ls")[0].TrimStart('v')
+        );
+
+        if (matchingCurrentAdditionalRelease is null)
+            return;
+
+        remainingSecondaryReleases = remainingSecondaryReleases
+            .Take(remainingSecondaryReleases.IndexOf(matchingCurrentAdditionalRelease))
+            .ToList();
+
+        newVersions.Reverse();
+
+        foreach (var newVersion in newVersions)
+        {
+            if (!newVersion.VersionNumber.Contains("-ls"))
+                continue;
+
+            var matchingAdditionalRelease = remainingSecondaryReleases.FirstOrDefault(ar =>
+                ar.TagName.TrimStart('v') == newVersion.VersionNumber.Split("-ls")[0].TrimStart('v')
+            );
+
+            if (matchingAdditionalRelease is null)
+                continue;
+
+            var earlierRelevantAdditionalReleases = remainingSecondaryReleases
+                .Where(x => matchingAdditionalRelease.TagName.IsNewerThan(x.TagName))
+                .ToList();
+
+            List<Release> allRelevantReleases =
+            [
+                matchingAdditionalRelease,
+                .. earlierRelevantAdditionalReleases
+            ];
+
+            if (allRelevantReleases.Any())
+            {
+                newVersion.Body +=
+                    $"\n\n## 📜 Additional Release Notes - {newVersion.VersionNumber}\n";
+                foreach (var rel in allRelevantReleases)
+                {
+                    newVersion.Body += $"\n---\n### __{rel.Name}__\n{rel.Body}\n";
+                }
+            }
+        }
     }
 }

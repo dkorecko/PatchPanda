@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace PatchPanda.Web.Services;
@@ -34,9 +34,9 @@ public class DiscordService
         var message = new StringBuilder();
 
         message.AppendLine(
-            $":tada: **{string.Join(" + ", [container.Name, .. otherContainers.Select(x => x.Name)])} UPDATE** :tada:\n"
+            $"# 🎉 {string.Join(" + ", [container.Name, .. otherContainers.Select(x => x.Name)])} UPDATE 🎉\n"
         );
-        message.AppendLine(":rocket: **Version Details**");
+        message.AppendLine("🚀 **Version Details**");
         message.AppendLine($"- **New Version:** `{newerVersions.First().VersionNumber}`");
         message.AppendLine($"- **Previously Used Version:** `{container.Version ?? "Missing"}`");
         message.AppendLine(
@@ -51,7 +51,7 @@ public class DiscordService
         foreach (var newVersion in newerVersions)
         {
             message.AppendLine(
-                $":scroll: **Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}**\n"
+                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}\n"
             );
             message.AppendLine(newVersion.Body);
             message.AppendLine("\n");
