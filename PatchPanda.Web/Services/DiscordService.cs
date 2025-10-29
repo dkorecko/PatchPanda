@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 
 namespace PatchPanda.Web.Services;
@@ -70,9 +70,25 @@ public class DiscordService
 
         while (fullMessage.Length > 0)
         {
-            var msg = fullMessage.Length > ChunkSize ? fullMessage[..ChunkSize] : fullMessage;
+            var splitPoint = Math.Min(ChunkSize, fullMessage.Length);
+            var msg = string.Empty;
+
+            if (splitPoint < fullMessage.Length)
+            {
+                var lastNewlineIndex = fullMessage.LastIndexOfAny(
+                    ['\n', '\r'],
+                    splitPoint,
+                    splitPoint - 1
+                );
+
+                if (lastNewlineIndex != -1)
+                    splitPoint = lastNewlineIndex + 1;
+            }
+
+            msg = fullMessage[..splitPoint];
             await SendWebhook(msg);
-            fullMessage = fullMessage.Length > ChunkSize ? fullMessage[ChunkSize..] : string.Empty;
+            fullMessage =
+                fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
             await Task.Delay(1000);
         }
 
