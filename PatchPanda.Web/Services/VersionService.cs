@@ -236,5 +236,7 @@ public class VersionService
                 }
             }
         }
+
+        newVersions.Reverse();
     }
 }
