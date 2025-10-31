@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using PatchPanda.Web.Components;
+using PatchPanda.Web.Services.Background;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +10,10 @@ builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<VersionService>();
 builder.Services.AddScoped<DiscordService>();
 builder.Services.AddScoped<UpdateService>();
+builder.Services.AddSingleton<UpdateRegistry>();
+builder.Services.AddSingleton<UpdateQueue>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
+builder.Services.AddHostedService<UpdateBackgroundService>();
 
 var connectionString =
     $"Server={builder.Configuration.GetValue<string>("DB_HOST")};Database={builder.Configuration.GetValue<string>("DB_NAME", "patchpanda")};Uid={builder.Configuration.GetValue<string>("DB_USERNAME", "patchpanda")};Pwd={builder.Configuration.GetValue<string>("DB_PASSWORD")};";

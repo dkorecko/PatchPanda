@@ -2,6 +2,9 @@
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject VersionService _versionService
 @inject UpdateService _updateService
+@inject UpdateRegistry _updateRegistry
+@inject UpdateQueue _updateQueue
+@implements IDisposable
 
 <PageTitle>Versions - @Constants.APP_NAME</PageTitle>
 
@@ -113,6 +116,7 @@ else
     private bool _isUpdating;
     private Terminal _terminal = default!;
     private AppVersion? _selectedVersion;
+    private System.Timers.Timer? _pollTimer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -138,17 +142,21 @@ else
                 _updatePlan = await _updateService.Update(app, true, targetVersion: _selectedVersion);
             }
         }
-
-        app.NewerVersions.Sort((x, y) => VersionHelper.NewerComparison(x.VersionNumber, y.VersionNumber));
-
         _app = app;
-        StateHasChanged();
+
+        if (_updateRegistry.IsMarked(_app.Id))
+        {
+            _isUpdating = true;
+            StartPolling();
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     public async Task SetTargetVersion(AppVersion version)
     {
         _selectedVersion = version;
-        
+
         if (_app is not null && _updateService.IsUpdateAvailable(_app))
         {
             _updatePlan = await _updateService.Update(_app, true, targetVersion: _selectedVersion);
@@ -159,19 +167,46 @@ else
     public async Task ExecuteUpdate()
     {
         ArgumentNullException.ThrowIfNull(_app);
+        ArgumentNullException.ThrowIfNull(_selectedVersion);
+
+        _updateRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
+        await _updateQueue.EnqueueAsync(new PendingUpdateWork(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber));
 
         _isUpdating = true;
         StateHasChanged();
 
-        await _updateService.Update(_app, false, async (output) =>
-        {
-            await _terminal.NewLine(output);
-        }, _selectedVersion);
+        StartPolling();
+    }
 
-        await Task.Delay(1000);
-        _isUpdating = false;
-        _selectedVersion = null;
-        await LoadData();
+    private void StartPolling()
+    {
+        if (_pollTimer is not null)
+            return;
+
+        _pollTimer = new System.Timers.Timer(1000);
+        _pollTimer.Elapsed += async (_, __) => await PollOutput();
+        _pollTimer.AutoReset = true;
+        _pollTimer.Start();
+    }
+
+    private async Task PollOutput()
+    {
+        ArgumentNullException.ThrowIfNull(_app);
+
+        var output = _updateRegistry.GetOutputSnapshot(_app.Id);
+
+        foreach (var line in output)
+        {
+            await _terminal.NewLine(line);
+        }
+
+        if (!_updateRegistry.IsMarked(_app.Id))
+        {
+            Dispose();
+            _isUpdating = false;
+            _selectedVersion = null;
+            await LoadData();
+        }
     }
 
     public async Task ToggleIgnoreVersion(AppVersion version)
@@ -180,5 +215,15 @@ else
 
         version.Ignored = !version.Ignored;
         await db.AppVersions.Where(x => x.Id == version.Id).ExecuteUpdateAsync(x => x.SetProperty(setter => setter.Ignored, version.Ignored));
+    }
+
+    public void Dispose()
+    {
+        if (_pollTimer is not null)
+        {
+            _pollTimer.Stop();
+            _pollTimer.Dispose();
+            _pollTimer = null;
+        }
     }
 }

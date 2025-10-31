@@ -144,12 +144,10 @@ public class UpdateService
             .NewerVersions.Where(v =>
                 !v.VersionNumber.IsNewerThan(targetVersionToUse.VersionNumber)
             )
+            .Select(x => x.Id)
             .ToList();
 
-        foreach (var version in versionsToRemove)
-        {
-            app.NewerVersions.Remove(version);
-        }
+        await db.AppVersions.Where(x => versionsToRemove.Contains(x.Id)).ExecuteDeleteAsync();
 
         await _dockerService.ResetComposeStacks();
 
