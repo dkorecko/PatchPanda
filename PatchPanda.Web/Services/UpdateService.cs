@@ -25,7 +25,8 @@ public class UpdateService
     public async Task<List<string>> Update(
         Container app,
         bool planOnly,
-        Action<string>? outputCallback = null
+        Action<string>? outputCallback = null,
+        AppVersion? targetVersion = null
     )
     {
         if (!IsUpdateAvailable(app))
@@ -46,8 +47,8 @@ public class UpdateService
         var configFileContent = File.ReadAllText(configPath);
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-        var targetVersion = app.NewerVersions.First();
-        var newVersion = targetVersion.VersionNumber;
+        var targetVersionToUse = targetVersion ?? app.NewerVersions.First();
+        var newVersion = targetVersionToUse.VersionNumber;
         var adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
         var versionMatch = Regex.Match(newVersion, adjustedRegex);
 
@@ -139,7 +140,16 @@ public class UpdateService
         await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
         await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
-        app.NewerVersions = [];
+        var versionsToRemove = app
+            .NewerVersions.Where(v =>
+                !v.VersionNumber.IsNewerThan(targetVersionToUse.VersionNumber)
+            )
+            .ToList();
+
+        foreach (var version in versionsToRemove)
+        {
+            app.NewerVersions.Remove(version);
+        }
 
         await _dockerService.ResetComposeStacks();
 

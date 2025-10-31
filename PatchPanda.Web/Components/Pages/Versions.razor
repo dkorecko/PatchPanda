@@ -53,6 +53,14 @@ else
                         } else {
                             <button class="btn btn-outline-primary" @onclick="async () => await ToggleIgnoreVersion(version)">Ignore this version</button>
                         }
+                        @if(_selectedVersion?.Id == version.Id)
+                        {
+                            <span class="badge bg-success ms-2">Selected for Update</span>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-success ms-2" @onclick="async () => await SetTargetVersion(version)">Select for Update</button>
+                        }
                     </div>
                     <div>@(version.Body.ToMarkupString())</div>
                 </li>
@@ -104,6 +112,7 @@ else
     private List<string>? _updatePlan;
     private bool _isUpdating;
     private Terminal _terminal = default!;
+    private AppVersion? _selectedVersion;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -122,13 +131,27 @@ else
         if (app.NewerVersions.Any())
         {
             if (_updateService.IsUpdateAvailable(app))
-                _updatePlan = await _updateService.Update(app, true);
+            {
+                _selectedVersion ??= app.NewerVersions.First();
+                _updatePlan = await _updateService.Update(app, true, targetVersion: _selectedVersion);
+            }
         }
 
         app.NewerVersions.Sort((x, y) => VersionHelper.NewerComparison(x.VersionNumber, y.VersionNumber));
 
         _app = app;
         StateHasChanged();
+    }
+
+    public async Task SetTargetVersion(AppVersion version)
+    {
+        _selectedVersion = version;
+        
+        if (_app is not null && _updateService.IsUpdateAvailable(_app))
+        {
+            _updatePlan = await _updateService.Update(_app, true, targetVersion: _selectedVersion);
+            StateHasChanged();
+        }
     }
 
     public async Task ExecuteUpdate()
@@ -141,10 +164,11 @@ else
         await _updateService.Update(_app, false, async (output) =>
         {
             await _terminal.NewLine(output);
-        });
+        }, _selectedVersion);
 
         await Task.Delay(1000);
         _isUpdating = false;
+        _selectedVersion = null;
         await LoadData();
     }
 
