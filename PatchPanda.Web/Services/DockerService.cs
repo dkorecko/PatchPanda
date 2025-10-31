@@ -184,15 +184,6 @@ public class DockerService
 
                 if (existingContainer is not null)
                 {
-                    foundApps.Add(existingContainer);
-                    if (
-                        existingContainer.NewerVersions.Any()
-                        && existingContainer.Version != runningContainer.Version
-                    )
-                    {
-                        existingContainer.NewerVersions.Clear();
-                    }
-
                     existingContainer.Uptime = runningContainer.Uptime;
                     existingContainer.CurrentSha = runningContainer.CurrentSha;
                     existingContainer.GitHubRepo = runningContainer.GitHubRepo;
@@ -201,6 +192,11 @@ public class DockerService
                     existingContainer.TargetImage = runningContainer.TargetImage;
                     existingContainer.Regex = runningContainer.Regex;
                     existingContainer.GitHubVersionRegex = runningContainer.GitHubVersionRegex;
+
+                    if (runningContainer.Version is not null)
+                        existingContainer.NewerVersions.RemoveAll(x =>
+                            !x.VersionNumber.IsNewerThan(runningContainer.Version)
+                        );
 
                     foundApps.Add(existingContainer);
                 }

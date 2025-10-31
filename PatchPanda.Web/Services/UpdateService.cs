@@ -140,15 +140,6 @@ public class UpdateService
         await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
         await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
-        var versionsToRemove = app
-            .NewerVersions.Where(v =>
-                !v.VersionNumber.IsNewerThan(targetVersionToUse.VersionNumber)
-            )
-            .Select(x => x.Id)
-            .ToList();
-
-        await db.AppVersions.Where(x => versionsToRemove.Contains(x.Id)).ExecuteDeleteAsync();
-
         await _dockerService.ResetComposeStacks();
 
         return updateSteps;
