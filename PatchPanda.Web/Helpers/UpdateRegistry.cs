@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using PatchPanda.Web.Components;
 
 namespace PatchPanda.Web.Helpers;
 
@@ -14,8 +15,18 @@ public class PendingUpdate
 public class UpdateRegistry
 {
     private readonly ConcurrentDictionary<int, PendingUpdate> _pending = new();
+    private readonly UpdateQueue _updateQueue;
 
-    public void MarkForUpdate(int containerId, int targetVersionId, string targetVersionNumber)
+    public UpdateRegistry(UpdateQueue updateQueue)
+    {
+        _updateQueue = updateQueue;
+    }
+
+    public async Task MarkForUpdate(
+        int containerId,
+        int targetVersionId,
+        string targetVersionNumber
+    )
     {
         _pending.TryAdd(
             containerId,
@@ -25,6 +36,9 @@ public class UpdateRegistry
                 TargetVersionId = targetVersionId,
                 TargetVersionNumber = targetVersionNumber
             }
+        );
+        await _updateQueue.EnqueueAsync(
+            new PendingUpdateWork(containerId, targetVersionId, targetVersionNumber)
         );
     }
 

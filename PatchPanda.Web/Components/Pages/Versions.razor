@@ -3,7 +3,6 @@
 @inject VersionService _versionService
 @inject UpdateService _updateService
 @inject UpdateRegistry _updateRegistry
-@inject UpdateQueue _updateQueue
 @implements IDisposable
 
 <PageTitle>Versions - @Constants.APP_NAME</PageTitle>
@@ -169,8 +168,7 @@ else
         ArgumentNullException.ThrowIfNull(_app);
         ArgumentNullException.ThrowIfNull(_selectedVersion);
 
-        _updateRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
-        await _updateQueue.EnqueueAsync(new PendingUpdateWork(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber));
+        await _updateRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
 
         _isUpdating = true;
         StateHasChanged();
