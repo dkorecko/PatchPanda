@@ -122,7 +122,16 @@ public class DockerService
 
                 await app.SetGitHubRepo(container, _versionService, _logger);
 
-                string[] containsMap = ["mongo", "redis", "db", "database", "cache", "postgres"];
+                string[] containsMap =
+                [
+                    "mongo",
+                    "redis",
+                    "db",
+                    "database",
+                    "cache",
+                    "postgres",
+                    "broker"
+                ];
 
                 if (containsMap.Any(app.Name.Contains))
                     app.IsSecondary = true;
