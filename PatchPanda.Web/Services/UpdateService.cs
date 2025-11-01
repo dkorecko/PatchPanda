@@ -49,17 +49,12 @@ public class UpdateService
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
         var targetVersionToUse = targetVersion ?? app.NewerVersions.First();
         var newVersion = targetVersionToUse.VersionNumber;
-        var adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
-        var versionMatch = Regex.Match(newVersion, adjustedRegex);
+        var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
+        var versionMatch = Regex.Match(app.Version, adjustedRegex);
 
         if (versionMatch.Success)
         {
-            var match = Regex.Match(app.Version, app.Regex);
-
-            if (!match.Success)
-                throw new Exception("Could not match versions for update.");
-
-            newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
+            newVersion = app.Version.Replace(versionMatch.Value, newVersion.TrimStart('v'));
         }
 
         string? envFile = null;
