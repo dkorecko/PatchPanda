@@ -72,6 +72,11 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
 
         modelBuilder
             .Entity<Container>()
+            .Property(x => x.OverrideGitHubRepo)
+            .HasConversion(tupleStringConverter);
+
+        modelBuilder
+            .Entity<Container>()
             .Property(x => x.SecondaryGitHubRepos)
             .HasConversion(listStringConverter);
     }

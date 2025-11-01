@@ -55,7 +55,7 @@ public class VersionCheckHostedService : IHostedService
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
-            .Where(x => !x.IsSecondary && x.GitHubRepo != null)
+            .Where(x => !x.IsSecondary && (x.GitHubRepo != null || x.OverrideGitHubRepo != null))
             .ToListAsync();
 
         if (!containers.Any())
@@ -73,7 +73,7 @@ public class VersionCheckHostedService : IHostedService
         _pushedOnce = false;
 
         var uniqueRepoGroups = containers
-            .GroupBy(x => x.GitHubRepo!)
+            .GroupBy(x => x.GetGitHubRepo()!)
             .OrderBy(x => x.First().LastVersionCheck);
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)

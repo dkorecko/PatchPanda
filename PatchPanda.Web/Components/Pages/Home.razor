@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @inject DockerService _dockerService
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
@@ -44,7 +44,7 @@ else
                         {
                             <span class="badge text-bg-success ms-2">All up-to-date</span>
                         }
-                        @if(context.Apps.Any(x => x.GitHubRepo is null && !x.IsSecondary))
+                        @if(context.Apps.Any(x => x.GetGitHubRepo() is null && !x.IsSecondary))
                         {
                             <span class="badge text-bg-danger ms-2">Missing GitHub repo</span>
                         }
@@ -116,15 +116,16 @@ else
                                 @foreach (var app in context.Apps.OrderBy(x => x.Name))
                                 {
                                     var newestVersion = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
+                                    var repo = app.GetGitHubRepo();
                                     <tr>
                                         <td>@app.Name</td>
                                         <td>
-                                            @if(app.GitHubRepo is null)
+                                            @if(repo is null)
                                             {
                                                 <span class="badge text-bg-warning">Missing</span>
                                             } else
                                             {
-                                                var repoCombination = app.GitHubRepo.Item1 + "/" + app.GitHubRepo.Item2;
+                                                var repoCombination = repo.Item1 + "/" + repo.Item2;
                                                 <a href="https://github.com/@repoCombination" target="_blank">@repoCombination</a>
 
                                                 if(app.SecondaryGitHubRepos is not null)
@@ -203,6 +204,7 @@ else
                                         <td>@(app.LastVersionCheck.Equals(DateTime.MinValue) ? "Never" : app.LastVersionCheck.ToReadableStringWithTime())</td>
                                         <td>
                                             <a target="_blank" href="/versions/@app.Id" class="btn btn-primary">Releases</a>
+                                            <a target="_blank" href="/container/@app.Id" class="btn btn-primary">Edit</a>
                                         </td>
                                     </tr>
                                 }

@@ -10,6 +10,8 @@ public class Container : AbstractEntity
 
     public Tuple<string, string>? GitHubRepo { get; set; }
 
+    public Tuple<string, string>? OverrideGitHubRepo { get; set; }
+
     public List<Tuple<string, string>>? SecondaryGitHubRepos { get; set; }
 
     public required string Uptime { get; set; }
@@ -33,4 +35,6 @@ public class Container : AbstractEntity
     public required int StackId { get; set; }
 
     public virtual ComposeStack Stack { get; set; } = null!;
+
+    public Tuple<string, string>? GetGitHubRepo() => OverrideGitHubRepo ?? GitHubRepo;
 }

@@ -27,7 +27,7 @@ public class MultiContainerAppDetector
         }
 
         remainingApps
-            .GroupBy(app => app.GitHubRepo)
+            .GroupBy(app => app.GetGitHubRepo())
             .Where(g => g.Count() > 1 && g.Key is not null)
             .ToList()
             .ForEach(group =>

@@ -139,7 +139,7 @@ public class DockerService
                 existingStack.Apps.Add(app);
 
                 if (
-                    app.GitHubRepo is null
+                    app.GetGitHubRepo() is null
                     || app.Version is null
                     || app.Regex is null
                     || app.GitHubVersionRegex is null

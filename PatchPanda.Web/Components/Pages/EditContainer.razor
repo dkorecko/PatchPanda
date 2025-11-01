@@ -1,0 +1,75 @@
+@page "/container/{Id:int}"
+@inject IDbContextFactory<DataContext> _dbContextFactory
+@inject NavigationManager _navigationManager
+@inject VersionService _versionService
+
+<PageTitle>Edit container - @Constants.APP_NAME</PageTitle>
+
+<h3>Edit container</h3>
+
+<EditForm Model="_model" OnValidSubmit="OnValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <Name For="() => _model.OverrideGitHubRepoOwner"/>
+    <InputText @bind-Value="_model.OverrideGitHubRepoOwner"/>
+    <ValidationMessage For="() => _model.OverrideGitHubRepoOwner" />
+
+    <Name For="() => _model.OverrideGitHubRepoName" />
+    <InputText @bind-Value="_model.OverrideGitHubRepoName" />
+    <ValidationMessage For="() => _model.OverrideGitHubRepoName" />
+
+    <button type="submit" class="btn btn-primary">Save</button>
+</EditForm>
+
+
+@code {
+    [Parameter]
+    public required int Id { get; set; }
+
+    private ContainerModel _model = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var entity = await db.Containers.FindAsync(Id);
+
+        if (entity is null)
+            return;
+
+        _model = new()
+        {
+            OverrideGitHubRepoOwner = entity.OverrideGitHubRepo?.Item1,
+            OverrideGitHubRepoName = entity.OverrideGitHubRepo?.Item2
+        };
+
+        StateHasChanged();
+    }
+
+    public async Task OnValidSubmit()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var result = string.IsNullOrWhiteSpace(_model.OverrideGitHubRepoOwner) || string.IsNullOrWhiteSpace(_model.OverrideGitHubRepoName) ? null : new Tuple<string, string>(_model.OverrideGitHubRepoOwner, _model.OverrideGitHubRepoName);
+        string? regex = null;
+
+        if(result != null)
+        {
+            var versions = await _versionService.GetVersions(result);
+
+            if(versions.Any())
+                regex = VersionHelper.BuildRegexFromVersion(versions.First().TagName);
+        }
+
+        await db.Containers.Where(x => x.Id == Id).ExecuteUpdateAsync(x => x.SetProperty(
+            c => c.OverrideGitHubRepo,
+            result
+        ).SetProperty(c => c.GitHubVersionRegex, regex));
+
+        _navigationManager.NavigateTo($"/");
+    }
+}

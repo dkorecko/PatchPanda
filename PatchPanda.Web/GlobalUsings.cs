@@ -5,5 +5,6 @@ global using PatchPanda.Web.Db;
 global using PatchPanda.Web.Entities;
 global using PatchPanda.Web.Exceptions;
 global using PatchPanda.Web.Helpers;
+global using PatchPanda.Web.Models;
 global using PatchPanda.Web.Services;
 global using PatchPanda.Web.Services.Hosted;

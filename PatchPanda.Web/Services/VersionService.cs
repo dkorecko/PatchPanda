@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Octokit;
 using PatchPanda.Web.Helpers;
@@ -87,10 +87,12 @@ public class VersionService
         Container[] otherApps
     )
     {
-        if (app.GitHubRepo is null || app.Version is null || app.GitHubVersionRegex is null)
+        var repo = app.GetGitHubRepo();
+
+        if (repo is null || app.Version is null || app.GitHubVersionRegex is null)
             return [];
 
-        var allReleases = await GetVersions(app.GitHubRepo);
+        var allReleases = await GetVersions(repo);
 
         var validReleases = allReleases.Where(x =>
             Regex.IsMatch(x.TagName, app.GitHubVersionRegex)
@@ -109,9 +111,9 @@ public class VersionService
 
         if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Any())
         {
-            foreach (var repo in app.SecondaryGitHubRepos)
+            foreach (var secondaryRepo in app.SecondaryGitHubRepos)
             {
-                var versions = await GetVersions(repo);
+                var versions = await GetVersions(secondaryRepo);
 
                 if (versions.Any())
                     additionalReleases.AddRange(versions);
