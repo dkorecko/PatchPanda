@@ -73,7 +73,7 @@ Here is an example `docker-compose.yml` that runs PatchPanda with a MySQL instan
 ```yaml
 services:
   patchpanda-db:
-    image: mysql:8
+    image: mysql:8.0.36
     container_name: patchpanda-db
     restart: unless-stopped
     environment:
@@ -90,21 +90,24 @@ services:
 
   patchpanda:
     container_name: patchpanda-app
-      environment:
-        - DB_HOST=patchpanda-db
-        - DB_NAME=patchpanda
-        - DB_USERNAME=patchpanda
-        - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
-        - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-        - GITHUB_USERNAME=yourusername
-        - GITHUB_PASSWORD=yourtoken
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock:rw
-        - /srv/www:/srv/www # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
-      ports:
-        - "5093:80" # adjust as needed
-      depends_on:
-        - patchpanda-db
+    image: ghcr.io/dkorecko/patchpanda:latest
+    environment:
+      - DB_HOST=patchpanda-db
+      - DB_NAME=patchpanda
+      - DB_USERNAME=patchpanda
+      - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+      - GITHUB_USERNAME=yourusername
+      - GITHUB_PASSWORD=yourtoken
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+    ports:
+      - "5093:80" # adjust as needed
+    depends_on:
+      patchpanda-db:
+        condition: service_healthy
+    restart: unless-stopped
 ```
 
 Notes:
