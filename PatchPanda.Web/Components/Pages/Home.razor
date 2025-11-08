@@ -27,6 +27,16 @@ else
             <span>Recheck containers</span>
         }
     </button>
+    <button class="btn btn-warning ms-2" type="button" disabled="@(_selectedAppIds.Count == 0 || _isEnqueuing)" @onclick="UpdateSelected">
+        @if (_isEnqueuing)
+        {
+            <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+        }
+        else
+        {
+            <span>Update selected</span>
+        }
+    </button>
 
     int i = 0;
     <div class="accordion" id="stacksAccordion">
@@ -88,6 +98,9 @@ else
                             <thead>
                                 <tr>
                                     <th scope="col">
+                                        <input type="checkbox" checked=@IsAllSelectedForStack(context) @onchange="(e) => ToggleSelectAllForStack(context, e.Value)" />
+                                    </th>
+                                    <th scope="col">
                                         App name
                                     </th>
                                     <th scope="col">
@@ -129,6 +142,9 @@ else
                                     var repo = app.GetGitHubRepo();
                                     var isUpdating = _updateRegistry.IsMarked(app.Id);
                                     <tr>
+                                        <td>
+                                            <input type="checkbox" checked=@_selectedAppIds.Contains(app.Id) disabled=@(isUpdating || newestVersion is null) @onchange="(e) => ToggleSelection(app.Id, e.Value)" />
+                                        </td>
                                         <td>
                                             @app.Name
                                             @if (isUpdating)
@@ -242,6 +258,8 @@ else
     private bool _isRestarting;
     private bool _isReloading;
     private System.Timers.Timer? _pollTimer;
+    private HashSet<int> _selectedAppIds = new();
+    private bool _isEnqueuing;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -289,6 +307,81 @@ else
         await _dockerService.RunDockerComposeOnPath(stack, "restart");
         _isRestarting = false;
         StateHasChanged();
+    }
+
+    private void ToggleSelection(int appId, object? rawValue)
+    {
+        if (rawValue is not bool isChecked)
+            return;
+
+        if (isChecked)
+            _selectedAppIds.Add(appId);
+        else
+            _selectedAppIds.Remove(appId);
+
+        StateHasChanged();
+    }
+
+    private void ToggleSelectAllForStack(ComposeStack stack, object? rawValue)
+    {
+        if (rawValue is not bool isChecked)
+            return;
+
+        if (isChecked)
+        {
+            foreach (var app in stack.Apps)
+                _selectedAppIds.Add(app.Id);
+        }
+        else
+        {
+            foreach (var app in stack.Apps)
+                _selectedAppIds.Remove(app.Id);
+        }
+
+        StateHasChanged();
+    }
+
+    private bool IsAllSelectedForStack(ComposeStack stack)
+    {
+        return stack.Apps.All(a => _selectedAppIds.Contains(a.Id) || _updateRegistry.IsMarked(a.Id) || a.NewerVersions.All(v => v.Ignored));
+    }
+
+    private async Task UpdateSelected()
+    {
+        if (_isEnqueuing || _composeStacks is null)
+            return;
+
+        _isEnqueuing = true;
+        StateHasChanged();
+
+        var selectedIds = _selectedAppIds.ToHashSet();
+
+        var selectedApps = _composeStacks.SelectMany(s => s.Apps).Where(a => selectedIds.Contains(a.Id)).ToList();
+
+        var tasks = new List<Task>();
+
+        foreach (var app in selectedApps)
+        {
+            var target = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
+
+            if (target is null)
+                continue;
+
+            tasks.Add(_updateRegistry.MarkForUpdate(app.Id, target.Id, target.VersionNumber));
+        }
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        finally
+        {
+            foreach (var id in selectedIds)
+                _selectedAppIds.Remove(id);
+
+            _isEnqueuing = false;
+            StateHasChanged();
+        }
     }
 
     private async Task ReloadData()
