@@ -5,8 +5,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
+
 COPY ["PatchPanda.Web/PatchPanda.Web.csproj", "PatchPanda.Web/"]
 
 # Map Docker's TARGETARCH to the arch used in .NET RIDs and restore dependencies
