@@ -2,6 +2,8 @@
 @inject DockerService _dockerService
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
+@inject UpdateRegistry _updateRegistry
+@implements IDisposable
 
 <PageTitle>Home - @Constants.APP_NAME</PageTitle>
 
@@ -32,11 +34,19 @@ else
         {
             var stackId = $"stack_{i}";
             var appsWithNewerVersions = context.Apps.Where(x => x.NewerVersions.Any(y => !y.Ignored)).ToList();
+            var hasOngoingUpdate = context.Apps.Any(x => _updateRegistry.IsMarked(x.Id));
             i++;
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
                         <b>@context.StackName</b>
+                        @if (hasOngoingUpdate)
+                        {
+                            <span class="badge text-bg-primary ms-2">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-label="Update in progress" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
+                                Update in progress
+                            </span>
+                        }
                         @if (appsWithNewerVersions.Count > 0)
                         {
                             <span class="badge text-bg-warning ms-2">@appsWithNewerVersions.Count updates</span>
@@ -117,8 +127,18 @@ else
                                 {
                                     var newestVersion = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
                                     var repo = app.GetGitHubRepo();
+                                    var isUpdating = _updateRegistry.IsMarked(app.Id);
                                     <tr>
-                                        <td>@app.Name</td>
+                                        <td>
+                                            @app.Name
+                                            @if (isUpdating)
+                                            {
+                                                <span class="badge text-bg-primary ms-1">
+                                                    <span class="spinner-border spinner-border-sm" role="status" aria-label="Updating" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
+                                                    Updating
+                                                </span>
+                                            }
+                                        </td>
                                         <td>
                                             @if(repo is null)
                                             {
@@ -221,6 +241,7 @@ else
     private List<ComposeStack>? _composeStacks;
     private bool _isRestarting;
     private bool _isReloading;
+    private System.Timers.Timer? _pollTimer;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -228,6 +249,7 @@ else
             return;
 
         await LoadData();
+        StartPolling();
     }
 
     private async Task LoadData()
@@ -242,6 +264,22 @@ else
             .ToListAsync();
 
         StateHasChanged();
+    }
+
+    private void StartPolling()
+    {
+        if (_pollTimer is not null)
+            return;
+
+        _pollTimer = new System.Timers.Timer(1000);
+        _pollTimer.Elapsed += async (_, __) => await CheckForUpdates();
+        _pollTimer.AutoReset = true;
+        _pollTimer.Start();
+    }
+
+    private async Task CheckForUpdates()
+    {
+        await InvokeAsync(async () => await LoadData());
     }
 
     private async Task RestartStack(ComposeStack stack)
@@ -260,5 +298,15 @@ else
         await _dockerService.ResetComposeStacks();
         _isReloading = false;
         await LoadData();
+    }
+
+    public void Dispose()
+    {
+        if (_pollTimer is not null)
+        {
+            _pollTimer.Stop();
+            _pollTimer.Dispose();
+            _pollTimer = null;
+        }
     }
 }
