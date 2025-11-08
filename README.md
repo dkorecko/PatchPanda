@@ -111,6 +111,14 @@ Notes:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
 
+## Screenshots
+
+![Image of the homepage](screenshots/home.png)
+![Image of a single line with a pending update](screenshots/line.png)
+![Image of the page with release notes and ability to update](screenshots/versions.png)
+![Image of the ongoing update](screenshots/terminal.png)
+![Image of the Discord notification](screenshots/discord.png)
+
 ## Run locally (development)
 
 Set env vars in PowerShell and run:
