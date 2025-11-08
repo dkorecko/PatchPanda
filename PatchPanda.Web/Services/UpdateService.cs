@@ -7,16 +7,19 @@ public class UpdateService
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IFileService _fileService;
+    private readonly ILogger<UpdateService> _logger;
 
     public UpdateService(
         DockerService dockerService,
         IDbContextFactory<DataContext> dbContextFactory,
-        IFileService fileService
+        IFileService fileService,
+        ILogger<UpdateService> logger
     )
     {
         _dockerService = dockerService;
         _dbContextFactory = dbContextFactory;
         _fileService = fileService;
+        _logger = logger;
     }
 
     public bool IsUpdateAvailable(Container app) =>
@@ -156,7 +159,28 @@ public class UpdateService
         await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
         await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
-        await _dockerService.ResetComposeStacks();
+        var targetApp = await db
+            .Containers.Include(x => x.NewerVersions)
+            .FirstAsync(x => x.Id == app.Id);
+
+        var removedVersions = targetApp.NewerVersions.RemoveAll(x =>
+            targetVersionToUse.Id == x.Id
+            || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+        );
+
+        if (resultingImage is not null)
+            targetApp.TargetImage = resultingImage;
+
+        targetApp.Version = newVersion;
+
+        await db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Updated through {UpdateCount} versions from {InitialVersion} to {NewVersion}.",
+            removedVersions,
+            app.Version,
+            newVersion
+        );
 
         return updateSteps;
     }

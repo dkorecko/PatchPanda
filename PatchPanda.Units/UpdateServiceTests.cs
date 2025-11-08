@@ -14,6 +14,7 @@ public class UpdateServiceTests
     private readonly Mock<SystemFileService> _systemFileService;
     private readonly Mock<ILogger<VersionService>> _versionLogger;
     private readonly Mock<ILogger<DockerService>> _dockerLogger;
+    private readonly Mock<ILogger<UpdateService>> _updateLogger;
     private readonly Mock<IConfiguration> _configuration;
 
     public UpdateServiceTests()
@@ -21,6 +22,7 @@ public class UpdateServiceTests
         _systemFileService = new Mock<SystemFileService>();
         _versionLogger = new Mock<ILogger<VersionService>>();
         _dockerLogger = new Mock<ILogger<DockerService>>();
+        _updateLogger = new Mock<ILogger<UpdateService>>();
         _configuration = new Mock<IConfiguration>();
     }
 
@@ -95,14 +97,15 @@ public class UpdateServiceTests
         await db.SaveChangesAsync();
 
         var tasks = await new UpdateService(
-            new DockerService(
+            new Mock<DockerService>(
                 _dockerLogger.Object,
                 dbContextFactory,
                 new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
-            ),
+            ).Object,
             dbContextFactory,
-            _systemFileService.Object
-        ).Update(stack.Apps[0], true);
+            _systemFileService.Object,
+            _updateLogger.Object
+        ).Update(stack.Apps[0], false);
 
         var importantTask = tasks.FirstOrDefault(t => t.Contains("Will"));
 
@@ -112,6 +115,14 @@ public class UpdateServiceTests
 
         Assert.Contains(stack.Apps[0].TargetImage, importantTask);
         Assert.Contains(resultImage, importantTask);
+
+        using var dbCheck = dbContextFactory.CreateDbContext();
+
+        var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
+
+        Assert.Empty(app.NewerVersions);
+        Assert.Equal(resultImage, app.TargetImage);
+        Assert.Equal(resultImage.Split(':')[1], app.Version);
     }
 
     private async Task GenericTestEnvVersion(
@@ -147,15 +158,22 @@ public class UpdateServiceTests
         db.Stacks.Add(stack);
         await db.SaveChangesAsync();
 
-        var tasks = await new UpdateService(
-            new DockerService(
-                _dockerLogger.Object,
-                dbContextFactory,
-                new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
-            ),
+        var dockerMock = new Mock<DockerService>(
+            _dockerLogger.Object,
             dbContextFactory,
-            _systemFileService.Object
-        ).Update(stack.Apps[0], true);
+            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+        );
+
+        dockerMock
+            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        var tasks = await new UpdateService(
+            dockerMock.Object,
+            dbContextFactory,
+            _systemFileService.Object,
+            _updateLogger.Object
+        ).Update(stack.Apps[0], false);
 
         var importantTask = tasks.FirstOrDefault(t => t.Contains("Will"));
 
@@ -168,6 +186,14 @@ public class UpdateServiceTests
             $"{parameterName}={stack.Apps[0].NewerVersions[0].VersionNumber}",
             importantTask
         );
+
+        using var dbCheck = dbContextFactory.CreateDbContext();
+
+        var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
+
+        Assert.Empty(app.NewerVersions);
+        Assert.Equal(stack.Apps[0].TargetImage, app.TargetImage);
+        Assert.Equal(stack.Apps[0].NewerVersions[0].VersionNumber, app.Version);
     }
 
     [Fact]

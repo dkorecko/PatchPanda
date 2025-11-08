@@ -248,7 +248,7 @@ public class DockerService
         return configPath;
     }
 
-    public async Task RunDockerComposeOnPath(
+    public virtual async Task RunDockerComposeOnPath(
         ComposeStack stack,
         string command,
         Action<string>? outputCallback = null
