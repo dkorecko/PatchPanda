@@ -59,6 +59,21 @@ public class UpdateService
         {
             newVersion = app.Version.Replace(versionMatch.Value, newVersion.TrimStart('v'));
         }
+        else
+        {
+            adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
+            versionMatch = Regex.Match(newVersion, adjustedRegex);
+
+            if (versionMatch.Success)
+            {
+                var match = Regex.Match(app.Version, app.Regex);
+
+                if (!match.Success)
+                    throw new Exception("Could not match versions for update.");
+
+                newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
+            }
+        }
 
         string? envFile = null;
         string? envFileContent = null;
@@ -131,7 +146,10 @@ public class UpdateService
             && targetEnvLine is not null
         )
         {
-            _fileService.WriteAllText(envFile, envFileContent.Replace(currentEnvLine, targetEnvLine));
+            _fileService.WriteAllText(
+                envFile,
+                envFileContent.Replace(currentEnvLine, targetEnvLine)
+            );
         }
 
         await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);

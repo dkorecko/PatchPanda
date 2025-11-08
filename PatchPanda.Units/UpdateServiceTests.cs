@@ -185,10 +185,10 @@ public class UpdateServiceTests
             GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
             "henrygd/beszel-agent:0.16.2"
         );
-        //await GenericTestComposeVersion(
-        //    GetTestStack("1.118.1", "n8n@1.119.0", "n8nio/n8n:1.118.1"),
-        //    "n8nio/n8n:1.119.2"
-        //);
+        await GenericTestComposeVersion(
+            GetTestStack("1.118.1", "n8n@1.119.2", "n8nio/n8n:1.118.1"),
+            "n8nio/n8n:1.119.2"
+        );
         await GenericTestComposeVersion(
             GetTestStack("v1.5.3-ls324", "v1.5.3-ls325", "lscr.io/linuxserver/bazarr:v1.5.3-ls324"),
             "lscr.io/linuxserver/bazarr:v1.5.3-ls325"
