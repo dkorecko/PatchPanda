@@ -91,7 +91,7 @@ services:
   patchpanda:
     container_name: patchpanda-app
       environment:
-        - DB_HOST=db
+        - DB_HOST=patchpanda-db
         - DB_NAME=patchpanda
         - DB_USERNAME=patchpanda
         - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
@@ -110,6 +110,7 @@ services:
 Notes:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
+- The second volume is for being able to access the compose files. PatchPanda will use the paths reported by the Docker engine, meaning the paths must be the same in its file system for everything to work properly.
 
 ## Screenshots
 
