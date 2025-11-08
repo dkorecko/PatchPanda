@@ -108,8 +108,66 @@ public class UpdateServiceTests
 
         Assert.NotNull(importantTask);
 
+        Assert.NotEqual(stack.Apps[0].Version, stack.Apps[0].NewerVersions[0].VersionNumber);
+
         Assert.Contains(stack.Apps[0].TargetImage, importantTask);
         Assert.Contains(resultImage, importantTask);
+    }
+
+    private async Task GenericTestEnvVersion(
+        ComposeStack stack,
+        string targetImageLine,
+        string parameterName
+    )
+    {
+        _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
+        _systemFileService
+            .Setup(_systemFileService => _systemFileService.ReadAllText("docker-compose.yml"))
+            .Returns(
+                $"""
+                version: '3'
+                services:
+                  testapp:
+                    image: {targetImageLine}
+                """
+            );
+
+        _systemFileService
+            .Setup(_systemFileService => _systemFileService.ReadAllText(".env"))
+            .Returns(
+                $"""
+                {parameterName}={stack.Apps[0].Version}
+                """
+            );
+
+        var dbContextFactory = CreateInMemoryFactory();
+
+        using var db = dbContextFactory.CreateDbContext();
+
+        db.Stacks.Add(stack);
+        await db.SaveChangesAsync();
+
+        var tasks = await new UpdateService(
+            new DockerService(
+                _dockerLogger.Object,
+                dbContextFactory,
+                new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+            ),
+            dbContextFactory,
+            _systemFileService.Object
+        ).Update(stack.Apps[0], true);
+
+        var importantTask = tasks.FirstOrDefault(t => t.Contains("Will"));
+
+        Assert.NotNull(importantTask);
+
+        Assert.NotEqual(stack.Apps[0].Version, stack.Apps[0].NewerVersions[0].VersionNumber);
+
+        Assert.Contains($"{parameterName}={stack.Apps[0].Version}", importantTask);
+        Assert.Contains(
+            $"{parameterName}={stack.Apps[0].NewerVersions[0].VersionNumber}",
+            importantTask
+        );
     }
 
     [Fact]
@@ -127,13 +185,19 @@ public class UpdateServiceTests
             GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
             "henrygd/beszel-agent:0.16.2"
         );
-        //await GenericTest(
+        //await GenericTestComposeVersion(
         //    GetTestStack("1.118.1", "n8n@1.119.0", "n8nio/n8n:1.118.1"),
         //    "n8nio/n8n:1.119.2"
         //);
         await GenericTestComposeVersion(
             GetTestStack("v1.5.3-ls324", "v1.5.3-ls325", "lscr.io/linuxserver/bazarr:v1.5.3-ls324"),
             "lscr.io/linuxserver/bazarr:v1.5.3-ls325"
+        );
+
+        await GenericTestEnvVersion(
+            GetTestStack("v2.2.3", "v2.3.0", "ghcr.io/immich-app/immich-server:v2.2.3"),
+            "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}",
+            "IMMICH_VERSION"
         );
     }
 }
