@@ -12,6 +12,9 @@ public static class ParsingHelper
         ILogger logger
     )
     {
+        if (container.OverrideGitHubRepo is not null)
+            return;
+
         List<string> repos = [];
 
         var fullResponse = JsonSerializer.Serialize(response);
