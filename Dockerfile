@@ -1,3 +1,6 @@
+# Declare ARGs for build platform and target architecture for clarity
+ARG BUILDPLATFORM
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080

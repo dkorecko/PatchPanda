@@ -38,7 +38,7 @@ Why this is different from Watchtower / DockGe / similar
 >
 > PatchPanda is beta software. It is provided as-is with no guarantees. Do not rely on it for critical production automation without testing. You should always have backups and a recovery plan when using any automated update tool. It's also rough around the edges and not specifically designed for responsiveness. The design will change.
 >
-> This software DOES NOT cover all edge cases and all possible scenarios. Care should be taken when allowing an upgrade. The app shows the update plan which you can verify before it's actually executed.
+> This software DOES NOT cover all edge cases and all possible scenarios. Care should be taken when allowing an upgrade. The app shows the update plan which you can verify before it's actually executed. It's being released to get feedback from potential users.
 >
 > That said: PatchPanda operates on your existing docker-compose files - it does not invent or replace your deployment manifests. If anything goes wrong you can still manually edit your compose files or roll back to previous images.
 
