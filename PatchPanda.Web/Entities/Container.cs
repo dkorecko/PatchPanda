@@ -1,3 +1,5 @@
+using PatchPanda.Web.Helpers;
+
 namespace PatchPanda.Web.Entities;
 
 public class Container : AbstractEntity
@@ -37,4 +39,15 @@ public class Container : AbstractEntity
     public virtual ComposeStack Stack { get; set; } = null!;
 
     public Tuple<string, string>? GetGitHubRepo() => OverrideGitHubRepo ?? GitHubRepo;
+
+    public AppVersion? GetNewestAvailableVersion()
+    {
+        return NewerVersions
+            .Where(v => !v.Ignored)
+            .OrderBy(v => v.VersionNumber, Comparer<string>.Create(VersionHelper.NewerComparison))
+            .FirstOrDefault();
+    }
+
+    public bool IsSelectableForUpdate(UpdateRegistry updateRegistry) =>
+        !updateRegistry.IsMarked(Id) && NewerVersions.Any(v => !v.Ignored);
 }

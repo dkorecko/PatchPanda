@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PatchPanda.Web.Db;
 using PatchPanda.Web.Entities;
-using PatchPanda.Web.Helpers;
 using PatchPanda.Web.Services;
 
 namespace PatchPanda.Units;
@@ -36,45 +35,6 @@ public class UpdateServiceTests
 
         return serviceProvider.GetRequiredService<IDbContextFactory<DataContext>>();
     }
-
-    public static ComposeStack GetTestStack(
-        string version,
-        string githubNewVersion,
-        string targetImage
-    ) =>
-        new ComposeStack
-        {
-            Id = 1,
-            StackName = "TestStack",
-            ConfigFile = "docker-compose.yml",
-            Apps =
-            [
-                new Container
-                {
-                    Id = 1,
-                    Name = "TestApp",
-                    IsSecondary = false,
-                    Regex = VersionHelper.BuildRegexFromVersion(version),
-                    GitHubVersionRegex = VersionHelper.BuildRegexFromVersion(githubNewVersion),
-                    Version = version,
-                    TargetImage = targetImage,
-                    StackId = 1,
-                    NewerVersions =
-                    [
-                        new AppVersion
-                        {
-                            Body = "Testing body",
-                            Breaking = false,
-                            Name = "Test update",
-                            VersionNumber = githubNewVersion,
-                            Prerelease = false
-                        }
-                    ],
-                    CurrentSha = "abc123",
-                    Uptime = "up"
-                }
-            ]
-        };
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
     {
@@ -200,28 +160,36 @@ public class UpdateServiceTests
     public async Task MultipleAppsTest()
     {
         await GenericTestComposeVersion(
-            GetTestStack("v0.107.69", "v0.108.0", "adguard/adguardhome:v0.107.69"),
+            DataHelper.GetTestStack("v0.107.69", "v0.108.0", "adguard/adguardhome:v0.107.69"),
             "adguard/adguardhome:v0.108.0"
         );
         await GenericTestComposeVersion(
-            GetTestStack("0.15.4-alpine", "v0.16.2", "henrygd/beszel-agent:0.15.4-alpine"),
+            DataHelper.GetTestStack(
+                "0.15.4-alpine",
+                "v0.16.2",
+                "henrygd/beszel-agent:0.15.4-alpine"
+            ),
             "henrygd/beszel-agent:0.16.2-alpine"
         );
         await GenericTestComposeVersion(
-            GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
+            DataHelper.GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
             "henrygd/beszel-agent:0.16.2"
         );
         await GenericTestComposeVersion(
-            GetTestStack("1.118.1", "n8n@1.119.2", "n8nio/n8n:1.118.1"),
+            DataHelper.GetTestStack("1.118.1", "n8n@1.119.2", "n8nio/n8n:1.118.1"),
             "n8nio/n8n:1.119.2"
         );
         await GenericTestComposeVersion(
-            GetTestStack("v1.5.3-ls324", "v1.5.3-ls325", "lscr.io/linuxserver/bazarr:v1.5.3-ls324"),
+            DataHelper.GetTestStack(
+                "v1.5.3-ls324",
+                "v1.5.3-ls325",
+                "lscr.io/linuxserver/bazarr:v1.5.3-ls324"
+            ),
             "lscr.io/linuxserver/bazarr:v1.5.3-ls325"
         );
 
         await GenericTestEnvVersion(
-            GetTestStack("v2.2.3", "v2.3.0", "ghcr.io/immich-app/immich-server:v2.2.3"),
+            DataHelper.GetTestStack("v2.2.3", "v2.3.0", "ghcr.io/immich-app/immich-server:v2.2.3"),
             "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}",
             "IMMICH_VERSION"
         );

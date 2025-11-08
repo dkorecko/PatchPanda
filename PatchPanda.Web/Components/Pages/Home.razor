@@ -43,7 +43,7 @@ else
         @foreach (var context in _composeStacks.OrderBy(x => x.StackName))
         {
             var stackId = $"stack_{i}";
-            var appsWithNewerVersions = context.Apps.Where(x => x.NewerVersions.Any(y => !y.Ignored)).ToList();
+            var appsWithNewerVersions = context.Apps.Where(x => x.IsSelectableForUpdate(_updateRegistry)).ToList();
             var hasOngoingUpdate = context.Apps.Any(x => _updateRegistry.IsMarked(x.Id));
             i++;
             <div @key=stackId class="accordion-item">
@@ -138,12 +138,13 @@ else
                             <tbody>
                                 @foreach (var app in context.Apps.OrderBy(x => x.Name))
                                 {
-                                    var newestVersion = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
+                                    var newestVersion = app.GetNewestAvailableVersion();
                                     var repo = app.GetGitHubRepo();
                                     var isUpdating = _updateRegistry.IsMarked(app.Id);
+                                    var isSelectable = app.IsSelectableForUpdate(_updateRegistry);
                                     <tr>
                                         <td>
-                                            <input type="checkbox" checked=@_selectedAppIds.Contains(app.Id) disabled=@(isUpdating || newestVersion is null) @onchange="(e) => ToggleSelection(app.Id, e.Value)" />
+                                            <input type="checkbox" checked=@_selectedAppIds.Contains(app.Id) disabled=@(!isSelectable) @onchange="(e) => ToggleSelection(app.Id, e.Value)" />
                                         </td>
                                         <td>
                                             @app.Name
@@ -205,7 +206,7 @@ else
                                         <td>
                                             @if(newestVersion is null)
                                             {
-                                                var ignoredVersions = app.NewerVersions.Where(x => x.Ignored).ToList();
+                                                    var ignoredVersions = app.NewerVersions.Where(x => x.Ignored).ToList();
 
                                                 <span class="badge text-bg-success">Up to date</span>
 
@@ -327,14 +328,16 @@ else
         if (rawValue is not bool isChecked)
             return;
 
+        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_updateRegistry)).ToList();
+
         if (isChecked)
         {
-            foreach (var app in stack.Apps)
+            foreach (var app in selectableApps)
                 _selectedAppIds.Add(app.Id);
         }
         else
         {
-            foreach (var app in stack.Apps)
+            foreach (var app in selectableApps)
                 _selectedAppIds.Remove(app.Id);
         }
 
@@ -343,7 +346,12 @@ else
 
     private bool IsAllSelectedForStack(ComposeStack stack)
     {
-        return stack.Apps.All(a => _selectedAppIds.Contains(a.Id) || _updateRegistry.IsMarked(a.Id) || a.NewerVersions.All(v => v.Ignored));
+        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_updateRegistry)).ToList();
+        
+        if (!selectableApps.Any())
+            return false;
+
+        return selectableApps.All(a => _selectedAppIds.Contains(a.Id));
     }
 
     private async Task UpdateSelected()
@@ -362,7 +370,7 @@ else
 
         foreach (var app in selectedApps)
         {
-            var target = app.NewerVersions.Where(x => !x.Ignored).FirstOrDefault();
+            var target = app.GetNewestAvailableVersion();
 
             if (target is null)
                 continue;
