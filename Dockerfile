@@ -55,5 +55,5 @@ RUN apt-get update && \
   # Clean up
   rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "PatchPanda.Web.dll"]
