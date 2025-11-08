@@ -1,7 +1,5 @@
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Octokit;
-using PatchPanda.Web.Helpers;
 
 namespace PatchPanda.Web.Services;
 
