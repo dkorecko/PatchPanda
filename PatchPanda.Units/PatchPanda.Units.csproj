@@ -18,8 +18,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\PatchPanda.Web\PatchPanda.Web.csproj" />
-  </ItemGroup>
-
 </Project>
