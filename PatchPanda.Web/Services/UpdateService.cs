@@ -6,14 +6,17 @@ public class UpdateService
 {
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
+    private readonly IFileService _fileService;
 
     public UpdateService(
         DockerService dockerService,
-        IDbContextFactory<DataContext> dbContextFactory
+        IDbContextFactory<DataContext> dbContextFactory,
+        IFileService fileService
     )
     {
         _dockerService = dockerService;
         _dbContextFactory = dbContextFactory;
+        _fileService = fileService;
     }
 
     public bool IsUpdateAvailable(Container app) =>
@@ -44,7 +47,7 @@ public class UpdateService
 
         updateSteps.Add($"In folder: {configPath}");
 
-        var configFileContent = File.ReadAllText(configPath);
+        var configFileContent = _fileService.ReadAllText(configPath);
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
         var targetVersionToUse = targetVersion ?? app.NewerVersions.First();
@@ -79,9 +82,9 @@ public class UpdateService
             {
                 envFile = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, ".env");
 
-                if (File.Exists(envFile))
+                if (_fileService.Exists(envFile))
                 {
-                    envFileContent = File.ReadAllText(envFile);
+                    envFileContent = _fileService.ReadAllText(envFile);
                     var envVarRegex = Regex.Escape(envVariable.Groups[1].Value);
                     var targetImageSecondPortion = app.TargetImage.Split(':')[1];
                     currentEnvLine = Regex
@@ -116,7 +119,7 @@ public class UpdateService
 
         if (resultingImage is not null)
         {
-            File.WriteAllText(
+            _fileService.WriteAllText(
                 configPath,
                 configFileContent.Replace(app.TargetImage, resultingImage)
             );
@@ -128,7 +131,7 @@ public class UpdateService
             && targetEnvLine is not null
         )
         {
-            File.WriteAllText(envFile, envFileContent.Replace(currentEnvLine, targetEnvLine));
+            _fileService.WriteAllText(envFile, envFileContent.Replace(currentEnvLine, targetEnvLine));
         }
 
         await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);

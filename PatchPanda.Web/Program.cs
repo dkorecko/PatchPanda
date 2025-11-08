@@ -10,6 +10,7 @@ builder.Services.AddScoped<DockerService>();
 builder.Services.AddScoped<VersionService>();
 builder.Services.AddScoped<DiscordService>();
 builder.Services.AddScoped<UpdateService>();
+builder.Services.AddScoped<IFileService, SystemFileService>();
 builder.Services.AddSingleton<UpdateRegistry>();
 builder.Services.AddSingleton<UpdateQueue>();
 builder.Services.AddHostedService<VersionCheckHostedService>();

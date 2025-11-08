@@ -3,5 +3,6 @@
     <File Path="docker-compose.yaml" />
     <File Path="Dockerfile" />
   </Folder>
+  <Project Path="PatchPanda.Units/PatchPanda.Units.csproj" />
   <Project Path="PatchPanda.Web/PatchPanda.Web.csproj" />
 </Solution>
