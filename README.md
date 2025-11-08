@@ -13,7 +13,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Track discovered newer versions in a database and show release notes in the UI.
 - Group related services into multi-container apps (for example `app-web` + `app-worker`).
 - Send notifications to Discord about new versions (via webhook).
-- Enqueue and run updates: when you choose to update, PatchPanda edits compose/.env files and runs `docker compose pull` and `docker compose up -d` for the target stack.
+- Enqueue and run updates: when you choose to update, PatchPanda edits compose/.env files and runs `docker compose pull` and `docker compose up -d` for the target stack. You can also view live log.
 - Support multiple release sources per app (primary and secondary repos) and merge release notes when appropriate.
 - Ability to ignore a specific version to not clutter the UI.
 - Update multiple applications at once.
@@ -89,22 +89,22 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   patchpanda:
-	container_name: patchpanda-app
-    environment:
-      - DB_HOST=db
-      - DB_NAME=patchpanda
-      - DB_USERNAME=patchpanda
-      - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-      - GITHUB_USERNAME=yourusername
-      - GITHUB_PASSWORD=yourtoken
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:rw
-	  - /srv/www:/srv/www # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
-    ports:
-      - "5093:80" # adjust as needed
-    depends_on:
-      - patchpanda-db
+    container_name: patchpanda-app
+      environment:
+        - DB_HOST=db
+        - DB_NAME=patchpanda
+        - DB_USERNAME=patchpanda
+        - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
+        - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+        - GITHUB_USERNAME=yourusername
+        - GITHUB_PASSWORD=yourtoken
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock:rw
+        - /srv/www:/srv/www # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+      ports:
+        - "5093:80" # adjust as needed
+      depends_on:
+        - patchpanda-db
 ```
 
 Notes:
