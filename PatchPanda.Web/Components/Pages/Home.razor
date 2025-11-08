@@ -223,8 +223,8 @@ else
                                         <td>@app.Uptime</td>
                                         <td>@(app.LastVersionCheck.Equals(DateTime.MinValue) ? "Never" : app.LastVersionCheck.ToReadableStringWithTime())</td>
                                         <td>
-                                            <a target="_blank" href="/versions/@app.Id" class="btn btn-primary">Releases</a>
-                                            <a target="_blank" href="/container/@app.Id" class="btn btn-primary">Edit</a>
+                                            <a href="/versions/@app.Id" class="btn btn-primary">Releases</a>
+                                            <a href="/container/@app.Id" class="btn btn-primary">Edit</a>
                                         </td>
                                     </tr>
                                 }
