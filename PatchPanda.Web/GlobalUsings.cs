@@ -1,6 +1,7 @@
 global using Devity.Extensions;
 global using Docker.DotNet.Models;
 global using Microsoft.EntityFrameworkCore;
+global using PatchPanda.Web;
 global using PatchPanda.Web.Db;
 global using PatchPanda.Web.Entities;
 global using PatchPanda.Web.Exceptions;

@@ -16,6 +16,10 @@ builder.Services.AddSingleton<UpdateQueue>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
 builder.Services.AddHostedService<UpdateBackgroundService>();
 
+var baseUrl = builder.Configuration.GetValue<string?>("BASE_URL");
+
+Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
+
 builder.Services.AddDbContextFactory<DataContext>(opt =>
 {
     opt.UseSqlite("Data Source=patchpanda.db");

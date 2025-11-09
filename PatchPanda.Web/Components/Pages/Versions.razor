@@ -116,6 +116,7 @@ else
     private Terminal _terminal = default!;
     private AppVersion? _selectedVersion;
     private System.Timers.Timer? _pollTimer;
+    private CancellationTokenSource _cts = new CancellationTokenSource();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -191,6 +192,9 @@ else
     {
         ArgumentNullException.ThrowIfNull(_app);
 
+        if(_cts.IsCancellationRequested)
+            return;
+
         var output = _updateRegistry.GetOutputSnapshot(_app.Id);
 
         foreach (var line in output)
@@ -200,7 +204,7 @@ else
 
         if (!_updateRegistry.IsMarked(_app.Id))
         {
-            Dispose();
+            DisposeTimer();
             _isUpdating = false;
             _selectedVersion = null;
             await LoadData();
@@ -215,7 +219,7 @@ else
         await db.AppVersions.Where(x => x.Id == version.Id).ExecuteUpdateAsync(x => x.SetProperty(setter => setter.Ignored, version.Ignored));
     }
 
-    public void Dispose()
+    public void DisposeTimer() 
     {
         if (_pollTimer is not null)
         {
@@ -223,5 +227,11 @@ else
             _pollTimer.Dispose();
             _pollTimer = null;
         }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        DisposeTimer();
     }
 }

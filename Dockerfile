@@ -33,7 +33,8 @@ RUN export DOTNET_ARCH=$(case ${TARGETARCH} in \
   -o /app/publish \
   -r "linux-${DOTNET_ARCH}" \
   --no-restore \
-  --self-contained false
+  --self-contained false \
+  /p:PublishStaticAssets=true
 
 FROM base AS final
 # Install utilities needed for installing the Docker CLI

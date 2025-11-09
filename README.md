@@ -46,6 +46,10 @@ Why this is different from Watchtower / DockGe / similar
 
 PatchPanda requires the following env vars to function.
 
+General
+
+- BASE_URL - The base URL of PatchPanda, this will be used for creating clickable URLs in notifications (e.g. `http://localhost:5093`)
+
 GitHub
 
 - GITHUB_USERNAME - GitHub username
@@ -69,9 +73,10 @@ services:
     container_name: patchpanda-app
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-      - GITHUB_USERNAME=yourusername
-      - GITHUB_PASSWORD=yourtoken
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # use your discord webhook URL here
+      - GITHUB_USERNAME=yourusername # use your GitHub username here
+      - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
+      - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
@@ -84,6 +89,8 @@ Notes:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
 - The second volume is for being able to access the compose files. PatchPanda will use the paths reported by the Docker engine, meaning the paths must be the same in its file system for everything to work properly.
+
+Once the application is running, you can access it in your browser at `http://localhost:5093` (or the host you are using and the port you configured).
 
 ## Screenshots
 
