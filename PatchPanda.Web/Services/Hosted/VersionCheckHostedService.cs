@@ -71,7 +71,13 @@ public class VersionCheckHostedService : IHostedService
             if (_pushedOnce)
                 return;
 
-            await _dockerService.ResetComposeStacks();
+            var isReset = await _dockerService.ResetComposeStacks();
+
+            if (!isReset)
+            {
+                return;
+            }
+
             _pushedOnce = true;
             DoWork(null);
             return;

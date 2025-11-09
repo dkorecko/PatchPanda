@@ -29,23 +29,53 @@ public class DockerService
         _versionService = versionService;
     }
 
+    /// <summary>
+    /// Checks if Docker is installed and running.
+    /// </summary>
+    public async Task<bool> IsAliveAsync()
+    {
+        try
+        {
+            using var dockerClient = GetClient();
+            await dockerClient.System.PingAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     private DockerClient GetClient() =>
         new DockerClientConfiguration(new Uri(DockerSocket)).CreateClient();
 
-    public async Task<IList<ContainerListResponse>> GetAllContainers()
+    private async Task<IList<ContainerListResponse>?> GetAllContainers()
     {
-        using var dockerClient = GetClient();
+        try
+        {
+            using var dockerClient = GetClient();
 
-        var containers = await dockerClient.Containers.ListContainersAsync(
-            new ContainersListParameters { All = true, Limit = 999 }
-        );
+            var containers = await dockerClient.Containers.ListContainersAsync(
+                new ContainersListParameters { All = true, Limit = 999 }
+            );
 
-        return containers;
+            return containers;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error while getting Docker containers.");
+            return null;
+        }
     }
 
-    public async Task<List<ComposeStack>> GetRunningStacks()
+    private async Task<List<ComposeStack>?> GetRunningStacks()
     {
         var containers = await GetAllContainers();
+
+        if (containers is null)
+        {
+            return null;
+        }
 
         List<ComposeStack> stacks = [];
 
@@ -158,7 +188,11 @@ public class DockerService
         return stacks;
     }
 
-    public async Task ResetComposeStacks()
+    /// <summary>
+    /// Resets current list of containers and fills it with existing containers.
+    /// </summary>
+    /// <returns><see langword="true"/> if successfully reset, otherwise <see langword="false"/>.</returns>
+    public async Task<bool> ResetComposeStacks()
     {
         using var db = _dbContextFactory.CreateDbContext();
 
@@ -168,6 +202,12 @@ public class DockerService
             .ToListAsync();
 
         var runningStacks = await GetRunningStacks();
+
+        if (runningStacks is null)
+        {
+            return false;
+        }
+
         var foundStacks = new List<ComposeStack>();
 
         foreach (var runningStack in runningStacks)
@@ -240,6 +280,8 @@ public class DockerService
         stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
 
         await db.SaveChangesAsync();
+
+        return true;
     }
 
     public string ComputeConfigFilePath(ComposeStack stack)
