@@ -46,13 +46,6 @@ Why this is different from Watchtower / DockGe / similar
 
 PatchPanda requires the following env vars to function.
 
-Database
-
-- DB_HOST - MySQL host (e.g. `127.0.0.1`)
-- DB_NAME (Optional) - database name (default is `patchpanda`)
-- DB_USERNAME (Optional) - DB username (default is `patchpanda`)
-- DB_PASSWORD - DB password
-
 GitHub
 
 - GITHUB_USERNAME - GitHub username
@@ -68,34 +61,14 @@ Notes about the GitHub token
 
 ## Run with Docker Compose (recommended for hosting)
 
-Here is an example `docker-compose.yml` that runs PatchPanda with a MySQL instance. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
+Here is an example `docker-compose.yml` that runs PatchPanda. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
 
 ```yaml
 services:
-  patchpanda-db:
-    image: mysql:8.0.36
-    container_name: patchpanda-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: patchpanda # This should match DB_NAME in patchpanda container
-      MYSQL_USER: patchpanda # This should match DB_USERNAME in patchpanda container
-      MYSQL_ROOT_PASSWORD: your-secure-password # You may use any password you choose here
-      MYSQL_PASSWORD: your-secure-password # This should match DB_PASSWORD in patchpanda container
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 2s
-      retries: 30
-    volumes:
-      - ./data/mysql:/var/lib/mysql
-
   patchpanda:
     container_name: patchpanda-app
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
-      - DB_HOST=patchpanda-db
-      - DB_NAME=patchpanda
-      - DB_USERNAME=patchpanda
-      - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
       - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
       - GITHUB_USERNAME=yourusername
       - GITHUB_PASSWORD=yourtoken
@@ -103,10 +76,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
     ports:
-      - "5093:80" # adjust as needed
-    depends_on:
-      patchpanda-db:
-        condition: service_healthy
+      - "5093:8080" # adjust as needed
     restart: unless-stopped
 ```
 
@@ -128,10 +98,6 @@ Notes:
 Set env vars in PowerShell and run:
 
 ```powershell
-$env:DB_HOST = "127.0.0.1"
-$env:DB_NAME = "patchpanda"
-$env:DB_USERNAME = "patchpanda"
-$env:DB_PASSWORD = "yourpassword"
 $env:DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/..."
 $env:GITHUB_USERNAME = "yourusername"
 $env:GITHUB_PASSWORD = "your_personal_access_token"
