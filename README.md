@@ -38,7 +38,7 @@ Why this is different from Watchtower / DockGe / similar
 >
 > PatchPanda is beta software. It is provided as-is with no guarantees. Do not rely on it for critical production automation without testing. You should always have backups and a recovery plan when using any automated update tool. It's also rough around the edges and not specifically designed for responsiveness. The design will change.
 >
-> This software DOES NOT cover all edge cases and all possible scenarios. Care should be taken when allowing an upgrade. The app shows the update plan which you can verify before it's actually executed.
+> This software DOES NOT cover all edge cases and all possible scenarios. Care should be taken when allowing an upgrade. The app shows the update plan which you can verify before it's actually executed. It's being released to get feedback from potential users.
 >
 > That said: PatchPanda operates on your existing docker-compose files - it does not invent or replace your deployment manifests. If anything goes wrong you can still manually edit your compose files or roll back to previous images.
 
@@ -73,7 +73,7 @@ Here is an example `docker-compose.yml` that runs PatchPanda with a MySQL instan
 ```yaml
 services:
   patchpanda-db:
-    image: mysql:8
+    image: mysql:8.0.36
     container_name: patchpanda-db
     restart: unless-stopped
     environment:
@@ -90,26 +90,30 @@ services:
 
   patchpanda:
     container_name: patchpanda-app
-      environment:
-        - DB_HOST=db
-        - DB_NAME=patchpanda
-        - DB_USERNAME=patchpanda
-        - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
-        - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-        - GITHUB_USERNAME=yourusername
-        - GITHUB_PASSWORD=yourtoken
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock:rw
-        - /srv/www:/srv/www # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
-      ports:
-        - "5093:80" # adjust as needed
-      depends_on:
-        - patchpanda-db
+    image: ghcr.io/dkorecko/patchpanda:latest
+    environment:
+      - DB_HOST=patchpanda-db
+      - DB_NAME=patchpanda
+      - DB_USERNAME=patchpanda
+      - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+      - GITHUB_USERNAME=yourusername
+      - GITHUB_PASSWORD=yourtoken
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+    ports:
+      - "5093:80" # adjust as needed
+    depends_on:
+      patchpanda-db:
+        condition: service_healthy
+    restart: unless-stopped
 ```
 
 Notes:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
+- The second volume is for being able to access the compose files. PatchPanda will use the paths reported by the Docker engine, meaning the paths must be the same in its file system for everything to work properly.
 
 ## Screenshots
 

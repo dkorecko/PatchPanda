@@ -27,7 +27,9 @@ builder.Services.AddDbContextFactory<DataContext>(opt =>
             Pomelo.EntityFrameworkCore.MySql.Infrastructure.ServerType.MySql
         )
     );
+#if DEBUG
     opt.EnableSensitiveDataLogging();
+#endif
 });
 
 var app = builder.Build();
