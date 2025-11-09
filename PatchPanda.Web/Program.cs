@@ -36,11 +36,6 @@ builder.Services.AddDbContextFactory<DataContext>(opt =>
 #endif
 });
 
-builder.Services.Configure<StaticFileOptions>(options =>
-{
-    options.ServeUnknownFileTypes = false;
-});
-
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
