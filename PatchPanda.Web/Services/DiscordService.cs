@@ -5,7 +5,7 @@ namespace PatchPanda.Web.Services;
 
 public class DiscordService
 {
-    private string WebhookUrl { get; init; }
+    private string WebhookUrl { get; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<DiscordService> _logger;
@@ -15,8 +15,12 @@ public class DiscordService
         IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
         ILogger<DiscordService> logger
-    )
+        )
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(dbContextFactory);
+        ArgumentNullException.ThrowIfNull(logger);
+
         var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
         logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
 
