@@ -20,17 +20,10 @@ var baseUrl = builder.Configuration.GetValue<string?>("BASE_URL");
 
 Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
 
-var connectionString =
-    $"Server={builder.Configuration.GetValue<string>("DB_HOST")};Database={builder.Configuration.GetValue<string>("DB_NAME", "patchpanda")};Uid={builder.Configuration.GetValue<string>("DB_USERNAME", "patchpanda")};Pwd={builder.Configuration.GetValue<string>("DB_PASSWORD")};";
 builder.Services.AddDbContextFactory<DataContext>(opt =>
 {
-    opt.UseMySql(
-        connectionString,
-        ServerVersion.Create(
-            new System.Version("8.0.36"),
-            Pomelo.EntityFrameworkCore.MySql.Infrastructure.ServerType.MySql
-        )
-    );
+    opt.UseSqlite("Data Source=patchpanda.db");
+
 #if DEBUG
     opt.EnableSensitiveDataLogging();
 #endif

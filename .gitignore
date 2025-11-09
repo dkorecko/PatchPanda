@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/PatchPanda.Web/patchpanda.db
+/PatchPanda.Web/patchpanda.db-shm
+/PatchPanda.Web/patchpanda.db-wal
