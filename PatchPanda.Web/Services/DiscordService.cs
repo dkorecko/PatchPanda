@@ -9,6 +9,7 @@ public class DiscordService
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<DiscordService> _logger;
+    private readonly bool _isInitialized = false;
 
     public DiscordService(
         IConfiguration configuration,
@@ -17,9 +18,17 @@ public class DiscordService
     )
     {
         var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
+        logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
 
-        if (webhookUrl is null)
-            throw new InvalidOperationException("DISCORD_WEBHOOK_URL configuration is missing.");
+        if (string.IsNullOrWhiteSpace(webhookUrl))
+        {
+            _isInitialized = false;
+            logger.LogWarning("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
+            return;
+        }
+
+        _isInitialized = true;
+        logger.LogInformation("DiscordService is initialized");
 
         WebhookUrl = webhookUrl;
         _dbContextFactory = dbContextFactory;
@@ -28,6 +37,11 @@ public class DiscordService
 
     public async Task SendUpdates(Container container, Container[] otherContainers)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         using var db = _dbContextFactory.CreateDbContext();
 
         var newerVersions = (
@@ -108,7 +122,7 @@ public class DiscordService
         await db.SaveChangesAsync();
     }
 
-    public async Task SendWebhook(string content)
+    private async Task SendWebhook(string content)
     {
         using var httpClient = new HttpClient();
         var payload = new
