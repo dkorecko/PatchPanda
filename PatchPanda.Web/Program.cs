@@ -36,6 +36,11 @@ builder.Services.AddDbContextFactory<DataContext>(opt =>
 #endif
 });
 
+builder.Services.Configure<StaticFileOptions>(options =>
+{
+    options.ServeUnknownFileTypes = false;
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -56,7 +61,6 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-app.UseStaticFiles();
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
