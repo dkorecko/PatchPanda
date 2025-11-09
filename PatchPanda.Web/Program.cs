@@ -26,7 +26,8 @@ builder.Services.AddDbContextFactory<DataContext>(opt =>
     opt.UseSqlite("Data Source=patchpanda.db");
     opt.EnableSensitiveDataLogging();
 #else
-    opt.UseSqlite("Data Source=/app/data/patchpanda.db");
+    Directory.CreateDirectory("app/data");
+    opt.UseSqlite("Data Source=app/data/patchpanda.db");
 #endif
 });
 
