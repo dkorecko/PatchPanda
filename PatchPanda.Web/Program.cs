@@ -22,10 +22,11 @@ Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
 
 builder.Services.AddDbContextFactory<DataContext>(opt =>
 {
-    opt.UseSqlite("Data Source=patchpanda.db");
-
 #if DEBUG
+    opt.UseSqlite("Data Source=patchpanda.db");
     opt.EnableSensitiveDataLogging();
+#else
+    opt.UseSqlite("Data Source=/app/data/patchpanda.db");
 #endif
 });
 

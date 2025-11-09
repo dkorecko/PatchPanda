@@ -80,6 +80,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+      - ./data:/app/data:rw # persistent data storage for SQLite
     ports:
       - "5093:8080" # adjust as needed
     restart: unless-stopped

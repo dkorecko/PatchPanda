@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/Solution Items/">
-    <File Path="docker-compose.yaml" />
     <File Path="Dockerfile" />
     <File Path="README.md" />
   </Folder>
