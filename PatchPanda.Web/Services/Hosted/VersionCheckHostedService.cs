@@ -4,7 +4,7 @@ public class VersionCheckHostedService : IHostedService
 {
     private readonly IServiceScopeFactory _serviceProvider;
     private Timer? _timer;
-    private bool _pushedOnce;
+    private volatile bool _pushedOnce;
 
     public VersionCheckHostedService(IServiceScopeFactory serviceProvider)
     {
@@ -64,7 +64,7 @@ public class VersionCheckHostedService : IHostedService
                 return;
 
             var dockerService = scope.ServiceProvider.GetRequiredService<DockerService>();
-            await dockerService.ResetComposeStacks();
+            _pushedOnce = true;
             DoWork(null);
             _pushedOnce = true;
             return;
