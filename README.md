@@ -46,6 +46,10 @@ Why this is different from Watchtower / DockGe / similar
 
 PatchPanda requires the following env vars to function.
 
+General
+
+- BASE_URL - The base URL of PatchPanda, this will be used for creating clickable URLs in notifications (e.g. `http://localhost:5093`)
+
 Database
 
 - DB_HOST - MySQL host (e.g. `127.0.0.1`)
@@ -96,9 +100,10 @@ services:
       - DB_NAME=patchpanda
       - DB_USERNAME=patchpanda
       - DB_PASSWORD=your-secure-password # This should match MYSQL_PASSWORD in patchpanda-db container
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
-      - GITHUB_USERNAME=yourusername
-      - GITHUB_PASSWORD=yourtoken
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # use your discord webhook URL here
+      - GITHUB_USERNAME=yourusername # use your GitHub username here
+      - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
+      - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.

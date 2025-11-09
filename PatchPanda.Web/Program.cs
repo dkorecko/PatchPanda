@@ -16,6 +16,10 @@ builder.Services.AddSingleton<UpdateQueue>();
 builder.Services.AddHostedService<VersionCheckHostedService>();
 builder.Services.AddHostedService<UpdateBackgroundService>();
 
+var baseUrl = builder.Configuration.GetValue<string?>("BASE_URL");
+
+Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
+
 var connectionString =
     $"Server={builder.Configuration.GetValue<string>("DB_HOST")};Database={builder.Configuration.GetValue<string>("DB_NAME", "patchpanda")};Uid={builder.Configuration.GetValue<string>("DB_USERNAME", "patchpanda")};Pwd={builder.Configuration.GetValue<string>("DB_PASSWORD")};";
 builder.Services.AddDbContextFactory<DataContext>(opt =>

@@ -8,10 +8,12 @@ public class DiscordService
     private string WebhookUrl { get; init; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
+    private readonly ILogger<DiscordService> _logger;
 
     public DiscordService(
         IConfiguration configuration,
-        IDbContextFactory<DataContext> dbContextFactory
+        IDbContextFactory<DataContext> dbContextFactory,
+        ILogger<DiscordService> logger
     )
     {
         var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
@@ -21,6 +23,7 @@ public class DiscordService
 
         WebhookUrl = webhookUrl;
         _dbContextFactory = dbContextFactory;
+        _logger = logger;
     }
 
     public async Task SendUpdates(Container container, Container[] otherContainers)
@@ -60,9 +63,20 @@ public class DiscordService
 
         var repo = container.GetGitHubRepo();
         message.AppendLine($"\nhttps://github.com/{repo!.Item1}/{repo.Item2}/releases");
-        message.AppendLine(
-            $"\n__Verify and Update Here:__ http://trixx.falcon-bass.ts.net:5091/versions/{container.Id}"
-        );
+
+        if (Constants.BASE_URL is not null)
+            message.AppendLine(
+                $"\n__Verify and Update Here:__ {Constants.BASE_URL}/versions/{container.Id}"
+            );
+        else
+        {
+            _logger.LogWarning(
+                "BASE URL env variable was missing, therefore an update URL could not be provided."
+            );
+            message.AppendLine(
+                $"\n__**BASE URL was missing, therefore an update URL cannot be provided.**__"
+            );
+        }
 
         var fullMessage = message.ToString();
         const int ChunkSize = 2000;
