@@ -5,6 +5,8 @@ namespace PatchPanda.Web;
 
 public sealed partial class Program
 {
+    private const string DatabaseName = "patchpanda.db";
+
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -68,18 +70,18 @@ public sealed partial class Program
 
     private static void CreateDebugDatabase(DbContextOptionsBuilder opt)
     {
-        opt.UseSqlite("Data Source=patchpanda.db");
+        opt.UseSqlite($"Data Source={DatabaseName}");
         opt.EnableSensitiveDataLogging();
     }
 
     private static void CreateDatabaseAtWorkingFolder(DbContextOptionsBuilder opt)
     {
-        opt.UseSqlite("Data Source=patchpanda.db");
+        opt.UseSqlite($"Data Source={DatabaseName}");
     }
 
     private static void CreateDatabaseAtRoot(DbContextOptionsBuilder opt)
     {
         Directory.CreateDirectory("/app/data");
-        opt.UseSqlite("Data Source=/app/data/patchpanda.db");
+        opt.UseSqlite($"Data Source=/app/data/{DatabaseName}");
     }
 }
