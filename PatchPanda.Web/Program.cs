@@ -5,8 +5,6 @@ namespace PatchPanda.Web;
 
 public sealed partial class Program
 {
-    private const string DatabaseName = "patchpanda.db";
-
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -31,14 +29,14 @@ public sealed partial class Program
 #if DEBUG
         builder.Services.AddDbContextFactory<DataContext>(CreateDebugDatabase);
 #else
-    if (OperatingSystem.IsWindows())
-    {
-        builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtWorkingFolder);
-    }
-    else
-    {
-        builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtRoot);
-    }
+        if (OperatingSystem.IsWindows())
+        {
+            builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtWorkingFolder);
+        }
+        else
+        {
+            builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtRoot);
+        }
 #endif
 
         var app = builder.Build();
@@ -70,18 +68,18 @@ public sealed partial class Program
 
     private static void CreateDebugDatabase(DbContextOptionsBuilder opt)
     {
-        opt.UseSqlite($"Data Source={DatabaseName}");
+        opt.UseSqlite($"Data Source={Constants.DB_NAME}");
         opt.EnableSensitiveDataLogging();
     }
 
     private static void CreateDatabaseAtWorkingFolder(DbContextOptionsBuilder opt)
     {
-        opt.UseSqlite($"Data Source={DatabaseName}");
+        opt.UseSqlite($"Data Source={Constants.DB_NAME}");
     }
 
     private static void CreateDatabaseAtRoot(DbContextOptionsBuilder opt)
     {
         Directory.CreateDirectory("/app/data");
-        opt.UseSqlite($"Data Source=/app/data/{DatabaseName}");
+        opt.UseSqlite($"Data Source=/app/data/{Constants.DB_NAME}");
     }
 }
