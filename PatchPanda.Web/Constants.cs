@@ -8,4 +8,5 @@ public static class Constants
 #else
     public const string APP_NAME = "PatchPanda";
 #endif
+    public const string DB_NAME = "patchpanda.db";
 }
