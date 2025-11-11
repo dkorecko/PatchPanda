@@ -27,16 +27,9 @@ public sealed partial class Program
         Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
 
 #if DEBUG
-        builder.Services.AddDbContextFactory<DataContext>(CreateDebugDatabase);
+        builder.Services.AddDbContextFactory<DataContext>(CreateDebugDatabaseAtWorkingFolder);
 #else
-        if (OperatingSystem.IsWindows())
-        {
-            builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtWorkingFolder);
-        }
-        else
-        {
-            builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtRoot);
-        }
+        builder.Services.AddDbContextFactory<DataContext>(CreateDatabaseAtRoot);
 #endif
 
         var app = builder.Build();
@@ -66,15 +59,10 @@ public sealed partial class Program
         app.Run();
     }
 
-    private static void CreateDebugDatabase(DbContextOptionsBuilder opt)
+    private static void CreateDebugDatabaseAtWorkingFolder(DbContextOptionsBuilder opt)
     {
         opt.UseSqlite($"Data Source={Constants.DB_NAME}");
         opt.EnableSensitiveDataLogging();
-    }
-
-    private static void CreateDatabaseAtWorkingFolder(DbContextOptionsBuilder opt)
-    {
-        opt.UseSqlite($"Data Source={Constants.DB_NAME}");
     }
 
     private static void CreateDatabaseAtRoot(DbContextOptionsBuilder opt)
