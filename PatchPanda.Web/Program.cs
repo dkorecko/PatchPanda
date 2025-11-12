@@ -5,7 +5,7 @@ namespace PatchPanda.Web;
 
 public sealed partial class Program
 {
-    private static void Main(string[] args)
+    private static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
