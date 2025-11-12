@@ -5,7 +5,7 @@ namespace PatchPanda.Web.Services;
 
 public class DiscordService
 {
-    private string WebhookUrl { get; }
+    private string? WebhookUrl { get; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<DiscordService> _logger;
@@ -21,22 +21,24 @@ public class DiscordService
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
 
+        _dbContextFactory = dbContextFactory;
+        _logger = logger;
+
         var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
         logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
+
+        WebhookUrl = webhookUrl;
 
         if (string.IsNullOrWhiteSpace(webhookUrl))
         {
             _isInitialized = false;
-            logger.LogWarning("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
-            return;
+            logger.LogInformation("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
         }
-
-        _isInitialized = true;
-        logger.LogInformation("DiscordService is initialized");
-
-        WebhookUrl = webhookUrl;
-        _dbContextFactory = dbContextFactory;
-        _logger = logger;
+        else
+        {
+            _isInitialized = true;
+            logger.LogInformation("DiscordService is initialized");
+        }
     }
 
     public async Task SendUpdates(Container container, Container[] otherContainers)
