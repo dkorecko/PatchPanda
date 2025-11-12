@@ -196,6 +196,16 @@ public class DockerService
     {
         using var db = _dbContextFactory.CreateDbContext();
 
+        if (!await IsAliveAsync())
+        {
+            db.MultiContainerApps.RemoveRange(db.MultiContainerApps);
+            db.Stacks.RemoveRange(db.Stacks);
+            db.Containers.RemoveRange(db.Containers);
+            await db.SaveChangesAsync();
+
+            return false;
+        }
+
         var existingStacks = await db
             .Stacks.Include(x => x.Apps)
             .ThenInclude(x => x.NewerVersions)

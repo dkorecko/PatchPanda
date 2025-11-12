@@ -34,13 +34,10 @@ public sealed partial class Program
 
         var app = builder.Build();
 
-        using (var scope = app.Services.CreateScope())
-        {
-            var dbContext = scope.ServiceProvider.GetRequiredService<DataContext>()!;
+        var dbContext = await app.Services.GetRequiredService<IDbContextFactory<DataContext>>().CreateDbContextAsync();
 
-            if (dbContext.Database.IsRelational())
-                dbContext.Database.Migrate();
-        }
+        if (dbContext.Database.IsRelational())
+            dbContext.Database.Migrate();
 
         // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())
