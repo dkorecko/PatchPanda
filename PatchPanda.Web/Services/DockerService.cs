@@ -198,11 +198,6 @@ public class DockerService
 
         if (!await IsAliveAsync())
         {
-            db.MultiContainerApps.RemoveRange(db.MultiContainerApps);
-            db.Stacks.RemoveRange(db.Stacks);
-            db.Containers.RemoveRange(db.Containers);
-            await db.SaveChangesAsync();
-
             return false;
         }
 
