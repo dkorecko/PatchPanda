@@ -5,29 +5,49 @@ namespace PatchPanda.Web.Services;
 
 public class DiscordService
 {
-    private string WebhookUrl { get; init; }
+    private string? WebhookUrl { get; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<DiscordService> _logger;
+    private readonly bool _isInitialized = false;
 
     public DiscordService(
         IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
         ILogger<DiscordService> logger
-    )
+        )
     {
-        var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(dbContextFactory);
+        ArgumentNullException.ThrowIfNull(logger);
 
-        if (webhookUrl is null)
-            throw new InvalidOperationException("DISCORD_WEBHOOK_URL configuration is missing.");
-
-        WebhookUrl = webhookUrl;
         _dbContextFactory = dbContextFactory;
         _logger = logger;
+
+        var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
+        logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
+
+        WebhookUrl = webhookUrl;
+
+        if (string.IsNullOrWhiteSpace(webhookUrl))
+        {
+            _isInitialized = false;
+            logger.LogInformation("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
+        }
+        else
+        {
+            _isInitialized = true;
+            logger.LogInformation("DiscordService is initialized");
+        }
     }
 
     public async Task SendUpdates(Container container, Container[] otherContainers)
     {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
         using var db = _dbContextFactory.CreateDbContext();
 
         var newerVersions = (
@@ -108,7 +128,7 @@ public class DiscordService
         await db.SaveChangesAsync();
     }
 
-    public async Task SendWebhook(string content)
+    private async Task SendWebhook(string content)
     {
         using var httpClient = new HttpClient();
         var payload = new

@@ -17,26 +17,38 @@
 }
 else
 {
+    @if (!_isDockerRunning)
+    {
+        <div><span class="h3 text-bg-danger">Docker is not running</span></div>
+    }
+
     <button class="btn btn-primary" type="button" disabled="@(_isReloading || _isRestarting)" @onclick="ReloadData">
         @if (_isReloading)
         {
             <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+        }
+        else if (!_isDockerRunning)
+        {
+            <span>Retry</span>
         }
         else
         {
             <span>Recheck containers</span>
         }
     </button>
-    <button class="btn btn-warning ms-2" type="button" disabled="@(_selectedAppIds.Count == 0 || _isEnqueuing)" @onclick="UpdateSelected">
-        @if (_isEnqueuing)
-        {
-            <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
-        }
-        else
-        {
-            <span>Update selected</span>
-        }
-    </button>
+    @if (_isDockerRunning)
+    {
+        <button class="btn btn-warning ms-2" type="button" disabled="@(_selectedAppIds.Count == 0 || _isEnqueuing)" @onclick="UpdateSelected">
+            @if (_isEnqueuing)
+            {
+                <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+            }
+            else
+            {
+                <span>Update selected</span>
+            }
+        </button>
+    }
 
     int i = 0;
     <div class="accordion" id="stacksAccordion">
@@ -258,6 +270,7 @@ else
     private List<ComposeStack>? _composeStacks;
     private bool _isRestarting;
     private bool _isReloading;
+    private bool _isDockerRunning;
     private System.Timers.Timer? _pollTimer;
     private HashSet<int> _selectedAppIds = new();
     private bool _isEnqueuing;
@@ -273,6 +286,16 @@ else
 
     private async Task LoadData()
     {
+        if (!await _dockerService.IsAliveAsync())
+        {
+            _composeStacks = [];
+            _isDockerRunning = false;
+            StateHasChanged();
+            return;
+        }
+
+        _isDockerRunning = true;
+
         using var db = _dbContextFactory.CreateDbContext();
 
         _composeStacks = await db.Stacks
@@ -347,7 +370,7 @@ else
     private bool IsAllSelectedForStack(ComposeStack stack)
     {
         var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_updateRegistry)).ToList();
-        
+
         if (!selectableApps.Any())
             return false;
 
@@ -396,9 +419,14 @@ else
     {
         _isReloading = true;
         StateHasChanged();
-        await _dockerService.ResetComposeStacks();
+
+        var isReset = await _dockerService.ResetComposeStacks();
         _isReloading = false;
-        await LoadData();
+
+        if (isReset)
+        {
+            await LoadData();
+        }
     }
 
     public void Dispose()

@@ -5,18 +5,18 @@ namespace PatchPanda.Web;
 
 public sealed partial class Program
 {
-    private static void Main(string[] args)
+    private static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
         builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
-        builder.Services.AddScoped<DockerService>();
-        builder.Services.AddScoped<VersionService>();
-        builder.Services.AddScoped<DiscordService>();
-        builder.Services.AddScoped<UpdateService>();
-        builder.Services.AddScoped<IFileService, SystemFileService>();
+        builder.Services.AddSingleton<DockerService>();
+        builder.Services.AddSingleton<VersionService>();
+        builder.Services.AddSingleton<DiscordService>();
+        builder.Services.AddSingleton<UpdateService>();
+        builder.Services.AddSingleton<IFileService, SystemFileService>();
         builder.Services.AddSingleton<UpdateRegistry>();
         builder.Services.AddSingleton<UpdateQueue>();
         builder.Services.AddHostedService<VersionCheckHostedService>();
@@ -34,13 +34,10 @@ public sealed partial class Program
 
         var app = builder.Build();
 
-        using (var scope = app.Services.CreateScope())
-        {
-            var dbContext = scope.ServiceProvider.GetRequiredService<DataContext>()!;
+        var dbContext = await app.Services.GetRequiredService<IDbContextFactory<DataContext>>().CreateDbContextAsync();
 
-            if (dbContext.Database.IsRelational())
-                dbContext.Database.Migrate();
-        }
+        if (dbContext.Database.IsRelational())
+            dbContext.Database.Migrate();
 
         // Configure the HTTP request pipeline.
         if (!app.Environment.IsDevelopment())

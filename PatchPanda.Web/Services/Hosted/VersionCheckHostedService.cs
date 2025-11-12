@@ -2,26 +2,44 @@ namespace PatchPanda.Web.Services.Hosted;
 
 public class VersionCheckHostedService : IHostedService
 {
-    private readonly IServiceScopeFactory _serviceProvider;
-    private Timer? _timer;
-    private bool _pushedOnce;
+    private readonly DockerService _dockerService;
+    private readonly VersionService _versionService;
+    private readonly DiscordService _discordService;
+    private readonly IDbContextFactory<DataContext> _dbContextFactory;
+    private readonly ILogger<VersionCheckHostedService> _logger;
 
-    public VersionCheckHostedService(IServiceScopeFactory serviceProvider)
+    private Timer? _timer;
+    private volatile bool _pushedOnce;
+
+    public VersionCheckHostedService(
+        DockerService dockerService,
+        VersionService versionService,
+        DiscordService discordService,
+        IDbContextFactory<DataContext> dbContextFactory,
+        ILogger<VersionCheckHostedService> logger
+        )
     {
-        _serviceProvider = serviceProvider;
+        ArgumentNullException.ThrowIfNull(dockerService);
+        ArgumentNullException.ThrowIfNull(versionService);
+        ArgumentNullException.ThrowIfNull(discordService);
+        ArgumentNullException.ThrowIfNull(dbContextFactory);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _dockerService = dockerService;
+        _versionService = versionService;
+        _discordService = discordService;
+        _dbContextFactory = dbContextFactory;
+        _logger = logger;
     }
 
     public void Dispose()
     {
-        _timer!.Dispose();
+        _timer?.Dispose();
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<VersionCheckHostedService>>();
-
-        logger.LogInformation("Service starting");
+        _logger.LogInformation("Service starting");
 
         DoWork(null);
         _timer = new Timer(DoWork, null, TimeSpan.FromHours(2), TimeSpan.FromHours(2));
@@ -31,10 +49,7 @@ public class VersionCheckHostedService : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var logger = scope.ServiceProvider.GetService<ILogger<VersionCheckHostedService>>();
-
-        logger!.LogInformation("Service stopping");
+        _logger.LogInformation("Service stopping");
 
         _timer!.Change(Timeout.Infinite, 0);
         Dispose();
@@ -44,29 +59,27 @@ public class VersionCheckHostedService : IHostedService
 
     public async void DoWork(object? state)
     {
-        using var scope = _serviceProvider.CreateScope();
-        var versionService = scope.ServiceProvider.GetRequiredService<VersionService>();
-        var dbContextFactory = scope.ServiceProvider.GetRequiredService<
-            IDbContextFactory<DataContext>
-        >();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<VersionCheckHostedService>>();
-
-        using var db = dbContextFactory.CreateDbContext();
+        using var db = _dbContextFactory.CreateDbContext();
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
             .Where(x => !x.IsSecondary && (x.GitHubRepo != null || x.OverrideGitHubRepo != null))
             .ToListAsync();
 
-        if (!containers.Any())
+        if (containers.Count == 0)
         {
             if (_pushedOnce)
                 return;
 
-            var dockerService = scope.ServiceProvider.GetRequiredService<DockerService>();
-            await dockerService.ResetComposeStacks();
-            DoWork(null);
+            var isReset = await _dockerService.ResetComposeStacks();
+
+            if (!isReset)
+            {
+                return;
+            }
+
             _pushedOnce = true;
+            DoWork(null);
             return;
         }
 
@@ -78,7 +91,7 @@ public class VersionCheckHostedService : IHostedService
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
-            logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
+            _logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
 
             var currentVersionGroups = uniqueRepoGroup
                 .GroupBy(x => x.Version)
@@ -86,16 +99,16 @@ public class VersionCheckHostedService : IHostedService
 
             foreach (var currentVersionGroup in currentVersionGroups)
             {
-                logger.LogInformation(
+                _logger.LogInformation(
                     "Checking version group: {Repo} {Version}",
                     uniqueRepoGroup.Key,
                     currentVersionGroup.Key
                 );
-                logger.LogInformation("Got {Count} containers", currentVersionGroup.Count());
+                _logger.LogInformation("Got {Count} containers", currentVersionGroup.Count());
 
                 var mainApp = currentVersionGroup.First();
 
-                logger.LogInformation(
+                _logger.LogInformation(
                     "Selected {MainApp} as main application for getting releases",
                     mainApp.Name
                 );
@@ -103,27 +116,23 @@ public class VersionCheckHostedService : IHostedService
                 {
                     var otherApps = currentVersionGroup.Skip(1);
 
-                    var newerVersions = await versionService.GetNewerVersions(
+                    var newerVersions = await _versionService.GetNewerVersions(
                         mainApp,
                         [.. otherApps]
                     );
 
                     if (newerVersions.Any() || mainApp.NewerVersions.Any(x => !x.Notified))
                     {
-                        var discordService =
-                            scope.ServiceProvider.GetRequiredService<DiscordService>();
-
-                        await discordService.SendUpdates(mainApp, [.. otherApps]);
+                        await _discordService.SendUpdates(mainApp, [.. otherApps]);
                     }
                 }
                 catch (RateLimitException ex)
                 {
-                    logger.LogWarning(
+                    _logger.LogWarning(
                         "Rate limit {Limit} hit when checking for updates, skipping further checks until {Reset}",
                         ex.Limit,
                         ex.ResetsAt
                     );
-                    return;
                 }
             }
         }
