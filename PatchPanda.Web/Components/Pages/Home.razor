@@ -20,24 +20,18 @@ else
     @if (!_isDockerRunning)
     {
         <div><span class="h3 text-bg-danger">Docker is not running</span></div>
-    }
-
-    <button class="btn btn-primary" type="button" disabled="@(_isReloading || _isRestarting)" @onclick="ReloadData">
-        @if (_isReloading)
-        {
-            <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
-        }
-        else if (!_isDockerRunning)
-        {
-            <span>Retry</span>
-        }
-        else
-        {
-            <span>Recheck containers</span>
-        }
-    </button>
-    @if (_isDockerRunning)
+    } else
     {
+        <button class="btn btn-primary" type="button" disabled="@(_isReloading || _isRestarting)" @onclick="ReloadData">
+            @if (_isReloading)
+            {
+                <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+            }
+            else
+            {
+                <span>Recheck containers</span>
+            }
+        </button>
         <button class="btn btn-warning ms-2" type="button" disabled="@(_selectedAppIds.Count == 0 || _isEnqueuing)" @onclick="UpdateSelected">
             @if (_isEnqueuing)
             {
