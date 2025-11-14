@@ -153,7 +153,11 @@ public class VersionCheckHostedService : IHostedService
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogWarning(ex, "Discord notification failed");
+                                _logger.LogWarning(
+                                    ex,
+                                    "Discord notification failed, message {Message}",
+                                    ex.Message
+                                );
                             }
                         }
 
@@ -166,7 +170,11 @@ public class VersionCheckHostedService : IHostedService
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogWarning(ex, "Apprise notification failed");
+                                _logger.LogWarning(
+                                    ex,
+                                    "Apprise notification failed, message {Message}",
+                                    ex.Message
+                                );
                             }
                         }
 

@@ -65,15 +65,40 @@ public class AppriseService
         if (!_isInitialized || _appriseUrl is null)
             return;
 
-        using var httpClient = new HttpClient();
+        var targetUrl = $"{_appriseUrl}/notify";
 
-        var payload = new { body = message, urls = string.Join(',', _urls) };
+        try
+        {
+            using var httpClient = new HttpClient();
 
-        var json = JsonSerializer.Serialize(payload);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
+            for (int i = 0; i < _urls.Length; i++)
+            {
+                List<string> additions = [];
 
-        var resp = await httpClient.PostAsync($"{_appriseUrl}/notify", content, cancellationToken);
+                if (!_urls[i].Contains("/?"))
+                    additions.Add("/?");
 
-        resp.EnsureSuccessStatusCode();
+                if (!_urls[i].Contains("overflow="))
+                    additions.Add("overflow=split");
+
+                if (!_urls[i].Contains("emojis="))
+                    additions.Add("emojis=yes");
+
+                if (additions.Any())
+                    _urls[i] += string.Join('&', additions);
+            }
+            var payload = new { body = message, urls = string.Join(',', _urls) };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var resp = await httpClient.PostAsync(targetUrl, content, cancellationToken);
+
+            resp.EnsureSuccessStatusCode();
+        }
+        catch (Exception ex)
+        {
+            throw new FailedNotificationException(targetUrl, ex);
+        }
     }
 }

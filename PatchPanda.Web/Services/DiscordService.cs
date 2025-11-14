@@ -52,34 +52,41 @@ public class DiscordService
 
     public async Task SendRawAsync(string content)
     {
-        if (!_isInitialized)
+        if (!_isInitialized || WebhookUrl is null)
             return;
 
-        const int ChunkSize = 2000;
-
-        var fullMessage = content;
-
-        while (fullMessage.Length > 0)
+        try
         {
-            var splitPoint = Math.Min(ChunkSize, fullMessage.Length);
-            var msg = string.Empty;
+            const int ChunkSize = 2000;
 
-            if (splitPoint < fullMessage.Length)
+            var fullMessage = content;
+
+            while (fullMessage.Length > 0)
             {
-                var lastNewlineIndex = fullMessage.LastIndexOfAny(
-                    ['\n', '\r'],
-                    splitPoint,
-                    splitPoint - 1
-                );
-                if (lastNewlineIndex != -1)
-                    splitPoint = lastNewlineIndex + 1;
-            }
+                var splitPoint = Math.Min(ChunkSize, fullMessage.Length);
+                var msg = string.Empty;
 
-            msg = fullMessage[..splitPoint];
-            await SendWebhook(msg);
-            fullMessage =
-                fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
-            await Task.Delay(1000);
+                if (splitPoint < fullMessage.Length)
+                {
+                    var lastNewlineIndex = fullMessage.LastIndexOfAny(
+                        ['\n', '\r'],
+                        splitPoint,
+                        splitPoint - 1
+                    );
+                    if (lastNewlineIndex != -1)
+                        splitPoint = lastNewlineIndex + 1;
+                }
+
+                msg = fullMessage[..splitPoint];
+                await SendWebhook(msg);
+                fullMessage =
+                    fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
+                await Task.Delay(1000);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new FailedNotificationException(WebhookUrl, ex);
         }
     }
 

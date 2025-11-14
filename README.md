@@ -67,17 +67,27 @@ Notes about the GitHub token
 
 ## Run with Docker Compose (recommended for hosting)
 
-Here is an example `docker-compose.yml` that runs PatchPanda. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
+Here is an example `docker-compose.yml` that runs PatchPanda and Apprise. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
 
 ```yaml
 services:
+  ### THIS IS OPTIONAL
+  apprise-api: # You can bring your own Apprise API (or completely not use it), just make sure to update the environment variable for PatchPanda
+    image: caronc/apprise:latest
+    container_name: apprise-api
+    environment:
+      - APPRISE_STATEFUL_MODE=disabled
+    ports:
+      - 6603:8000
+  ### OPTIONAL ENDS HERE
+
   patchpanda:
     container_name: patchpanda-app
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # use your discord webhook URL here
       - APPRISE_API_URL=http://apprise-api:8080 # optional, if you run an Apprise API and want to use it for notifications
       - APPRISE_NOTIFICATION_URLS=discord://webhook_id/webhook_token,mailto://user:password@gmail.com # optional, comma-separated list of Apprise notification URLs
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # optional, use your discord webhook URL here for the direct discord integration
       - GITHUB_USERNAME=yourusername # use your GitHub username here
       - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
       - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
@@ -90,10 +100,11 @@ services:
     restart: unless-stopped
 ```
 
-Notes:
+IMPORTANT NOTES:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
 - The second volume is for being able to access the compose files. PatchPanda will use the paths reported by the Docker engine, meaning the paths must be the same in its file system for everything to work properly.
+- The Apprise API container is completely removable if you either don't wish to use Apprise or want to use the native Discord notifications. It's included here to make it as simple as possible for people to setup the app.
 
 Once the application is running, you can access it in your browser at `http://localhost:5093` (or the host you are using and the port you configured).
 
