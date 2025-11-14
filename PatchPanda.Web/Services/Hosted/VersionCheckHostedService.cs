@@ -5,6 +5,7 @@ public class VersionCheckHostedService : IHostedService
     private readonly DockerService _dockerService;
     private readonly VersionService _versionService;
     private readonly DiscordService _discordService;
+    private readonly AppriseService _appriseService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<VersionCheckHostedService> _logger;
 
@@ -15,9 +16,10 @@ public class VersionCheckHostedService : IHostedService
         DockerService dockerService,
         VersionService versionService,
         DiscordService discordService,
+        AppriseService appriseService,
         IDbContextFactory<DataContext> dbContextFactory,
         ILogger<VersionCheckHostedService> logger
-        )
+    )
     {
         ArgumentNullException.ThrowIfNull(dockerService);
         ArgumentNullException.ThrowIfNull(versionService);
@@ -28,8 +30,15 @@ public class VersionCheckHostedService : IHostedService
         _dockerService = dockerService;
         _versionService = versionService;
         _discordService = discordService;
+        _appriseService = appriseService;
         _dbContextFactory = dbContextFactory;
         _logger = logger;
+
+        if (string.IsNullOrWhiteSpace(Constants.BASE_URL))
+            _logger.LogWarning(
+                "{BaseUrlKey} was not set, therefore update URLs will not be provided.",
+                Constants.VariableKeys.BASE_URL
+            );
     }
 
     public void Dispose()
@@ -123,7 +132,62 @@ public class VersionCheckHostedService : IHostedService
 
                     if (newerVersions.Any() || mainApp.NewerVersions.Any(x => !x.Notified))
                     {
-                        await _discordService.SendUpdates(mainApp, [.. otherApps]);
+                        var container = await db
+                            .Containers.Include(x => x.NewerVersions)
+                            .FirstAsync(x => x.Id == mainApp.Id);
+                        var toNotify = container.NewerVersions.Where(x => !x.Notified).ToList();
+
+                        var fullMessage = NotificationMessageBuilder.Build(
+                            mainApp,
+                            otherApps,
+                            toNotify
+                        );
+                        int successCount = 0;
+
+                        if (_discordService.IsInitialized)
+                        {
+                            try
+                            {
+                                await _discordService.SendRawAsync(fullMessage);
+                                successCount++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Discord notification failed");
+                            }
+                        }
+
+                        if (_appriseService.IsInitialized)
+                        {
+                            try
+                            {
+                                await _appriseService.SendAsync(fullMessage);
+                                successCount++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Apprise notification failed");
+                            }
+                        }
+
+                        if (successCount > 0)
+                        {
+                            try
+                            {
+                                foreach (var v in toNotify)
+                                    v.Notified = true;
+
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed saving notified flags");
+                            }
+                        }
+                        else
+                            _logger.LogWarning(
+                                "All notification attempts have failed, will not be marked as notified."
+                            );
                     }
                 }
                 catch (RateLimitException ex)

@@ -12,7 +12,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Determine whether a release contains any breaking changes.
 - Track discovered newer versions in a database and show release notes in the UI.
 - Group related services into multi-container apps (for example `app-web` + `app-worker`).
-- Send notifications to Discord about new versions (via webhook).
+- Send notifications to any Apprise URL or Discord natively about new versions (via webhook).
 - Enqueue and run updates: when you choose to update, PatchPanda edits compose/.env files and runs `docker compose pull` and `docker compose up -d` for the target stack. You can also view live log.
 - Support multiple release sources per app (primary and secondary repos) and merge release notes when appropriate.
 - Ability to ignore a specific version to not clutter the UI.
@@ -55,9 +55,11 @@ GitHub
 - GITHUB_USERNAME - GitHub username
 - GITHUB_PASSWORD - GitHub personal access token (PAT) or password
 
-Discord
+Notifications
 
-- DISCORD_WEBHOOK_URL - Full Discord webhook URL used to post notifications
+- DISCORD_WEBHOOK_URL - (optional) Full Discord webhook URL used to post notifications
+- APPRISE_API_URL - (optional) An Apprise API URL to send notifications to any services Apprise supports (e.g. email, Telegram, etc).
+- APPRISE_NOTIFICATION_URLS - (optional) A comma-separated list of Apprise notification URLs to send notifications to any services Apprise supports (e.g. email, Telegram, etc). For specific formats, take a look at the [Apprise documentation](https://github.com/caronc/apprise/wiki#notification-services).
 
 Notes about the GitHub token
 
@@ -74,6 +76,8 @@ services:
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
       - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # use your discord webhook URL here
+      - APPRISE_API_URL=http://apprise-api:8080 # optional, if you run an Apprise API and want to use it for notifications
+      - APPRISE_NOTIFICATION_URLS=discord://webhook_id/webhook_token,mailto://user:password@gmail.com # optional, comma-separated list of Apprise notification URLs
       - GITHUB_USERNAME=yourusername # use your GitHub username here
       - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
       - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
@@ -131,7 +135,7 @@ dotnet ef database update --project PatchPanda.Web --startup-project PatchPanda.
 
 ## Notifications
 
-- Notifications are posted to the configured Discord webhook. PatchPanda will chunk long messages (Discord limits message length) and mark versions as notified once it posted them.
+- Notifications are posted to the configured Discord webhook and Apprise notification URLs. PatchPanda will chunk long messages (Discord limits message length) and mark versions as notified once it posted them.
 
 ## Troubleshooting & tips
 

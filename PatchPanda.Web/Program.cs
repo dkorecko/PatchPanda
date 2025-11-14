@@ -15,6 +15,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<DockerService>();
         builder.Services.AddSingleton<VersionService>();
         builder.Services.AddSingleton<DiscordService>();
+        builder.Services.AddSingleton<AppriseService>();
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
         builder.Services.AddSingleton<UpdateRegistry>();
@@ -22,7 +23,7 @@ public sealed partial class Program
         builder.Services.AddHostedService<VersionCheckHostedService>();
         builder.Services.AddHostedService<UpdateBackgroundService>();
 
-        var baseUrl = builder.Configuration.GetValue<string?>("BASE_URL");
+        var baseUrl = builder.Configuration.GetValue<string?>(Constants.VariableKeys.BASE_URL);
 
         Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
 
@@ -34,7 +35,9 @@ public sealed partial class Program
 
         var app = builder.Build();
 
-        var dbContext = await app.Services.GetRequiredService<IDbContextFactory<DataContext>>().CreateDbContextAsync();
+        var dbContext = await app
+            .Services.GetRequiredService<IDbContextFactory<DataContext>>()
+            .CreateDbContextAsync();
 
         if (dbContext.Database.IsRelational())
             dbContext.Database.Migrate();

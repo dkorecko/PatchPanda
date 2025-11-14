@@ -1,0 +1,65 @@
+@page "/notifications"
+@inject AppriseService _appriseService
+@inject DiscordService _discordService
+
+<h1>Notifications</h1>
+
+@if (!_appriseService.IsInitialized && !_discordService.IsInitialized)
+{
+    <p>No notification endpoints configured.</p>
+}
+else
+{
+    <ul>
+        @foreach (var url in _appriseService.GetEndpoints())
+        {
+            <li>@url</li>
+        }
+        @if(_discordService.IsInitialized)
+        {
+            <li>@_discordService.WebhookUrl</li>
+		}
+	)
+    </ul>
+
+    <button class="btn btn-primary" disabled=@_isSending @onclick="SendTest">
+        @if (_isSending)
+        {
+            <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+        }
+        else
+        {
+            <span>Send test notifications</span>
+        }
+    </button>
+
+    @if(_error is not null) {
+        <div class="alert alert-danger" role="alert">There was an error when sending one of the notifications: @_error</div>
+    }
+}
+
+@code {
+    private bool _isSending;
+    private string? _error;
+
+    private async Task SendTest()
+    {
+        _isSending = true;
+        StateHasChanged();
+
+        try
+        {
+            var testMessage = "This is a test notification from PatchPanda.";
+            await _appriseService.SendAsync(testMessage);
+            await _discordService.SendRawAsync(testMessage);
+            _error = null;
+        }
+        catch(Exception ex)
+        {
+            _error = ex.Message;
+        }
+
+        _isSending = false;
+        StateHasChanged();
+    }
+}

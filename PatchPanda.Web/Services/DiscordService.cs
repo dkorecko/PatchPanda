@@ -5,34 +5,41 @@ namespace PatchPanda.Web.Services;
 
 public class DiscordService
 {
-    private string? WebhookUrl { get; }
+    public string? WebhookUrl { get; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
-    private readonly ILogger<DiscordService> _logger;
-    private readonly bool _isInitialized = false;
+    private readonly bool _isInitialized;
 
     public DiscordService(
         IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
         ILogger<DiscordService> logger
-        )
+    )
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
 
         _dbContextFactory = dbContextFactory;
-        _logger = logger;
 
-        var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
-        logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
+        var webhookUrl = configuration.GetValue<string>(
+            Constants.VariableKeys.DISCORD_WEBHOOK_URL
+        )!;
+        logger.LogInformation(
+            "{WebhookKey}={WebhookUrl}",
+            Constants.VariableKeys.DISCORD_WEBHOOK_URL,
+            webhookUrl
+        );
 
         WebhookUrl = webhookUrl;
 
         if (string.IsNullOrWhiteSpace(webhookUrl))
         {
             _isInitialized = false;
-            logger.LogInformation("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
+            logger.LogInformation(
+                "{WebhookKey} configuration is missing, DiscordService is not initialized.",
+                Constants.VariableKeys.DISCORD_WEBHOOK_URL
+            );
         }
         else
         {
@@ -41,65 +48,39 @@ public class DiscordService
         }
     }
 
+    public bool IsInitialized => _isInitialized;
+
     public async Task SendUpdates(Container container, Container[] otherContainers)
     {
         if (!_isInitialized)
         {
             return;
         }
-
         using var db = _dbContextFactory.CreateDbContext();
 
         var newerVersions = (
             await db.Containers.Include(x => x.NewerVersions).FirstAsync(x => x.Id == container.Id)
-        ).NewerVersions.Where(x => !x.Notified);
+        )
+            .NewerVersions.Where(x => !x.Notified)
+            .ToList();
 
-        var message = new StringBuilder();
-
-        message.AppendLine(
-            $"# 🎉 {string.Join(" + ", [container.Name, .. otherContainers.Select(x => x.Name)])} UPDATE 🎉\n"
-        );
-        message.AppendLine("🚀 **Version Details**");
-        message.AppendLine($"- **New Version:** `{newerVersions.First().VersionNumber}`");
-        message.AppendLine($"- **Previously Used Version:** `{container.Version ?? "Missing"}`");
-        message.AppendLine(
-            $"- **Breaking Change:** {(newerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
-        );
-        message.AppendLine(
-            $"- **Prerelease:** {(newerVersions.Any(x => x.Prerelease) ? "Yes :x:" : "No :white_check_mark:")}"
+        var fullMessage = NotificationMessageBuilder.Build(
+            container,
+            otherContainers,
+            newerVersions
         );
 
-        message.AppendLine("\n");
+        await SendRawAsync(fullMessage);
+    }
 
-        foreach (var newVersion in newerVersions)
-        {
-            message.AppendLine(
-                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}\n"
-            );
-            message.AppendLine(newVersion.Body);
-            message.AppendLine("\n");
-            newVersion.Notified = true;
-        }
+    public async Task SendRawAsync(string content)
+    {
+        if (!_isInitialized)
+            return;
 
-        var repo = container.GetGitHubRepo();
-        message.AppendLine($"\nhttps://github.com/{repo!.Item1}/{repo.Item2}/releases");
-
-        if (Constants.BASE_URL is not null)
-            message.AppendLine(
-                $"\n__Verify and Update Here:__ {Constants.BASE_URL}/versions/{container.Id}"
-            );
-        else
-        {
-            _logger.LogWarning(
-                "BASE URL env variable was missing, therefore an update URL could not be provided."
-            );
-            message.AppendLine(
-                $"\n__**BASE URL was missing, therefore an update URL cannot be provided.**__"
-            );
-        }
-
-        var fullMessage = message.ToString();
         const int ChunkSize = 2000;
+
+        var fullMessage = content;
 
         while (fullMessage.Length > 0)
         {
@@ -113,7 +94,6 @@ public class DiscordService
                     splitPoint,
                     splitPoint - 1
                 );
-
                 if (lastNewlineIndex != -1)
                     splitPoint = lastNewlineIndex + 1;
             }
@@ -124,8 +104,6 @@ public class DiscordService
                 fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
             await Task.Delay(1000);
         }
-
-        await db.SaveChangesAsync();
     }
 
     private async Task SendWebhook(string content)
