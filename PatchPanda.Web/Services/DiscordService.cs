@@ -50,29 +50,6 @@ public class DiscordService
 
     public bool IsInitialized => _isInitialized;
 
-    public async Task SendUpdates(Container container, Container[] otherContainers)
-    {
-        if (!_isInitialized)
-        {
-            return;
-        }
-        using var db = _dbContextFactory.CreateDbContext();
-
-        var newerVersions = (
-            await db.Containers.Include(x => x.NewerVersions).FirstAsync(x => x.Id == container.Id)
-        )
-            .NewerVersions.Where(x => !x.Notified)
-            .ToList();
-
-        var fullMessage = NotificationMessageBuilder.Build(
-            container,
-            otherContainers,
-            newerVersions
-        );
-
-        await SendRawAsync(fullMessage);
-    }
-
     public async Task SendRawAsync(string content)
     {
         if (!_isInitialized)
