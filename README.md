@@ -85,7 +85,7 @@ services:
     container_name: patchpanda-app
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
-      - APPRISE_API_URL=http://apprise-api:8080 # optional, if you run an Apprise API and want to use it for notifications
+      - APPRISE_API_URL=http://apprise-api:8000 # optional, if you run an Apprise API and want to use it for notifications
       - APPRISE_NOTIFICATION_URLS=discord://webhook_id/webhook_token,mailto://user:password@gmail.com # optional, comma-separated list of Apprise notification URLs
       - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # optional, use your discord webhook URL here for the direct discord integration
       - GITHUB_USERNAME=yourusername # use your GitHub username here
