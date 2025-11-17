@@ -12,6 +12,7 @@ public sealed partial class Program
         // Add services to the container.
         builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
+        builder.Services.AddHttpClient();
         builder.Services.AddSingleton<DockerService>();
         builder.Services.AddSingleton<VersionService>();
         builder.Services.AddSingleton<DiscordService>();
