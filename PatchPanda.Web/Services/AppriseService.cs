@@ -71,23 +71,27 @@ public class AppriseService
         {
             using var httpClient = new HttpClient();
 
+            var processedUrls = new List<string>(_urls.Length);
             for (int i = 0; i < _urls.Length; i++)
             {
+                var url = _urls[i];
                 List<string> additions = [];
 
-                if (!_urls[i].Contains("/?"))
+                if (!url.Contains("/?"))
                     additions.Add("/?");
 
-                if (!_urls[i].Contains("overflow="))
+                if (!url.Contains("overflow="))
                     additions.Add("overflow=split");
 
-                if (!_urls[i].Contains("emojis="))
+                if (!url.Contains("emojis="))
                     additions.Add("emojis=yes");
 
                 if (additions.Any())
-                    _urls[i] += string.Join('&', additions);
+                    url += string.Join('&', additions);
+
+                processedUrls.Add(url);
             }
-            var payload = new { body = message, urls = string.Join(',', _urls) };
+            var payload = new { body = message, urls = string.Join(',', processedUrls) };
 
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
