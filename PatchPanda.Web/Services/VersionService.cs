@@ -107,7 +107,7 @@ public class VersionService
 
         List<Release> additionalReleases = [];
 
-        if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Count != 0)
+        if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Any())
         {
             foreach (var secondaryRepo in app.SecondaryGitHubRepos)
             {
