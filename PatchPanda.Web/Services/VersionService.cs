@@ -93,8 +93,8 @@ public class VersionService
         var allReleases = await GetVersions(repo);
 
         var validReleases = allReleases.Where(x =>
-            Regex.IsMatch(x.TagName, app.GitHubVersionRegex)
-            || Regex.IsMatch(x.Name, app.GitHubVersionRegex)
+            (x.TagName is not null && Regex.IsMatch(x.TagName, app.GitHubVersionRegex))
+            || (x.Name is not null && Regex.IsMatch(x.Name, app.GitHubVersionRegex))
         );
 
         using var db = _dbContextFactory.CreateDbContext();
@@ -119,7 +119,7 @@ public class VersionService
         }
 
         var newerVersions = validReleases
-            .Where(x => x.TagName.IsNewerThan(app.Version))
+            .Where(x => x.TagName is not null && x.TagName.IsNewerThan(app.Version))
             .Select(x => new AppVersion()
             {
                 Body = x.Body,
