@@ -8,14 +8,17 @@ public class AppriseService
     private readonly string[] _urls;
     private readonly string? _appriseUrl;
     private readonly ILogger<AppriseService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly bool _isInitialized;
 
-    public AppriseService(IConfiguration configuration, ILogger<AppriseService> logger)
+    public AppriseService(IConfiguration configuration, ILogger<AppriseService> logger, IHttpClientFactory httpClientFactory)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
 
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
         _urls = [];
 
         var appriseApiUrl = configuration.GetValue<string?>(Constants.VariableKeys.APPRISE_API_URL);
@@ -69,7 +72,7 @@ public class AppriseService
 
         try
         {
-            using var httpClient = new HttpClient();
+            var httpClient = _httpClientFactory.CreateClient();
 
             var processedUrls = new List<string>(_urls.Length);
             for (int i = 0; i < _urls.Length; i++)
