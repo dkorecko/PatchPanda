@@ -54,7 +54,7 @@ else
             await _discordService.SendRawAsync(testMessage);
             _error = null;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             _error = ex.Message;
         }
