@@ -12,7 +12,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Determine whether a release contains any breaking changes.
 - Track discovered newer versions in a database and show release notes in the UI.
 - Group related services into multi-container apps (for example `app-web` + `app-worker`).
-- Send notifications to Discord about new versions (via webhook).
+- Send notifications to any Apprise URL or Discord natively about new versions (via webhook).
 - Enqueue and run updates: when you choose to update, PatchPanda edits compose/.env files and runs `docker compose pull` and `docker compose up -d` for the target stack. You can also view live log.
 - Support multiple release sources per app (primary and secondary repos) and merge release notes when appropriate.
 - Ability to ignore a specific version to not clutter the UI.
@@ -55,9 +55,11 @@ GitHub
 - GITHUB_USERNAME - GitHub username
 - GITHUB_PASSWORD - GitHub personal access token (PAT) or password
 
-Discord
+Notifications
 
-- DISCORD_WEBHOOK_URL - Full Discord webhook URL used to post notifications
+- DISCORD_WEBHOOK_URL - (optional) Full Discord webhook URL used to post notifications
+- APPRISE_API_URL - (optional) An Apprise API URL to send notifications to any services Apprise supports (e.g. email, Telegram, etc).
+- APPRISE_NOTIFICATION_URLS - (optional) A comma-separated list of Apprise notification URLs to send notifications to any services Apprise supports (e.g. email, Telegram, etc). For specific formats, take a look at the [Apprise documentation](https://github.com/caronc/apprise/wiki#notification-services).
 
 Notes about the GitHub token
 
@@ -65,15 +67,27 @@ Notes about the GitHub token
 
 ## Run with Docker Compose (recommended for hosting)
 
-Here is an example `docker-compose.yml` that runs PatchPanda. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
+Here is an example `docker-compose.yml` that runs PatchPanda and Apprise. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
 
 ```yaml
 services:
+  ### THIS IS OPTIONAL
+  apprise-api: # You can bring your own Apprise API (or completely not use it), just make sure to update the environment variable for PatchPanda
+    image: caronc/apprise:latest
+    container_name: apprise-api
+    environment:
+      - APPRISE_STATEFUL_MODE=disabled
+    ports:
+      - 6603:8000
+  ### OPTIONAL ENDS HERE
+
   patchpanda:
     container_name: patchpanda-app
     image: ghcr.io/dkorecko/patchpanda:latest
     environment:
-      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # use your discord webhook URL here
+      - APPRISE_API_URL=http://apprise-api:8000 # optional, if you run an Apprise API and want to use it for notifications
+      - APPRISE_NOTIFICATION_URLS=discord://webhook_id/webhook_token,mailto://user:password@gmail.com # optional, comma-separated list of Apprise notification URLs
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... # optional, use your discord webhook URL here for the direct discord integration
       - GITHUB_USERNAME=yourusername # use your GitHub username here
       - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
       - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
@@ -86,10 +100,11 @@ services:
     restart: unless-stopped
 ```
 
-Notes:
+IMPORTANT NOTES:
 
 - For the container to inspect your host Docker state, mount the host's `/var/run/docker.sock` into the container. That gives the container the ability to list containers and run docker commands on the host.
 - The second volume is for being able to access the compose files. PatchPanda will use the paths reported by the Docker engine, meaning the paths must be the same in its file system for everything to work properly.
+- The Apprise API container is completely removable if you either don't wish to use Apprise or want to use the native Discord notifications. It's included here to make it as simple as possible for people to setup the app.
 
 Once the application is running, you can access it in your browser at `http://localhost:5093` (or the host you are using and the port you configured).
 
@@ -131,7 +146,7 @@ dotnet ef database update --project PatchPanda.Web --startup-project PatchPanda.
 
 ## Notifications
 
-- Notifications are posted to the configured Discord webhook. PatchPanda will chunk long messages (Discord limits message length) and mark versions as notified once it posted them.
+- Notifications are posted to the configured Discord webhook and Apprise notification URLs. PatchPanda will chunk long messages (Discord limits message length) and mark versions as notified once it posted them.
 
 ## Troubleshooting & tips
 

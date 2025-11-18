@@ -5,34 +5,41 @@ namespace PatchPanda.Web.Services;
 
 public class DiscordService
 {
-    private string? WebhookUrl { get; }
+    public string? WebhookUrl { get; }
 
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
-    private readonly ILogger<DiscordService> _logger;
-    private readonly bool _isInitialized = false;
+    private readonly bool _isInitialized;
 
     public DiscordService(
         IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
         ILogger<DiscordService> logger
-        )
+    )
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
 
         _dbContextFactory = dbContextFactory;
-        _logger = logger;
 
-        var webhookUrl = configuration.GetValue<string>("DISCORD_WEBHOOK_URL")!;
-        logger.LogInformation($"DISCORD_WEBHOOK_URL={webhookUrl}");
+        var webhookUrl = configuration.GetValue<string>(
+            Constants.VariableKeys.DISCORD_WEBHOOK_URL
+        )!;
+        logger.LogInformation(
+            "{WebhookKey}={WebhookUrl}",
+            Constants.VariableKeys.DISCORD_WEBHOOK_URL,
+            webhookUrl
+        );
 
         WebhookUrl = webhookUrl;
 
         if (string.IsNullOrWhiteSpace(webhookUrl))
         {
             _isInitialized = false;
-            logger.LogInformation("DISCORD_WEBHOOK_URL configuration is missing, DiscordService is not initialized.");
+            logger.LogInformation(
+                "{WebhookKey} configuration is missing, DiscordService is not initialized.",
+                Constants.VariableKeys.DISCORD_WEBHOOK_URL
+            );
         }
         else
         {
@@ -41,91 +48,46 @@ public class DiscordService
         }
     }
 
-    public async Task SendUpdates(Container container, Container[] otherContainers)
+    public bool IsInitialized => _isInitialized;
+
+    public async Task SendRawAsync(string content)
     {
-        if (!_isInitialized)
-        {
+        if (!_isInitialized || WebhookUrl is null)
             return;
-        }
 
-        using var db = _dbContextFactory.CreateDbContext();
-
-        var newerVersions = (
-            await db.Containers.Include(x => x.NewerVersions).FirstAsync(x => x.Id == container.Id)
-        ).NewerVersions.Where(x => !x.Notified);
-
-        var message = new StringBuilder();
-
-        message.AppendLine(
-            $"# 🎉 {string.Join(" + ", [container.Name, .. otherContainers.Select(x => x.Name)])} UPDATE 🎉\n"
-        );
-        message.AppendLine("🚀 **Version Details**");
-        message.AppendLine($"- **New Version:** `{newerVersions.First().VersionNumber}`");
-        message.AppendLine($"- **Previously Used Version:** `{container.Version ?? "Missing"}`");
-        message.AppendLine(
-            $"- **Breaking Change:** {(newerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
-        );
-        message.AppendLine(
-            $"- **Prerelease:** {(newerVersions.Any(x => x.Prerelease) ? "Yes :x:" : "No :white_check_mark:")}"
-        );
-
-        message.AppendLine("\n");
-
-        foreach (var newVersion in newerVersions)
+        try
         {
-            message.AppendLine(
-                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}\n"
-            );
-            message.AppendLine(newVersion.Body);
-            message.AppendLine("\n");
-            newVersion.Notified = true;
-        }
+            const int ChunkSize = 2000;
 
-        var repo = container.GetGitHubRepo();
-        message.AppendLine($"\nhttps://github.com/{repo!.Item1}/{repo.Item2}/releases");
+            var fullMessage = content;
 
-        if (Constants.BASE_URL is not null)
-            message.AppendLine(
-                $"\n__Verify and Update Here:__ {Constants.BASE_URL}/versions/{container.Id}"
-            );
-        else
-        {
-            _logger.LogWarning(
-                "BASE URL env variable was missing, therefore an update URL could not be provided."
-            );
-            message.AppendLine(
-                $"\n__**BASE URL was missing, therefore an update URL cannot be provided.**__"
-            );
-        }
-
-        var fullMessage = message.ToString();
-        const int ChunkSize = 2000;
-
-        while (fullMessage.Length > 0)
-        {
-            var splitPoint = Math.Min(ChunkSize, fullMessage.Length);
-            var msg = string.Empty;
-
-            if (splitPoint < fullMessage.Length)
+            while (fullMessage.Length > 0)
             {
-                var lastNewlineIndex = fullMessage.LastIndexOfAny(
-                    ['\n', '\r'],
-                    splitPoint,
-                    splitPoint - 1
-                );
+                var splitPoint = Math.Min(ChunkSize, fullMessage.Length);
+                var msg = string.Empty;
 
-                if (lastNewlineIndex != -1)
-                    splitPoint = lastNewlineIndex + 1;
+                if (splitPoint < fullMessage.Length)
+                {
+                    var lastNewlineIndex = fullMessage.LastIndexOfAny(
+                        ['\n', '\r'],
+                        splitPoint,
+                        splitPoint - 1
+                    );
+                    if (lastNewlineIndex != -1)
+                        splitPoint = lastNewlineIndex + 1;
+                }
+
+                msg = fullMessage[..splitPoint];
+                await SendWebhook(msg);
+                fullMessage =
+                    fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
+                await Task.Delay(1000);
             }
-
-            msg = fullMessage[..splitPoint];
-            await SendWebhook(msg);
-            fullMessage =
-                fullMessage.Length > splitPoint ? fullMessage[splitPoint..] : string.Empty;
-            await Task.Delay(1000);
         }
-
-        await db.SaveChangesAsync();
+        catch (Exception ex)
+        {
+            throw new FailedNotificationException(WebhookUrl, ex);
+        }
     }
 
     private async Task SendWebhook(string content)
