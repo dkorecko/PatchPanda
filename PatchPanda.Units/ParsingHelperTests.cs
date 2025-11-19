@@ -6,7 +6,7 @@ public class ParsingHelperTests
     public void DeduplicateRepositories_RemovesDuplicateReposWithSameReleases()
     {
         var release1 = new Octokit.Release(
-            url: "url1",
+            url: "https://api.github.com/repos/linuxserver/docker-sonarr/releases/12345",
             htmlUrl: "htmlUrl1",
             assetsUrl: "assetsUrl1",
             uploadUrl: "uploadUrl1",
@@ -27,7 +27,7 @@ public class ParsingHelperTests
         );
 
         var release2 = new Octokit.Release(
-            url: "url2",
+            url: "https://api.github.com/repos/linuxserver/docker-sonarr/releases/12346",
             htmlUrl: "htmlUrl2",
             assetsUrl: "assetsUrl2",
             uploadUrl: "uploadUrl2",

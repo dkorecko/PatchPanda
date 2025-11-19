@@ -10,54 +10,55 @@ public static class ParsingHelper
     )
     {
         var result = new Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>>();
-        var processed = new HashSet<Tuple<string, string>>();
+        var repoMapping = new Dictionary<Tuple<string, string>, Tuple<string, string>>();
 
         foreach (var entry in versionCounts)
         {
-            if (processed.Contains(entry.Key))
+            if (entry.Value.Count == 0)
+            {
+                result[entry.Key] = entry.Value;
                 continue;
+            }
 
-            var duplicates = versionCounts
-                .Where(other =>
-                    !processed.Contains(other.Key)
-                    && AreSameReleases(entry.Value, other.Value)
-                )
-                .ToList();
+            var actualRepo = ExtractRepoFromReleaseUrl(entry.Value.First().Url);
+            if (actualRepo != null)
+            {
+                repoMapping[entry.Key] = actualRepo;
+            }
+            else
+            {
+                result[entry.Key] = entry.Value;
+            }
+        }
 
-            var canonical = duplicates
-                .Select(d => d.Key)
+        var groupedByActual = repoMapping
+            .GroupBy(kvp => kvp.Value)
+            .ToList();
+
+        foreach (var group in groupedByActual)
+        {
+            var canonical = group
+                .Select(kvp => kvp.Key)
                 .OrderByDescending(repo => repo.Item2.Length)
                 .First();
 
-            result[canonical] = entry.Value;
-
-            foreach (var dup in duplicates)
-            {
-                processed.Add(dup.Key);
-            }
+            result[canonical] = versionCounts[canonical];
         }
 
         return result;
     }
 
-    private static bool AreSameReleases(
-        IReadOnlyList<Octokit.Release> releases1,
-        IReadOnlyList<Octokit.Release> releases2
-    )
+    private static Tuple<string, string>? ExtractRepoFromReleaseUrl(string url)
     {
-        if (releases1.Count != releases2.Count)
-            return false;
-
-        if (releases1.Count == 0)
-            return false;
-
-        for (int i = 0; i < Math.Min(5, releases1.Count); i++)
+        var match = Regex.Match(url, @"github\.com/repos/([^/]+)/([^/]+)/");
+        if (match.Success)
         {
-            if (releases1[i].Id != releases2[i].Id)
-                return false;
+            return new Tuple<string, string>(
+                match.Groups[1].Value.ToLower(),
+                match.Groups[2].Value.ToLower()
+            );
         }
-
-        return true;
+        return null;
     }
 
     public static async Task SetGitHubRepo(
