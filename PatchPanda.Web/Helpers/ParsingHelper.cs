@@ -27,7 +27,6 @@ public static class ParsingHelper
             var canonical = duplicates
                 .Select(d => d.Key)
                 .OrderByDescending(repo => repo.Item2.Length)
-                .ThenByDescending(repo => repo.Item2.Contains("docker-"))
                 .First();
 
             result[canonical] = entry.Value;
