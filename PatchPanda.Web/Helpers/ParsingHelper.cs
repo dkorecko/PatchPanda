@@ -5,6 +5,62 @@ namespace PatchPanda.Web.Helpers;
 
 public static class ParsingHelper
 {
+    private static Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>> DeduplicateRepositories(
+        Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>> versionCounts
+    )
+    {
+        var result = new Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>>();
+        var processed = new HashSet<Tuple<string, string>>();
+
+        foreach (var entry in versionCounts)
+        {
+            if (processed.Contains(entry.Key))
+                continue;
+
+            var duplicates = versionCounts
+                .Where(other =>
+                    !processed.Contains(other.Key)
+                    && AreSameReleases(entry.Value, other.Value)
+                )
+                .ToList();
+
+            var canonical = duplicates
+                .Select(d => d.Key)
+                .OrderByDescending(repo => repo.Item2.Length)
+                .ThenByDescending(repo => repo.Item2.Contains("docker-"))
+                .First();
+
+            result[canonical] = entry.Value;
+
+            foreach (var dup in duplicates)
+            {
+                processed.Add(dup.Key);
+            }
+        }
+
+        return result;
+    }
+
+    private static bool AreSameReleases(
+        IReadOnlyList<Octokit.Release> releases1,
+        IReadOnlyList<Octokit.Release> releases2
+    )
+    {
+        if (releases1.Count != releases2.Count)
+            return false;
+
+        if (releases1.Count == 0)
+            return false;
+
+        for (int i = 0; i < Math.Min(5, releases1.Count); i++)
+        {
+            if (releases1[i].Id != releases2[i].Id)
+                return false;
+        }
+
+        return true;
+    }
+
     public static async Task SetGitHubRepo(
         this Container container,
         ContainerListResponse response,
@@ -58,7 +114,9 @@ public static class ParsingHelper
 
         if (versionCounts.Any())
         {
-            var bestChoice = versionCounts
+            var deduplicated = DeduplicateRepositories(versionCounts);
+
+            var bestChoice = deduplicated
                 .OrderByDescending(x =>
                     x.Value.Any(y => container.Version?.IsSameVersionAs(y.TagName) == true)
                 )
@@ -70,9 +128,9 @@ public static class ParsingHelper
                 ? VersionHelper.BuildRegexFromVersion(bestChoice.Value.First().TagName)
                 : null;
 
-            if (versionCounts.Count > 1)
+            if (deduplicated.Count > 1)
             {
-                container.SecondaryGitHubRepos = versionCounts
+                container.SecondaryGitHubRepos = deduplicated
                     .Where(x => x.Key != bestChoice.Key)
                     .Select(x => x.Key)
                     .ToList();
