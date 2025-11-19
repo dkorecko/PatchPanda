@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 using PatchPanda.Web.Db;
 using PatchPanda.Web.Entities;
 using PatchPanda.Web.Services;
@@ -193,5 +194,93 @@ public class UpdateServiceTests
             "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}",
             "IMMICH_VERSION"
         );
+    }
+
+    [Fact]
+    public async Task UpdatePropagatesToMatchingFullImage()
+    {
+        var stack = DataHelper.GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
+        string sidekick = "sidekick";
+
+        var secondApp = new Container
+        {
+            Id = 2,
+            Name = sidekick,
+            Version = TestData.VERSION,
+            CurrentSha = TestData.SHA,
+            TargetImage = TestData.IMAGE,
+            Uptime = TestData.UPTIME,
+            Stack = stack,
+            StackId = stack.Id,
+            Regex = TestData.REGEX,
+            GitHubVersionRegex = TestData.REGEX,
+            NewerVersions = [stack.Apps[0].NewerVersions[0]]
+        };
+
+        stack.Apps.Add(secondApp);
+
+        _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
+        _systemFileService
+            .Setup(_systemFileService => _systemFileService.ReadAllText(It.IsAny<string>()))
+            .Returns(
+                $"""
+                version: '3'
+                services:
+                  testapp:
+                    image: {stack.Apps[0].TargetImage}
+                """
+            );
+
+        var dbContextFactory = CreateInMemoryFactory();
+
+        using var db = dbContextFactory.CreateDbContext();
+
+        db.Stacks.Add(stack);
+        await db.SaveChangesAsync();
+
+        var dockerMock = new Mock<DockerService>(
+            _dockerLogger.Object,
+            dbContextFactory,
+            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+        );
+
+        dockerMock
+            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        var updateService = new UpdateService(
+            dockerMock.Object,
+            dbContextFactory,
+            _systemFileService.Object,
+            _updateLogger.Object
+        );
+
+        using var initialCheck = dbContextFactory.CreateDbContext();
+        var hasVersion = await initialCheck
+            .Containers.Where(x => x.Id == secondApp.Id)
+            .Include(x => x.NewerVersions)
+            .AsNoTracking()
+            .AnyAsync(x => x.NewerVersions.Count == 1);
+
+        Assert.True(hasVersion);
+
+        var tasks = await updateService.Update(stack.Apps[0], false);
+
+        using var dbCheck = dbContextFactory.CreateDbContext();
+        var apps = await dbCheck.Containers.OrderBy(x => x.Name).ToListAsync();
+
+        Assert.Equal(2, apps.Count);
+
+        var updatedMain = apps.First(a => a.Name == stack.Apps[0].Name);
+        var updatedSide = apps.First(a => a.Name == sidekick);
+
+        Assert.Equal(TestData.IMAGE_NEW_VERSION, updatedMain.TargetImage);
+        Assert.Equal(TestData.NEW_VERSION, updatedMain.Version);
+
+        Assert.Empty(updatedMain.NewerVersions);
+        Assert.Empty(updatedSide.NewerVersions);
+
+        Assert.Equal(TestData.IMAGE_NEW_VERSION, updatedSide.TargetImage);
+        Assert.Equal(TestData.NEW_VERSION, updatedSide.Version);
     }
 }

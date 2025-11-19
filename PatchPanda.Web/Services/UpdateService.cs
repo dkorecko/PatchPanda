@@ -168,8 +168,31 @@ public class UpdateService
             || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
         );
 
+        var relatedApps = await db
+            .Containers.Include(x => x.NewerVersions)
+            .Where(c =>
+                c.StackId == targetApp.StackId
+                && c.Id != targetApp.Id
+                && c.TargetImage == targetApp.TargetImage
+            )
+            .ToListAsync();
+
         if (resultingImage is not null)
+        {
             targetApp.TargetImage = resultingImage;
+
+            foreach (var related in relatedApps)
+            {
+                related.TargetImage = resultingImage;
+
+                related.NewerVersions.RemoveAll(x =>
+                    targetVersionToUse.Id == x.Id
+                    || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+                );
+
+                related.Version = newVersion;
+            }
+        }
 
         targetApp.Version = newVersion;
 
