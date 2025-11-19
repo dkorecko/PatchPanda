@@ -41,8 +41,8 @@ public static class DataHelper
                     TargetImage = targetImage,
                     StackId = 1,
                     NewerVersions = [],
-                    CurrentSha = "abc123",
-                    Uptime = "up"
+                    CurrentSha = TestData.SHA,
+                    Uptime = TestData.UPTIME
                 }
             ]
         };
@@ -53,5 +53,6 @@ public static class DataHelper
         return stack;
     }
 
-    public static ComposeStack GetTestStack() => GetTestStack("1.0.0", "1.1.0", "test/image:1.0.0");
+    public static ComposeStack GetTestStack() =>
+        GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
 }
