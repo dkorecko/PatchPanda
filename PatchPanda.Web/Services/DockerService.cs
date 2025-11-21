@@ -115,12 +115,16 @@ public class DockerService
 
                 var app = new Container
                 {
-                    Name = container.Labels.TryGetValue(
-                        "com.docker.compose.service",
-                        out var appName
-                    )
-                        ? appName
-                        : container.Names.FirstOrDefault() ?? "N/A",
+                    Name =
+                        container.Names.FirstOrDefault()?.Trim('/')
+                        ?? (
+                            container.Labels.TryGetValue(
+                                "com.docker.compose.service",
+                                out var appName
+                            )
+                                ? appName
+                                : "N/A"
+                        ),
                     Version = container.Image.Contains(':')
                         ? container.Image.Split(':', 2)[1]
                         : null,
