@@ -14,6 +14,7 @@ public sealed partial class Program
 
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<DockerService>();
+        builder.Services.AddSingleton<IVersionService, VersionService>();
         builder.Services.AddSingleton<VersionService>();
         builder.Services.AddSingleton<DiscordService>();
         builder.Services.AddSingleton<AppriseService>();

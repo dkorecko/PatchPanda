@@ -1,4 +1,4 @@
-namespace PatchPanda.Units;
+namespace PatchPanda.Units.Helpers;
 
 public class VersionHelperTests
 {

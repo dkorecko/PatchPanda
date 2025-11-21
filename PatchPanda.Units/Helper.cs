@@ -1,9 +1,6 @@
-﻿using PatchPanda.Web.Entities;
-using PatchPanda.Web.Helpers;
+﻿namespace PatchPanda.Units;
 
-namespace PatchPanda.Units.Helpers;
-
-public static class DataHelper
+public static class Helper
 {
     public static AppVersion GetTestAppVersion(string githubVersion) =>
         new AppVersion
@@ -55,4 +52,15 @@ public static class DataHelper
 
     public static ComposeStack GetTestStack() =>
         GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
+
+    public static IDbContextFactory<DataContext> CreateInMemoryFactory()
+    {
+        var serviceProvider = new ServiceCollection()
+            .AddDbContextFactory<DataContext>(options =>
+                options.UseInMemoryDatabase(Guid.NewGuid().ToString())
+            )
+            .BuildServiceProvider();
+
+        return serviceProvider.GetRequiredService<IDbContextFactory<DataContext>>();
+    }
 }

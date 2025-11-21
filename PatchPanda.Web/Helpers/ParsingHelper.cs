@@ -8,7 +8,7 @@ public static class ParsingHelper
     public static async Task SetGitHubRepo(
         this Container container,
         ContainerListResponse response,
-        VersionService versionService,
+        IVersionService versionService,
         ILogger logger
     )
     {
@@ -55,6 +55,16 @@ public static class ParsingHelper
                 logger.LogInformation("Failed to get versions for combination {Match}", match);
             }
         }
+
+        // Select the distinct one, but take the one that actually matches the URL best
+        versionCounts = versionCounts
+            .Where(x => x.Value.Any())
+            .GroupBy(x => x.Value.ElementAt(0).Url)
+            .Select(x =>
+                x.OrderByDescending(y => x.Key.Contains(y.Key.Item1) && x.Key.Contains(y.Key.Item2))
+                    .First()
+            )
+            .ToDictionary();
 
         if (versionCounts.Any())
         {
