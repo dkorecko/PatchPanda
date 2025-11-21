@@ -3,7 +3,7 @@ namespace PatchPanda.Web.Services.Hosted;
 public class VersionCheckHostedService : IHostedService
 {
     private readonly DockerService _dockerService;
-    private readonly VersionService _versionService;
+    private readonly IVersionService _versionService;
     private readonly DiscordService _discordService;
     private readonly AppriseService _appriseService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
@@ -14,7 +14,7 @@ public class VersionCheckHostedService : IHostedService
 
     public VersionCheckHostedService(
         DockerService dockerService,
-        VersionService versionService,
+        IVersionService versionService,
         DiscordService discordService,
         AppriseService appriseService,
         IDbContextFactory<DataContext> dbContextFactory,

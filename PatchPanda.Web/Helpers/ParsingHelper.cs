@@ -56,7 +56,6 @@ public static class ParsingHelper
             }
         }
 
-        // Select the distinct one, but take the one that actually matches the URL best
         versionCounts = versionCounts
             .Where(x => x.Value.Any())
             .GroupBy(x => x.Value.ElementAt(0).Url)
