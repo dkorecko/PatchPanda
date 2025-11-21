@@ -6,7 +6,7 @@ using PatchPanda.Web.Db;
 using PatchPanda.Web.Entities;
 using PatchPanda.Web.Services;
 
-namespace PatchPanda.Units;
+namespace PatchPanda.Units.Services;
 
 public class UpdateServiceTests
 {
@@ -25,17 +25,6 @@ public class UpdateServiceTests
         _configuration = new Mock<IConfiguration>();
     }
 
-    private IDbContextFactory<DataContext> CreateInMemoryFactory()
-    {
-        var serviceProvider = new ServiceCollection()
-            .AddDbContextFactory<DataContext>(options =>
-                options.UseInMemoryDatabase(Guid.NewGuid().ToString())
-            )
-            .BuildServiceProvider();
-
-        return serviceProvider.GetRequiredService<IDbContextFactory<DataContext>>();
-    }
-
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
     {
         _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
@@ -49,7 +38,7 @@ public class UpdateServiceTests
                     image: {stack.Apps[0].TargetImage}
                 """
             );
-        var dbContextFactory = CreateInMemoryFactory();
+        var dbContextFactory = Helper.CreateInMemoryFactory();
 
         using var db = dbContextFactory.CreateDbContext();
 
@@ -111,7 +100,7 @@ public class UpdateServiceTests
                 """
             );
 
-        var dbContextFactory = CreateInMemoryFactory();
+        var dbContextFactory = Helper.CreateInMemoryFactory();
 
         using var db = dbContextFactory.CreateDbContext();
 
@@ -160,27 +149,23 @@ public class UpdateServiceTests
     public async Task MultipleAppsTest()
     {
         await GenericTestComposeVersion(
-            DataHelper.GetTestStack("v0.107.69", "v0.108.0", "adguard/adguardhome:v0.107.69"),
+            Helper.GetTestStack("v0.107.69", "v0.108.0", "adguard/adguardhome:v0.107.69"),
             "adguard/adguardhome:v0.108.0"
         );
         await GenericTestComposeVersion(
-            DataHelper.GetTestStack(
-                "0.15.4-alpine",
-                "v0.16.2",
-                "henrygd/beszel-agent:0.15.4-alpine"
-            ),
+            Helper.GetTestStack("0.15.4-alpine", "v0.16.2", "henrygd/beszel-agent:0.15.4-alpine"),
             "henrygd/beszel-agent:0.16.2-alpine"
         );
         await GenericTestComposeVersion(
-            DataHelper.GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
+            Helper.GetTestStack("0.15.4", "v0.16.2", "henrygd/beszel-agent:0.15.4"),
             "henrygd/beszel-agent:0.16.2"
         );
         await GenericTestComposeVersion(
-            DataHelper.GetTestStack("1.118.1", "n8n@1.119.2", "n8nio/n8n:1.118.1"),
+            Helper.GetTestStack("1.118.1", "n8n@1.119.2", "n8nio/n8n:1.118.1"),
             "n8nio/n8n:1.119.2"
         );
         await GenericTestComposeVersion(
-            DataHelper.GetTestStack(
+            Helper.GetTestStack(
                 "v1.5.3-ls324",
                 "v1.5.3-ls325",
                 "lscr.io/linuxserver/bazarr:v1.5.3-ls324"
@@ -189,7 +174,7 @@ public class UpdateServiceTests
         );
 
         await GenericTestEnvVersion(
-            DataHelper.GetTestStack("v2.2.3", "v2.3.0", "ghcr.io/immich-app/immich-server:v2.2.3"),
+            Helper.GetTestStack("v2.2.3", "v2.3.0", "ghcr.io/immich-app/immich-server:v2.2.3"),
             "ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}",
             "IMMICH_VERSION"
         );
@@ -198,7 +183,7 @@ public class UpdateServiceTests
     [Fact]
     public async Task UpdatePropagatesToMatchingFullImage()
     {
-        var stack = DataHelper.GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
+        var stack = Helper.GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
         string sidekick = "sidekick";
 
         var secondApp = new Container
@@ -230,7 +215,7 @@ public class UpdateServiceTests
                 """
             );
 
-        var dbContextFactory = CreateInMemoryFactory();
+        var dbContextFactory = Helper.CreateInMemoryFactory();
 
         using var db = dbContextFactory.CreateDbContext();
 

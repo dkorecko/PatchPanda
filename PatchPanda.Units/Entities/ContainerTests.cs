@@ -1,17 +1,17 @@
-namespace PatchPanda.Units;
+namespace PatchPanda.Units.Entities;
 
 public class ContainerTests
 {
     [Fact]
     public void GetNewestAvailableVersion_SelectsNewestSemanticVersion()
     {
-        var container = DataHelper.GetTestStack();
+        var container = Helper.GetTestStack();
 
         container.Apps[0].NewerVersions =
         [
-            DataHelper.GetTestAppVersion("v1.1.0"),
-            DataHelper.GetTestAppVersion("v1.0.5"),
-            DataHelper.GetTestAppVersion("v1.1.2")
+            Helper.GetTestAppVersion("v1.1.0"),
+            Helper.GetTestAppVersion("v1.0.5"),
+            Helper.GetTestAppVersion("v1.1.2")
         ];
 
         var newest = container.Apps[0].GetNewestAvailableVersion();
@@ -22,12 +22,12 @@ public class ContainerTests
     [Fact]
     public void GetNewestAvailableVersion_ChoosesHigherSuffixVersion()
     {
-        var container = DataHelper.GetTestStack();
+        var container = Helper.GetTestStack();
 
         container.Apps[0].NewerVersions =
         [
-            DataHelper.GetTestAppVersion("v1.5.3-ls325"),
-            DataHelper.GetTestAppVersion("v1.5.3-ls324")
+            Helper.GetTestAppVersion("v1.5.3-ls325"),
+            Helper.GetTestAppVersion("v1.5.3-ls324")
         ];
 
         var newest = container.Apps[0].GetNewestAvailableVersion();
@@ -38,12 +38,12 @@ public class ContainerTests
     [Fact]
     public void GetNewestAvailableVersion_HandlesAtStyleAndNumeric()
     {
-        var container = DataHelper.GetTestStack();
+        var container = Helper.GetTestStack();
 
         container.Apps[0].NewerVersions =
         [
-            DataHelper.GetTestAppVersion("1.118.1"),
-            DataHelper.GetTestAppVersion("n8n@1.119.2")
+            Helper.GetTestAppVersion("1.118.1"),
+            Helper.GetTestAppVersion("n8n@1.119.2")
         ];
 
         var newest = container.Apps[0].GetNewestAvailableVersion();

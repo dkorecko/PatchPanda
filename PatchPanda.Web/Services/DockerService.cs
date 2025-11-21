@@ -11,12 +11,12 @@ public class DockerService
 
     private readonly ILogger<DockerService> _logger;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
-    private readonly VersionService _versionService;
+    private readonly IVersionService _versionService;
 
     public DockerService(
         ILogger<DockerService> logger,
         IDbContextFactory<DataContext> dbContextFactory,
-        VersionService versionService
+        IVersionService versionService
     )
     {
         DockerSocket = "unix:///var/run/docker.sock";

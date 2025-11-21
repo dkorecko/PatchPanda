@@ -3,7 +3,7 @@ using Octokit;
 
 namespace PatchPanda.Web.Services;
 
-public class VersionService
+public class VersionService : IVersionService
 {
     private readonly ILogger<VersionService> _logger;
     private readonly IConfiguration _configuration;
