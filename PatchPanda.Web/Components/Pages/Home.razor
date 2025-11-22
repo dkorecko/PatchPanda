@@ -446,7 +446,7 @@ else
 
     private async Task DeleteStack(ComposeStack stack)
     {
-        if (!await JSConfirm($"Delete stack '{stack.StackName}' and all its containers? This will remove records from the database. Resetting containers will bring it back if it still exists in Docker."))
+        if (!await JSConfirm($"Delete stack '{stack.StackName}' and its containers from database? (Will reappear on next container reset)"))
             return;
 
         await _dockerService.DeleteStackRecord(stack);
