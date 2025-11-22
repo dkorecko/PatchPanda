@@ -3,6 +3,7 @@
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
 @inject UpdateRegistry _updateRegistry
+@inject IJSRuntime _js
 @implements IDisposable
 
 <PageTitle>Home - @Constants.APP_NAME</PageTitle>
@@ -99,6 +100,12 @@ else
                             {
                                 <span>Restart</span>
                             }
+                        </button>
+                        <button class="btn btn-danger ms-2" type="button" disabled="@_isRestarting" @onclick="() => DeleteStack(context)" title="Delete stack" aria-label="Delete stack">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 5h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5v-7z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.314a1 1 0 0 1 .707.293H14.5a1 1 0 0 1 1 1z"/>
+                            </svg>
                         </button>
                         <table class="table-striped table-hover table-bordered table">
                             <thead>
@@ -248,6 +255,12 @@ else
                                         <td>
                                             <a href="/versions/@app.Id" class="btn btn-primary">Releases</a>
                                             <a href="/container/@app.Id" class="btn btn-primary">Edit</a>
+                                            <button class="btn btn-danger ms-1" @onclick="() => DeleteContainer(app)" title="Delete container" aria-label="Delete container">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 5h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5v-7z"/>
+                                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 1 1 0-2h3.086a1 1 0 0 1 .707-.293h2.314a1 1 0 0 1 .707.293H14.5a1 1 0 0 1 1 1z"/>
+                                                </svg>
+                                            </button>
                                         </td>
                                     </tr>
                                 }
@@ -421,6 +434,27 @@ else
         {
             await LoadData();
         }
+    }
+
+    private async Task DeleteContainer(Container app)
+    {
+        if (!await JSConfirm($"Delete '{app.Name}' from database? (Will reappear on next container reset)"))
+            return;
+
+        await _dockerService.DeleteContainerRecord(app);
+    }
+
+    private async Task DeleteStack(ComposeStack stack)
+    {
+        if (!await JSConfirm($"Delete stack '{stack.StackName}' and its containers from database? (Will reappear on next container reset)"))
+            return;
+
+        await _dockerService.DeleteStackRecord(stack);
+    }
+
+    private async Task<bool> JSConfirm(string message)
+    {
+        return await _js.InvokeAsync<bool>("confirm", message);
     }
 
     public void Dispose()
