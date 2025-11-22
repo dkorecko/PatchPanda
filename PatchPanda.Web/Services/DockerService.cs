@@ -355,4 +355,33 @@ public class DockerService
             _logger.LogInformation(standardError.ToString());
         }
     }
+
+    public async Task DeleteContainerRecord(Container container)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var existing = await db.Containers.FindAsync(container.Id);
+
+        if (existing is null)
+            return;
+
+        db.Containers.Remove(existing);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteStackRecord(ComposeStack stack)
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var existing = await db
+            .Stacks.Include(x => x.Apps)
+            .FirstOrDefaultAsync(x => x.Id == stack.Id);
+
+        if (existing is null)
+            return;
+
+        db.Containers.RemoveRange(existing.Apps);
+        db.Stacks.Remove(existing);
+        await db.SaveChangesAsync();
+    }
 }
