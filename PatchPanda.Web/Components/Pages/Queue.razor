@@ -1,6 +1,7 @@
 @page "/queue"
 
-@inject UpdateRegistry UpdateRegistry
+@inject UpdateRegistry _updateRegistry
+@inject ILogger<Queue> _logger
 @implements IDisposable
 
 <h3>Update Queue</h3>
@@ -66,18 +67,25 @@ else
         if (!firstRender)
             return;
 
-        await LoadSnapshotAsync();
+        await LoadSnapshot();
         StartPolling();
     }
 
-    private Task LoadSnapshotAsync()
+    private Task LoadSnapshot()
     {
-        var snapshot = UpdateRegistry.GetSnapshot();
-        items = snapshot
-            .OrderByDescending(i => i.IsProcessing)
-            .ThenBy(i => i.Sequence)
-            .ToList();
-        StateHasChanged();
+        try {
+            var snapshot = _updateRegistry.GetSnapshot();
+            items = snapshot
+                .OrderByDescending(i => i.IsProcessing)
+                .ThenBy(i => i.Sequence)
+                .ToList();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading update queue snapshot");
+        }
+
         return Task.CompletedTask;
     }
 
@@ -96,7 +104,7 @@ else
 
     private async Task CheckForUpdates()
     {
-        await InvokeAsync(LoadSnapshotAsync);
+        await InvokeAsync(LoadSnapshot);
     }
 
     public void Dispose()
