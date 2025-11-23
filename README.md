@@ -153,10 +153,14 @@ dotnet ef database update --project PatchPanda.Web --startup-project PatchPanda.
 - If PatchPanda can't find the GitHub repo to your container, make sure to include it in one of the labels.
 - Running PatchPanda inside a container with `/var/run/docker.sock` mounted gives it powerful control over the host Docker.
 
+## Community
+
+If you want to participate more actively, provide more feedback, contribute, have a discussion, questions or need help, you can also reach out via our [Discord](https://discord.gg/9Vezk3ve8q).
+
 ## Contributing
 
 Contributions welcome. Please run tests and follow the project's coding conventions. Open an issue if you spot a bug or would like to see a feature.
 
 ## License & contact
 
-No license is included by default. Add an appropriate LICENSE file if you intend to share this project publicly.
+Released under the MIT license.
