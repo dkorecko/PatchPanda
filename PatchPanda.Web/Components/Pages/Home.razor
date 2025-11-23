@@ -51,17 +51,28 @@ else
         {
             var stackId = $"stack_{i}";
             var appsWithNewerVersions = context.Apps.Where(x => x.IsSelectableForUpdate(_updateRegistry)).ToList();
-            var hasOngoingUpdate = context.Apps.Any(x => _updateRegistry.IsMarked(x.Id));
+            var hasProcessing = context.Apps.Any(x => _updateRegistry.IsProcessing(x.Id));
+            var queuedUpdates = context.Apps.Count(x => _updateRegistry.IsQueued(x.Id));
             i++;
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@stackId" aria-expanded="false" aria-controls="@stackId">
                         <b>@context.StackName</b>
-                        @if (hasOngoingUpdate)
+                        @if (hasProcessing)
                         {
                             <span class="badge text-bg-primary ms-2">
                                 <span class="spinner-border spinner-border-sm" role="status" aria-label="Update in progress" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
                                 Update in progress
+                            </span>
+                        }
+                        @if (queuedUpdates != 0)
+                        {
+                            <span class="badge text-bg-secondary ms-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M8 3.5a.5.5 0 0 1 .5.5v3.25l2.5 1.5a.5.5 0 1 1-.5.866L8 8V4a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm0-1A7 7 0 1 1 8 1a7 7 0 0 1 0 14z"/>
+                                </svg>
+                                @queuedUpdates Updates queued
                             </span>
                         }
                         @if (appsWithNewerVersions.Count > 0)
@@ -153,7 +164,7 @@ else
                                 {
                                     var newestVersion = app.GetNewestAvailableVersion();
                                     var repo = app.GetGitHubRepo();
-                                    var isUpdating = _updateRegistry.IsMarked(app.Id);
+                                    var isUpdating = _updateRegistry.IsQueued(app.Id) || _updateRegistry.IsProcessing(app.Id);
                                     var isSelectable = app.IsSelectableForUpdate(_updateRegistry);
                                     <tr>
                                         <td>
@@ -161,27 +172,38 @@ else
                                         </td>
                                         <td>
                                             @app.Name
-                                            @if (isUpdating)
+                                            @if (_updateRegistry.IsProcessing(app.Id))
                                             {
                                                 <span class="badge text-bg-primary ms-1">
                                                     <span class="spinner-border spinner-border-sm" role="status" aria-label="Updating" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
                                                     Updating
                                                 </span>
                                             }
+                                            else if (_updateRegistry.IsQueued(app.Id))
+                                            {
+                                                <span class="badge text-bg-secondary ms-1">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                        <path d="M8 3.5a.5.5 0 0 1 .5.5v3.25l2.5 1.5a.5.5 0 1 1-.5.866L8 8V4a.5.5 0 0 1 .5-.5z"/>
+                                                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm0-1A7 7 0 1 1 8 1a7 7 0 0 1 0 14z"/>
+                                                    </svg>
+                                                    Queued
+                                                </span>
+                                            }
                                         </td>
                                         <td>
-                                            @if(repo is null)
+                                            @if (repo is null)
                                             {
                                                 <span class="badge text-bg-warning">Missing</span>
-                                            } else
+                                            }
+                                            else
                                             {
                                                 var repoCombination = repo.Item1 + "/" + repo.Item2;
                                                 <a href="https://github.com/@repoCombination" target="_blank">@repoCombination</a>
 
-                                                if(app.SecondaryGitHubRepos is not null)
+                                                if (app.SecondaryGitHubRepos is not null)
                                                 {
                                                     <div>Secondary:</div>
-                                                    @foreach(var secondary in app.SecondaryGitHubRepos)
+                                                    @foreach (var secondary in app.SecondaryGitHubRepos)
                                                     {
                                                         var secondaryRepoCombination = secondary.Item1 + "/" + secondary.Item2;
                                                         <a href="https://github.com/@secondaryRepoCombination" target="_blank">@secondaryRepoCombination</a>

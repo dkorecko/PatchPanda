@@ -49,5 +49,7 @@ public class Container : AbstractEntity
     }
 
     public bool IsSelectableForUpdate(UpdateRegistry updateRegistry) =>
-        !updateRegistry.IsMarked(Id) && NewerVersions.Any(v => !v.Ignored);
+        !updateRegistry.IsQueued(Id)
+        && !updateRegistry.IsProcessing(Id)
+        && NewerVersions.Any(v => !v.Ignored);
 }
