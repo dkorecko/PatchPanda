@@ -1,0 +1,111 @@
+@page "/queue"
+
+@inject UpdateRegistry UpdateRegistry
+@implements IDisposable
+
+<h3>Update Queue</h3>
+
+<p>This page shows queued and processing jobs.</p>
+
+@if (items is null)
+{
+    <div class="spinner-grow" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (items.Count == 0)
+{
+    <p>No queued or processing jobs.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Container Id</th>
+                <th>Target Version</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var it in items)
+            {
+                <tr>
+                    <td>@it.ContainerId</td>
+                    <td>@it.TargetVersionNumber (@it.TargetVersionId)</td>
+                    <td>
+                        @if (it.IsProcessing)
+                        {
+                            <span class="badge text-bg-primary ms-1">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-label="Processing" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
+                                Processing
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-secondary ms-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M8 3.5a.5.5 0 0 1 .5.5v3.25l2.5 1.5a.5.5 0 1 1-.5.866L8 8V4a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm0-1A7 7 0 1 1 8 1a7 7 0 0 1 0 14z"/>
+                                </svg>
+                                Queued
+                            </span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<PendingUpdate>? items;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await LoadSnapshotAsync();
+        StartPolling();
+    }
+
+    private Task LoadSnapshotAsync()
+    {
+        var snapshot = UpdateRegistry.GetSnapshot();
+        items = snapshot
+            .OrderByDescending(i => i.IsProcessing)
+            .ThenBy(i => i.Sequence)
+            .ToList();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private System.Timers.Timer? _pollTimer;
+
+    private void StartPolling()
+    {
+        if (_pollTimer is not null)
+            return;
+
+        _pollTimer = new System.Timers.Timer(1000);
+        _pollTimer.Elapsed += async (_, __) => await CheckForUpdates();
+        _pollTimer.AutoReset = true;
+        _pollTimer.Start();
+    }
+
+    private async Task CheckForUpdates()
+    {
+        await InvokeAsync(async () => await LoadSnapshotAsync());
+    }
+
+    public void Dispose()
+    {
+        if (_pollTimer is not null)
+        {
+            _pollTimer.Stop();
+            _pollTimer.Dispose();
+            _pollTimer = null;
+        }
+    }
+}
