@@ -1,6 +1,6 @@
 @page "/versions/{ContainerId:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
-@inject VersionService _versionService
+@inject IVersionService _versionService
 @inject UpdateService _updateService
 @inject UpdateRegistry _updateRegistry
 @implements IDisposable
