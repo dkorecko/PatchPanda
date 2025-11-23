@@ -84,17 +84,26 @@ else
                 }
             </ul>
 
-            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@_isUpdating">
-                @if(_isUpdating)
+            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_updateRegistry.IsQueued(_app.Id) || _updateRegistry.IsProcessing(_app.Id))">
+                @if (_updateRegistry.IsProcessing(_app.Id))
                 {
                     <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
-                } else
+                }
+                else if (_updateRegistry.IsQueued(_app.Id))
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M8 3.5a.5.5 0 0 1 .5.5v3.25l2.5 1.5a.5.5 0 1 1-.5.866L8 8V4a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm0-1A7 7 0 1 1 8 1a7 7 0 0 1 0 14z"/>
+                    </svg>
+                    <span>Queued</span>
+                }
+                else
                 {
                     <span>Update Now</span>
                 }
             </button>
 
-            @if (_isUpdating)
+            @if (_updateRegistry.IsProcessing(_app.Id))
             {
                 <div class="mb-4 mt-4">
                     <h5>Update Progress:</h5>
@@ -112,7 +121,6 @@ else
 
     private Container? _app;
     private List<string>? _updatePlan;
-    private bool _isUpdating;
     private Terminal _terminal = default!;
     private AppVersion? _selectedVersion;
     private System.Timers.Timer? _pollTimer;
@@ -144,9 +152,8 @@ else
         }
         _app = app;
 
-        if (_updateRegistry.IsMarked(_app.Id))
+        if (_updateRegistry.IsQueued(_app.Id) || _updateRegistry.IsProcessing(_app.Id))
         {
-            _isUpdating = true;
             StartPolling();
         }
 
@@ -171,7 +178,6 @@ else
 
         await _updateRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
 
-        _isUpdating = true;
         StateHasChanged();
 
         StartPolling();
@@ -202,10 +208,9 @@ else
             await _terminal.NewLine(line);
         }
 
-        if (!_updateRegistry.IsMarked(_app.Id))
+        if (!_updateRegistry.IsQueued(_app.Id) && !_updateRegistry.IsProcessing(_app.Id))
         {
             DisposeTimer();
-            _isUpdating = false;
             _selectedVersion = null;
             await LoadData();
         }

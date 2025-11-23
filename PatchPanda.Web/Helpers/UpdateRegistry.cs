@@ -67,7 +67,10 @@ public class UpdateRegistry
     {
         var pending = _pending.GetValueOrDefault(containerId);
 
-        lock (pending!.Output)
+        if (pending is null)
+            return;
+
+        lock (pending.Output)
         {
             pending.Output.Add(line);
         }
@@ -84,5 +87,9 @@ public class UpdateRegistry
         }
     }
 
-    public bool IsMarked(int containerId) => _pending.ContainsKey(containerId);
+    public bool IsQueued(int containerId) =>
+        _pending.TryGetValue(containerId, out var p) && !p.IsProcessing;
+
+    public bool IsProcessing(int containerId) =>
+        _pending.TryGetValue(containerId, out var p) && p.IsProcessing;
 }
