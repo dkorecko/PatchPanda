@@ -96,7 +96,7 @@ else
 
     private async Task CheckForUpdates()
     {
-        await InvokeAsync(async () => await LoadSnapshotAsync());
+        await InvokeAsync(LoadSnapshotAsync);
     }
 
     public void Dispose()
