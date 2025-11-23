@@ -9,6 +9,7 @@ public class PendingUpdate
     public required int TargetVersionId { get; set; }
     public required string TargetVersionNumber { get; set; }
     public bool IsProcessing { get; set; }
+    public long Sequence { get; set; }
     public List<string> Output { get; } = [];
 }
 
@@ -16,6 +17,7 @@ public class UpdateRegistry
 {
     private readonly ConcurrentDictionary<int, PendingUpdate> _pending = new();
     private readonly UpdateQueue _updateQueue;
+    private long _sequenceCounter;
 
     public UpdateRegistry(UpdateQueue updateQueue)
     {
@@ -28,13 +30,16 @@ public class UpdateRegistry
         string targetVersionNumber
     )
     {
+        var seq = Interlocked.Increment(ref _sequenceCounter);
+
         _pending.TryAdd(
             containerId,
             new PendingUpdate
             {
                 ContainerId = containerId,
                 TargetVersionId = targetVersionId,
-                TargetVersionNumber = targetVersionNumber
+                TargetVersionNumber = targetVersionNumber,
+                Sequence = seq
             }
         );
         await _updateQueue.EnqueueAsync(
@@ -92,4 +97,31 @@ public class UpdateRegistry
 
     public bool IsProcessing(int containerId) =>
         _pending.TryGetValue(containerId, out var p) && p.IsProcessing;
+
+    public List<PendingUpdate> GetSnapshot()
+    {
+        var list = new List<PendingUpdate>();
+
+        foreach (var kv in _pending)
+        {
+            var p = kv.Value;
+            var copy = new PendingUpdate
+            {
+                ContainerId = p.ContainerId,
+                TargetVersionId = p.TargetVersionId,
+                TargetVersionNumber = p.TargetVersionNumber,
+                IsProcessing = p.IsProcessing,
+                Sequence = p.Sequence
+            };
+
+            lock (p.Output)
+            {
+                copy.Output.AddRange(p.Output);
+            }
+
+            list.Add(copy);
+        }
+
+        return list;
+    }
 }
