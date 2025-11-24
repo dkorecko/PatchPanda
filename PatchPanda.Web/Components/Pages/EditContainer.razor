@@ -1,7 +1,7 @@
 @page "/container/{Id:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _navigationManager
-@inject VersionService _versionService
+@inject IVersionService _versionService
 
 <PageTitle>Edit container - @Constants.APP_NAME</PageTitle>
 
