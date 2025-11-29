@@ -198,6 +198,8 @@ else
         if(_cts.IsCancellationRequested)
             return;
 
+        await InvokeAsync(StateHasChanged);
+
         var output = _updateRegistry.GetOutputSnapshot(_app.Id);
 
         foreach (var line in output)
