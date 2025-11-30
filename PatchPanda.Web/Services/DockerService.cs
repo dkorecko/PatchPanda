@@ -164,7 +164,8 @@ public class DockerService
                     "database",
                     "cache",
                     "postgres",
-                    "broker"
+                    "broker",
+                    "mysql"
                 ];
 
                 if (containsMap.Any(app.Name.Contains))
