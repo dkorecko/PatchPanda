@@ -109,9 +109,16 @@ public class DockerService
 
                     if (existingStack.ConfigFile is null && _portainerService.IsConfigured)
                     {
-                        existingStack.PortainerManaged =
-                            (await _portainerService.GetStackFileContentAsync(stackName))
-                                is not null;
+                        var stackFileContent = await _portainerService.GetStackFileContentAsync(
+                            stackName
+                        );
+                        _logger.LogInformation(
+                            "Retrieved stack file content for {StackName}",
+                            stackName
+                        );
+                        existingStack.PortainerManaged = !string.IsNullOrWhiteSpace(
+                            stackFileContent
+                        );
                     }
 
                     stacks.Add(existingStack);
