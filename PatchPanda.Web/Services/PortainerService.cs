@@ -106,10 +106,8 @@ public class PortainerService : IPortainerService
 
         await EnsureAuthenticatedAsync();
 
-        var filters = JsonSerializer.Serialize(new { Name = new[] { stackName } });
-        var resp = await _httpClient.GetAsync(
-            $"/api/stacks?filters={Uri.EscapeDataString(filters)}"
-        );
+        var filters = JsonSerializer.Serialize(new { Name = stackName });
+        var resp = await _httpClient.GetAsync($"/api/stacks?filters={filters}");
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -124,7 +122,13 @@ public class PortainerService : IPortainerService
         var stacks = await resp.Content.ReadFromJsonAsync<PortainerStackDto[]>();
 
         if (stacks is null || stacks.Length == 0)
+        {
+            _logger.LogWarning(
+                "No Portainer stacks found when searching with filters: {Filters}",
+                filters
+            );
             return null;
+        }
 
         var first = stacks[0];
         var fileResp = await _httpClient.GetAsync(
