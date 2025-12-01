@@ -113,9 +113,9 @@ public class DockerService
                             stackName
                         );
                         _logger.LogInformation(
-                            "Retrieved stack file content for {StackName}, content {Content}",
+                            "Retrieved stack file content for {StackName}, length: {Length}",
                             stackName,
-                            stackFileContent
+                            stackFileContent?.Length ?? 0
                         );
                         existingStack.PortainerManaged = !string.IsNullOrWhiteSpace(
                             stackFileContent
