@@ -59,7 +59,7 @@ public class UpdateService
         string? configFileContent;
 
         if (!string.IsNullOrWhiteSpace(configPath))
-            configFileContent = _fileService.ReadAllText(configPath!);
+            configFileContent = _fileService.ReadAllText(configPath);
         else
         {
             configFileContent = await _portainerService.GetStackFileContentAsync(stack.StackName);
@@ -174,7 +174,7 @@ public class UpdateService
             else
             {
                 _fileService.WriteAllText(
-                    configPath!,
+                    configPath,
                     configFileContent.Replace(app.TargetImage, resultingImage)
                 );
             }

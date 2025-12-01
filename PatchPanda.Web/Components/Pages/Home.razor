@@ -95,10 +95,10 @@ else
                         {
                             <span class="badge text-bg-danger ms-2">Missing GitHub regex</span>
                         }
-                        @if(context.ConfigFile is null && !context.PortainerManaged)
+                        @if (context.ConfigFile is null && !context.PortainerManaged)
                         {
                             <span class="badge text-bg-danger ms-2">Missing path to compose file</span>
-                        } else if(context.PortainerManaged)
+                        } else if (context.PortainerManaged)
                         {
                             <span class="badge text-bg-info ms-2">Portainer</span>
                         }
