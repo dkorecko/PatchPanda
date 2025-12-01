@@ -174,7 +174,7 @@ public class UpdateService
             else
             {
                 _fileService.WriteAllText(
-                    configPath!,
+                    configPath,
                     configFileContent.Replace(app.TargetImage, resultingImage)
                 );
             }
