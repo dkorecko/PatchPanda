@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -99,7 +100,7 @@ public class PortainerService : IPortainerService
             _logger.LogWarning("Failed parsing Portainer auth response");
     }
 
-    public async Task<string?> GetStackFileContentAsync(string stackName)
+    private async Task<PortainerStackDto?> GetStack(string stackName)
     {
         if (!IsConfigured)
             return null;
@@ -130,7 +131,16 @@ public class PortainerService : IPortainerService
             return null;
         }
 
-        var first = stacks[0];
+        return stacks[0];
+    }
+
+    public async Task<string?> GetStackFileContentAsync(string stackName)
+    {
+        var first = await GetStack(stackName);
+
+        if (first is null)
+            return null;
+
         var fileResp = await _httpClient.GetAsync(
             $"/api/stacks/{first.Id}/file?endpointId={first.EndpointId}"
         );
@@ -151,32 +161,7 @@ public class PortainerService : IPortainerService
 
     public async Task<bool> UpdateStackFileContentAsync(string stackName, string newFileContent)
     {
-        if (!IsConfigured)
-            return false;
-
-        await EnsureAuthenticatedAsync();
-
-        var filters = JsonSerializer.Serialize(new { Name = new[] { stackName } });
-        var resp = await _httpClient.GetAsync(
-            $"/api/stacks?filters={Uri.EscapeDataString(filters)}"
-        );
-
-        if (!resp.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Could not list Portainer stacks for update: {Status}. Check {UrlKey} and credentials",
-                resp.StatusCode,
-                Constants.VariableKeys.PORTAINER_URL
-            );
-            return false;
-        }
-
-        var stacks = await resp.Content.ReadFromJsonAsync<PortainerStackDto[]>();
-
-        if (stacks is null || stacks.Length == 0)
-            return false;
-
-        var first = stacks[0];
+        var first = await GetStack(stackName);
 
         var payload = JsonSerializer.Serialize(
             new { stackFileContent = newFileContent, pullImage = true }
