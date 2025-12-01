@@ -12,11 +12,13 @@ public class DockerService
     private readonly ILogger<DockerService> _logger;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IVersionService _versionService;
+    private readonly IPortainerService _portainerService;
 
     public DockerService(
         ILogger<DockerService> logger,
         IDbContextFactory<DataContext> dbContextFactory,
-        IVersionService versionService
+        IVersionService versionService,
+        IPortainerService portainerService
     )
     {
         DockerSocket = "unix:///var/run/docker.sock";
@@ -27,6 +29,7 @@ public class DockerService
         _logger = logger;
         _dbContextFactory = dbContextFactory;
         _versionService = versionService;
+        _portainerService = portainerService;
     }
 
     /// <summary>
@@ -101,8 +104,15 @@ public class DockerService
                             out var configFile
                         )
                             ? configFile
-                            : "N/A"
+                            : null
                     };
+
+                    if (existingStack.ConfigFile is null && _portainerService.IsConfigured)
+                    {
+                        existingStack.PortainerManaged =
+                            (await _portainerService.GetStackFileContentAsync(stackName))
+                                is not null;
+                    }
 
                     stacks.Add(existingStack);
 
@@ -294,12 +304,6 @@ public class DockerService
         return true;
     }
 
-    public string ComputeConfigFilePath(ComposeStack stack)
-    {
-        string configPath = stack.ConfigFile;
-        return configPath;
-    }
-
     public virtual async Task RunDockerComposeOnPath(
         ComposeStack stack,
         string command,
@@ -309,7 +313,7 @@ public class DockerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"compose -f {ComputeConfigFilePath(stack)} {command}",
+            Arguments = $"compose -f {stack.ConfigFile} {command}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

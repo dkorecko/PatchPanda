@@ -95,6 +95,13 @@ else
                         {
                             <span class="badge text-bg-danger ms-2">Missing GitHub regex</span>
                         }
+                        @if(context.ConfigFile is null && !context.PortainerManaged)
+                        {
+                            <span class="badge text-bg-danger ms-2">Missing path to compose file</span>
+                        } else if(context.PortainerManaged)
+                        {
+                            <span class="badge text-bg-info ms-2">Portainer</span>
+                        }
                     </button>
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
@@ -112,6 +119,7 @@ else
                         <button class="btn btn-danger" type="button" disabled="@_isRestarting" @onclick="() => DeleteStack(context)" title="Delete stack" aria-label="Delete stack">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                         </button>
+                        <span>@context.ConfigFile</span>
                         <table class="table-striped table-hover table-bordered table">
                             <thead>
                                 <tr>
