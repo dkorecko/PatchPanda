@@ -191,7 +191,7 @@ public class PortainerService : IPortainerService
             _logger.LogWarning(
                 "Could not update Portainer stack file: {Status}, full response: {Response}. Check {UrlKey} and credentials",
                 putResp.StatusCode,
-                await putResp.Content.ReadAsStringAsync()
+                await putResp.Content.ReadAsStringAsync(),
                 Constants.VariableKeys.PORTAINER_URL
             );
             return false;
