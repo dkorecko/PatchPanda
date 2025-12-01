@@ -7,18 +7,21 @@ public class UpdateService
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IFileService _fileService;
+    private readonly IPortainerService _portainerService;
     private readonly ILogger<UpdateService> _logger;
 
     public UpdateService(
         DockerService dockerService,
         IDbContextFactory<DataContext> dbContextFactory,
         IFileService fileService,
-        ILogger<UpdateService> logger
+        ILogger<UpdateService> logger,
+        IPortainerService portainerService
     )
     {
         _dockerService = dockerService;
         _dbContextFactory = dbContextFactory;
         _fileService = fileService;
+        _portainerService = portainerService;
         _logger = logger;
     }
 
@@ -28,7 +31,7 @@ public class UpdateService
         || app.GitHubVersionRegex is null
         || app.Version is null;
 
-    public async Task<List<string>> Update(
+    public async Task<List<string>?> Update(
         Container app,
         bool planOnly,
         Action<string>? outputCallback = null,
@@ -46,11 +49,27 @@ public class UpdateService
 
         using var db = _dbContextFactory.CreateDbContext();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
-        var configPath = _dockerService.ComputeConfigFilePath(stack);
+        var configPath = stack.ConfigFile;
 
-        updateSteps.Add($"In folder: {configPath}");
+        if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
+            return null;
 
-        var configFileContent = _fileService.ReadAllText(configPath);
+        string? configFileContent;
+
+        if (!string.IsNullOrWhiteSpace(configPath))
+        {
+            updateSteps.Add($"In folder: {configPath}");
+            configFileContent = _fileService.ReadAllText(configPath);
+        }
+        else
+        {
+            configFileContent = await _portainerService.GetStackFileContentAsync(stack.StackName);
+
+            if (configFileContent is null)
+                return null;
+
+            updateSteps.Add("Using Portainer-managed stack file for update");
+        }
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
         var targetVersionToUse = targetVersion ?? app.NewerVersions.First();
@@ -98,6 +117,15 @@ public class UpdateService
                 )
             )
             {
+                if (string.IsNullOrWhiteSpace(configPath))
+                {
+                    _logger.LogWarning(
+                        "Cannot update .env file for Portainer-managed stack {StackName}.",
+                        stack.StackName
+                    );
+                    return null;
+                }
+
                 envFile = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, ".env");
 
                 if (_fileService.Exists(envFile))
@@ -137,10 +165,20 @@ public class UpdateService
 
         if (resultingImage is not null)
         {
-            _fileService.WriteAllText(
-                configPath,
-                configFileContent.Replace(app.TargetImage, resultingImage)
-            );
+            if (string.IsNullOrWhiteSpace(configPath))
+            {
+                await _portainerService.UpdateStackFileContentAsync(
+                    stack.StackName,
+                    configFileContent.Replace(app.TargetImage, resultingImage)
+                );
+            }
+            else
+            {
+                _fileService.WriteAllText(
+                    configPath,
+                    configFileContent.Replace(app.TargetImage, resultingImage)
+                );
+            }
         }
         else if (
             envFile is not null
@@ -155,9 +193,12 @@ public class UpdateService
             );
         }
 
-        await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
-        await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
-        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+        if (!string.IsNullOrWhiteSpace(configPath))
+        {
+            await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
+            await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
+            await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+        }
 
         var targetApp = await db
             .Containers.Include(x => x.NewerVersions)

@@ -1,10 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using PatchPanda.Web.Db;
-using PatchPanda.Web.Entities;
-using PatchPanda.Web.Services;
 
 namespace PatchPanda.Units.Services;
 
@@ -15,6 +10,7 @@ public class UpdateServiceTests
     private readonly Mock<ILogger<DockerService>> _dockerLogger;
     private readonly Mock<ILogger<UpdateService>> _updateLogger;
     private readonly Mock<IConfiguration> _configuration;
+    private readonly Mock<IPortainerService> _portainerService;
 
     public UpdateServiceTests()
     {
@@ -23,6 +19,7 @@ public class UpdateServiceTests
         _dockerLogger = new Mock<ILogger<DockerService>>();
         _updateLogger = new Mock<ILogger<UpdateService>>();
         _configuration = new Mock<IConfiguration>();
+        _portainerService = new Mock<IPortainerService>();
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -49,14 +46,16 @@ public class UpdateServiceTests
             new Mock<DockerService>(
                 _dockerLogger.Object,
                 dbContextFactory,
-                new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+                new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+                _portainerService.Object
             ).Object,
             dbContextFactory,
             _systemFileService.Object,
-            _updateLogger.Object
+            _updateLogger.Object,
+            _portainerService.Object
         ).Update(stack.Apps[0], false);
 
-        var importantTask = tasks.FirstOrDefault(t => t.Contains("Will"));
+        var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
 
         Assert.NotNull(importantTask);
 
@@ -110,7 +109,8 @@ public class UpdateServiceTests
         var dockerMock = new Mock<DockerService>(
             _dockerLogger.Object,
             dbContextFactory,
-            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            _portainerService.Object
         );
 
         dockerMock
@@ -121,10 +121,11 @@ public class UpdateServiceTests
             dockerMock.Object,
             dbContextFactory,
             _systemFileService.Object,
-            _updateLogger.Object
+            _updateLogger.Object,
+            _portainerService.Object
         ).Update(stack.Apps[0], false);
 
-        var importantTask = tasks.FirstOrDefault(t => t.Contains("Will"));
+        var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
 
         Assert.NotNull(importantTask);
 
@@ -181,6 +182,75 @@ public class UpdateServiceTests
     }
 
     [Fact]
+    public async Task PortainerComposeUpdateTest()
+    {
+        var stack = Helper.GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
+        stack.ConfigFile = null;
+        stack.PortainerManaged = true;
+
+        var composeContent = $"""
+            version: '3'
+            services:
+              testapp:
+                image: {stack.Apps[0].TargetImage}
+            """;
+
+        _portainerService.Setup(p => p.IsConfigured).Returns(true);
+        _portainerService
+            .Setup(p => p.GetStackFileContentAsync(It.IsAny<string>()))
+            .ReturnsAsync(composeContent);
+        _portainerService
+            .Setup(p => p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        var dbContextFactory = Helper.CreateInMemoryFactory();
+
+        using var db = dbContextFactory.CreateDbContext();
+
+        db.Stacks.Add(stack);
+        await db.SaveChangesAsync();
+
+        var dockerMock = new Mock<DockerService>(
+            _dockerLogger.Object,
+            dbContextFactory,
+            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            _portainerService.Object
+        );
+
+        dockerMock
+            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        var updateService = new UpdateService(
+            dockerMock.Object,
+            dbContextFactory,
+            _systemFileService.Object,
+            _updateLogger.Object,
+            _portainerService.Object
+        );
+
+        var tasks = await updateService.Update(stack.Apps[0], false);
+
+        Assert.NotNull(tasks);
+
+        _portainerService.Verify(p => p.GetStackFileContentAsync(stack.StackName), Times.Once);
+        _portainerService.Verify(
+            p =>
+                p.UpdateStackFileContentAsync(
+                    stack.StackName,
+                    It.Is<string>(s => s.Contains(TestData.IMAGE_NEW_VERSION))
+                ),
+            Times.Once
+        );
+
+        using var dbCheck = dbContextFactory.CreateDbContext();
+        var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
+
+        Assert.Empty(app.NewerVersions);
+        Assert.Equal(TestData.IMAGE_NEW_VERSION, app.TargetImage);
+    }
+
+    [Fact]
     public async Task UpdatePropagatesToMatchingFullImage()
     {
         var stack = Helper.GetTestStack(TestData.VERSION, TestData.NEW_VERSION, TestData.IMAGE);
@@ -225,7 +295,8 @@ public class UpdateServiceTests
         var dockerMock = new Mock<DockerService>(
             _dockerLogger.Object,
             dbContextFactory,
-            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory)
+            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            _portainerService.Object
         );
 
         dockerMock
@@ -236,7 +307,8 @@ public class UpdateServiceTests
             dockerMock.Object,
             dbContextFactory,
             _systemFileService.Object,
-            _updateLogger.Object
+            _updateLogger.Object,
+            _portainerService.Object
         );
 
         using var initialCheck = dbContextFactory.CreateDbContext();

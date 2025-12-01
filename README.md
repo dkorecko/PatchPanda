@@ -48,18 +48,17 @@ PatchPanda requires the following env vars to function.
 
 General
 
-- BASE_URL - The base URL of PatchPanda, this will be used for creating clickable URLs in notifications (e.g. `http://localhost:5093`)
-
 GitHub
-
-- GITHUB_USERNAME - GitHub username
-- GITHUB_PASSWORD - GitHub personal access token (PAT) or password
 
 Notifications
 
-- DISCORD_WEBHOOK_URL - (optional) Full Discord webhook URL used to post notifications
-- APPRISE_API_URL - (optional) An Apprise API URL to send notifications to any services Apprise supports (e.g. email, Telegram, etc).
-- APPRISE_NOTIFICATION_URLS - (optional) A comma-separated list of Apprise notification URLs to send notifications to any services Apprise supports (e.g. email, Telegram, etc). For specific formats, take a look at the [Apprise documentation](https://github.com/caronc/apprise/wiki#notification-services).
+Portainer
+
+- PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`). If provided and a stack does not expose a local compose config path, PatchPanda will assume the stack is Portainer-managed and use the Portainer API to read/update the compose file.
+- PORTAINER_USERNAME - (optional) Username for Portainer API authentication, must be provided if PORTAINER_URL is provided.
+- PORTAINER_PASSWORD - (optional) Password for Portainer API authentication, must be provided if PORTAINER_URL is provided.
+
+When Portainer vars are present PatchPanda will authenticate to Portainer and use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service stores and re-uses the JWT returned by Portainer for API requests.
 
 Notes about the GitHub token
 
@@ -91,6 +90,9 @@ services:
       - GITHUB_USERNAME=yourusername # use your GitHub username here
       - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
       - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
+      # - PORTAINER_URL=http://portainer:9000 # if you wish to include stacks fully managed by Portainer
+      # - PORTAINER_USERNAME=admin # if you wish to include stacks fully managed by Portainer
+      # - PORTAINER_PASSWORD=CHANGEME # if you wish to include stacks fully managed by Portainer
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.

@@ -16,5 +16,8 @@ public static class Constants
         public const string APPRISE_API_URL = "APPRISE_API_URL";
         public const string DISCORD_WEBHOOK_URL = "DISCORD_WEBHOOK_URL";
         public const string BASE_URL = "BASE_URL";
+        public const string PORTAINER_URL = "PORTAINER_URL";
+        public const string PORTAINER_USERNAME = "PORTAINER_USERNAME";
+        public const string PORTAINER_PASSWORD = "PORTAINER_PASSWORD";
     }
 }

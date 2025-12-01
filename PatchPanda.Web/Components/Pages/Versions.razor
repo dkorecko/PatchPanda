@@ -107,6 +107,11 @@ else
                     <Terminal @ref=_terminal/>
                 </div>
             }
+        } else
+        {
+            <div class="alert alert-danger" role="alert">
+				No valid update plan could be generated for this update. Please check the logs and if you cannot figure out the reason, open up an issue on GitHub.
+            </div>
         }
     }
 }
