@@ -192,9 +192,12 @@ public class UpdateService
             );
         }
 
-        await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
-        await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
-        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+        if (!string.IsNullOrWhiteSpace(configPath))
+        {
+            await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
+            await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
+            await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+        }
 
         var targetApp = await db
             .Containers.Include(x => x.NewerVersions)

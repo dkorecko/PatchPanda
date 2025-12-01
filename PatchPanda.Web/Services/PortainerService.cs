@@ -181,8 +181,8 @@ public class PortainerService : IPortainerService
         var payload = JsonSerializer.Serialize(
             new { stackFileContent = newFileContent, pullImage = true }
         );
-        var putResp = await _httpClient.PostAsync(
-            $"/api/stacks/{first.Id}?endpointId={first.EndpointId}&method=string",
+        var putResp = await _httpClient.PutAsync(
+            $"/api/stacks/{first.Id}",
             new StringContent(payload, Encoding.UTF8, "application/json")
         );
 
