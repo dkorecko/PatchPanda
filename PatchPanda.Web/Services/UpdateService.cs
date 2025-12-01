@@ -54,12 +54,13 @@ public class UpdateService
         if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
             return null;
 
-        updateSteps.Add($"In folder: {configPath}");
-
         string? configFileContent;
 
         if (!string.IsNullOrWhiteSpace(configPath))
+        {
+            updateSteps.Add($"In folder: {configPath}");
             configFileContent = _fileService.ReadAllText(configPath);
+        }
         else
         {
             configFileContent = await _portainerService.GetStackFileContentAsync(stack.StackName);
