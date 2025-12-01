@@ -182,15 +182,16 @@ public class PortainerService : IPortainerService
             new { stackFileContent = newFileContent, pullImage = true }
         );
         var putResp = await _httpClient.PutAsync(
-            $"/api/stacks/{first.Id}",
+            $"/api/stacks/{first.Id}?endpointId={first.EndpointId}",
             new StringContent(payload, Encoding.UTF8, "application/json")
         );
 
         if (!putResp.IsSuccessStatusCode)
         {
             _logger.LogWarning(
-                "Could not update Portainer stack file: {Status}. Check {UrlKey} and credentials",
+                "Could not update Portainer stack file: {Status}, full response: {Response}. Check {UrlKey} and credentials",
                 putResp.StatusCode,
+                await putResp.Content.ReadAsStringAsync()
                 Constants.VariableKeys.PORTAINER_URL
             );
             return false;
