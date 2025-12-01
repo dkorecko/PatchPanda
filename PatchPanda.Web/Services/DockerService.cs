@@ -249,6 +249,10 @@ public class DockerService
                 db.Stacks.Add(runningStack);
                 continue;
             }
+            else
+            {
+                existingStack.PortainerManaged = runningStack.PortainerManaged;
+            }
 
             foundStacks.Add(existingStack);
 
