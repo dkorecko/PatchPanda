@@ -18,6 +18,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Ability to ignore a specific version to not clutter the UI.
 - Update multiple applications at once.
 - Manually override the detected GitHub repo if it's incorrect.
+- Integrate with Portainer API to update its managed compose stacks.
 
 Planned / upcoming features
 
