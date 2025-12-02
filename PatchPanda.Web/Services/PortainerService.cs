@@ -164,7 +164,7 @@ public class PortainerService : IPortainerService
         var first = await GetStack(stackName);
 
         if (first is null)
-            return null;
+            return false;
 
         var payload = JsonSerializer.Serialize(
             new { stackFileContent = newFileContent, pullImage = true }
