@@ -23,7 +23,7 @@ else
         <div><span class="h3 text-bg-danger">Docker is not running</span></div>
     } else
     {
-        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedResetAll() || _jobRegistry.IsProcessingResetAll())" @onclick="ReloadData">
+        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedResetAll() || _jobRegistry.IsProcessingResetAll())" @onclick="async () => await _jobRegistry.MarkForResetAll()">
             @if (_jobRegistry.IsProcessingResetAll())
             {
                 <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
@@ -35,6 +35,20 @@ else
             else
             {
                 <span>Recheck containers</span>
+            }
+        </button>
+        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsProcessingCheckUpdatesAll() || _jobRegistry.IsProcessingCheckUpdatesAll())" @onclick="async () => await _jobRegistry.MarkForCheckUpdatesAll()">
+            @if (_jobRegistry.IsProcessingCheckUpdatesAll())
+            {
+                <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+            }
+            else if (_jobRegistry.IsQueuedCheckUpdatesAll())
+            {
+                <span>Check for updates queued</span>
+            }
+            else
+            {
+                <span>Check for updates</span>
             }
         </button>
         <button class="btn btn-warning ms-2" type="button" disabled="@(_selectedAppIds.Count == 0 || _isEnqueuing)" @onclick="UpdateSelected">
@@ -416,11 +430,6 @@ else
             _isEnqueuing = false;
             StateHasChanged();
         }
-    }
-
-    private async Task ReloadData()
-    {
-        await _jobRegistry.MarkForResetAll();
     }
 
     private async Task DeleteContainer(Container app)

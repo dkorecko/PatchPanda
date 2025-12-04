@@ -3,24 +3,16 @@ using System.Text.Json;
 
 namespace PatchPanda.Web.Services;
 
-public class DiscordService
+public class DiscordService : IDiscordService
 {
     public string? WebhookUrl { get; }
 
-    private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly bool _isInitialized;
 
-    public DiscordService(
-        IConfiguration configuration,
-        IDbContextFactory<DataContext> dbContextFactory,
-        ILogger<DiscordService> logger
-    )
+    public DiscordService(IConfiguration configuration, ILogger<DiscordService> logger)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
-
-        _dbContextFactory = dbContextFactory;
 
         var webhookUrl = configuration.GetValue<string>(
             Constants.VariableKeys.DISCORD_WEBHOOK_URL

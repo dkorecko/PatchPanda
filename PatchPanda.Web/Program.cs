@@ -16,8 +16,8 @@ public sealed partial class Program
         builder.Services.AddSingleton<DockerService>();
         builder.Services.AddSingleton<IPortainerService, PortainerService>();
         builder.Services.AddSingleton<IVersionService, VersionService>();
-        builder.Services.AddSingleton<DiscordService>();
-        builder.Services.AddSingleton<AppriseService>();
+        builder.Services.AddSingleton<IDiscordService, DiscordService>();
+        builder.Services.AddSingleton<IAppriseService, AppriseService>();
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
         builder.Services.AddSingleton<JobRegistry>();

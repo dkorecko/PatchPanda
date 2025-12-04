@@ -29,6 +29,11 @@ public class PendingRestartStack : PendingUpdate
     public override string Kind => "RestartStack";
 }
 
+public class PendingCheckForUpdatesAll : PendingUpdate
+{
+    public override string Kind => "CheckForUpdatesAll";
+}
+
 public class JobRegistry
 {
     private readonly ConcurrentDictionary<long, PendingUpdate> _pending = new();
@@ -75,6 +80,17 @@ public class JobRegistry
         _pending.TryAdd(seq, pending);
 
         await _updateQueue.EnqueueAsync(new ResetAllJob(seq));
+    }
+
+    public async Task MarkForCheckUpdatesAll()
+    {
+        var seq = GetNextSequence();
+
+        var pending = new PendingCheckForUpdatesAll { Sequence = seq };
+
+        _pending.TryAdd(seq, pending);
+
+        await _updateQueue.EnqueueAsync(new CheckForUpdatesAllJob(seq));
     }
 
     public async Task MarkForRestartStack(int stackId)
@@ -216,6 +232,12 @@ public class JobRegistry
 
     public bool IsProcessingResetAll() =>
         _pending.Values.Any(p => p is PendingResetAll && p.IsProcessing);
+
+    public bool IsQueuedCheckUpdatesAll() =>
+        _pending.Values.Any(p => p is PendingCheckForUpdatesAll && !p.IsProcessing);
+
+    public bool IsProcessingCheckUpdatesAll() =>
+        _pending.Values.Any(p => p is PendingCheckForUpdatesAll && p.IsProcessing);
 
     public bool IsQueuedRestartForStack(int stackId) =>
         _pending.Values.Any(p =>
