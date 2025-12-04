@@ -206,11 +206,15 @@ else
 
         await InvokeAsync(StateHasChanged);
 
-        if(_currentJobSequence is null) {
+        if(_currentJobSequence is null) 
+        {
             _currentJobSequence = _jobRegistry.GetProcessingUpdateForContainer(_app.Id) ?? _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
         }
 
-        var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence);
+        if(_currentJobSequence is null) 
+            return;
+
+        var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence.Value);
 
         foreach (var line in output)
         {
