@@ -201,7 +201,7 @@ else
     {
         ArgumentNullException.ThrowIfNull(_app);
 
-        if(_cts.IsCancellationRequested)
+        if(_cts.IsCancellationRequested || _terminal is null)
             return;
 
         await InvokeAsync(StateHasChanged);
