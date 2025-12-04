@@ -30,6 +30,7 @@ else
             }
             else if (_jobRegistry.IsQueuedResetAll())
             {
+                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                 <span>Recheck queued</span>
             }
             else
@@ -37,13 +38,14 @@ else
                 <span>Recheck containers</span>
             }
         </button>
-        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsProcessingCheckUpdatesAll() || _jobRegistry.IsProcessingCheckUpdatesAll())" @onclick="async () => await _jobRegistry.MarkForCheckUpdatesAll()">
+        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedCheckUpdatesAll() || _jobRegistry.IsProcessingCheckUpdatesAll())" @onclick="async () => await _jobRegistry.MarkForCheckUpdatesAll()">
             @if (_jobRegistry.IsProcessingCheckUpdatesAll())
             {
                 <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
             }
             else if (_jobRegistry.IsQueuedCheckUpdatesAll())
             {
+                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                 <span>Check for updates queued</span>
             }
             else
@@ -86,7 +88,7 @@ else
                         @if (queuedUpdates != 0)
                         {
                             <span class="badge text-bg-secondary ms-2">
-                                <span class="material-symbols-outlined nav-icon" aria-hidden="true">schedule</span>
+                                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                                 @queuedUpdates Updates queued
                             </span>
                         }
@@ -131,6 +133,7 @@ else
                             }
                             else if (_jobRegistry.IsQueuedRestartForStack(context.Id))
                             {
+                                <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                                 <span>Restart queued</span>
                             }
                             else
@@ -182,7 +185,7 @@ else
                                             else if (_jobRegistry.GetQueuedUpdateForContainer(app.Id) is not null)
                                             {
                                                 <span class="badge text-bg-secondary ms-1">
-                                                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">schedule</span>
+                                                    <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                                                     Queued
                                                 </span>
                                             }

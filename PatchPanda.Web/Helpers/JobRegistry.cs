@@ -120,10 +120,13 @@ public class JobRegistry
 
     public void FinishProcessing(long sequence)
     {
-        if (_pending.TryGetValue(sequence, out var pending))
+        lock (_processingLock)
         {
-            pending.IsProcessing = false;
-            _pending.TryRemove(sequence, out _);
+            if (_pending.TryGetValue(sequence, out var pending))
+            {
+                pending.IsProcessing = false;
+                _pending.TryRemove(sequence, out _);
+            }
         }
     }
 
@@ -169,62 +172,68 @@ public class JobRegistry
     {
         var list = new List<PendingUpdate>();
 
-        foreach (var kv in _pending)
+        foreach (var keyValue in _pending)
         {
-            var p = kv.Value;
+            var pendingUpdate = keyValue.Value;
 
-            if (p is PendingUpdateJob uj)
+            if (pendingUpdate is PendingUpdateJob pendingUpdateJob)
             {
                 var copy = new PendingUpdateJob
                 {
-                    ContainerId = uj.ContainerId,
-                    TargetVersionId = uj.TargetVersionId,
-                    TargetVersionNumber = uj.TargetVersionNumber,
-                    IsProcessing = uj.IsProcessing,
-                    Sequence = uj.Sequence
+                    ContainerId = pendingUpdateJob.ContainerId,
+                    TargetVersionId = pendingUpdateJob.TargetVersionId,
+                    TargetVersionNumber = pendingUpdateJob.TargetVersionNumber,
+                    IsProcessing = pendingUpdateJob.IsProcessing,
+                    Sequence = pendingUpdateJob.Sequence
                 };
 
-                lock (uj.Output)
+                lock (pendingUpdateJob.Output)
                 {
-                    copy.Output.AddRange(uj.Output);
+                    copy.Output.AddRange(pendingUpdateJob.Output);
                 }
 
                 list.Add(copy);
             }
-            else if (p is PendingRestartStack rs)
+            else if (pendingUpdate is PendingRestartStack pendingRestartStack)
             {
                 var copy = new PendingRestartStack
                 {
-                    StackId = rs.StackId,
-                    IsProcessing = rs.IsProcessing,
-                    Sequence = rs.Sequence
+                    StackId = pendingRestartStack.StackId,
+                    IsProcessing = pendingRestartStack.IsProcessing,
+                    Sequence = pendingRestartStack.Sequence
                 };
 
-                lock (rs.Output)
+                lock (pendingRestartStack.Output)
                 {
-                    copy.Output.AddRange(rs.Output);
+                    copy.Output.AddRange(pendingRestartStack.Output);
                 }
 
                 list.Add(copy);
             }
-            else if (p is PendingResetAll ra)
-            {
-                var copy = new PendingResetAll
-                {
-                    IsProcessing = ra.IsProcessing,
-                    Sequence = ra.Sequence
-                };
-
-                lock (ra.Output)
-                {
-                    copy.Output.AddRange(ra.Output);
-                }
-
-                list.Add(copy);
-            }
+            else if (pendingUpdate is PendingResetAll pendingResetAll)
+                CreateJobCopy(list, pendingResetAll);
+            else if (pendingUpdate is PendingCheckForUpdatesAll pendingCheckForUpdatesAll)
+                CreateJobCopy(list, pendingCheckForUpdatesAll);
+            else
+                throw new Exception("Unhandled job.");
         }
 
         return list.OrderBy(x => x.Sequence).ToList();
+    }
+
+    private static void CreateJobCopy<TPending>(List<PendingUpdate> list, TPending pending)
+        where TPending : PendingUpdate, new()
+    {
+        var copy = new TPending
+        {
+            IsProcessing = pending.IsProcessing,
+            Sequence = pending.Sequence
+        };
+        lock (pending.Output)
+        {
+            copy.Output.AddRange(pending.Output);
+        }
+        list.Add(copy);
     }
 
     public bool IsQueuedResetAll() =>

@@ -69,3 +69,7 @@ h1:focus {
   vertical-align: bottom;
   user-select: none;
 }
+
+span > .material-symbols-outlined {
+    font-size: 0.8rem;
+}
