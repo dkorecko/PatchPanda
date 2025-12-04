@@ -2,7 +2,7 @@
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject IVersionService _versionService
 @inject UpdateService _updateService
-@inject UpdateRegistry _updateRegistry
+@inject JobRegistry _jobRegistry
 @implements IDisposable
 
 <PageTitle>Versions - @Constants.APP_NAME</PageTitle>
@@ -84,12 +84,12 @@ else
                 }
             </ul>
 
-            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_updateRegistry.IsQueued(_app.Id) || _updateRegistry.IsProcessing(_app.Id))">
-                @if (_updateRegistry.IsProcessing(_app.Id))
+            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)">
+                @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
                 {
                     <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
                 }
-                else if (_updateRegistry.IsQueued(_app.Id))
+                else if (_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null)
                 {
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">schedule</span>
                     <span>Queued</span>
@@ -100,7 +100,7 @@ else
                 }
             </button>
 
-            @if (_updateRegistry.IsProcessing(_app.Id))
+            @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
             {
                 <div class="mb-4 mt-4">
                     <h5>Update Progress:</h5>
@@ -127,6 +127,7 @@ else
     private AppVersion? _selectedVersion;
     private System.Timers.Timer? _pollTimer;
     private CancellationTokenSource _cts = new CancellationTokenSource();
+    private long? _currentJobSequence;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -154,7 +155,7 @@ else
         }
         _app = app;
 
-        if (_updateRegistry.IsQueued(_app.Id) || _updateRegistry.IsProcessing(_app.Id))
+        if (_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
         {
             StartPolling();
         }
@@ -178,7 +179,7 @@ else
         ArgumentNullException.ThrowIfNull(_app);
         ArgumentNullException.ThrowIfNull(_selectedVersion);
 
-        await _updateRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
+        await _jobRegistry.MarkForUpdate(_app.Id, _selectedVersion.Id, _selectedVersion.VersionNumber);
 
         StateHasChanged();
 
@@ -205,14 +206,22 @@ else
 
         await InvokeAsync(StateHasChanged);
 
-        var output = _updateRegistry.GetOutputSnapshot(_app.Id);
+        if(_currentJobSequence is null) 
+        {
+            _currentJobSequence = _jobRegistry.GetProcessingUpdateForContainer(_app.Id) ?? _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
+        }
+
+        if(_currentJobSequence is null) 
+            return;
+
+        var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence.Value);
 
         foreach (var line in output)
         {
             await _terminal.NewLine(line);
         }
 
-        if (!_updateRegistry.IsQueued(_app.Id) && !_updateRegistry.IsProcessing(_app.Id))
+        if (_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is null && _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is null)
         {
             DisposeTimer();
             _selectedVersion = null;
@@ -241,6 +250,7 @@ else
     public void Dispose()
     {
         _cts.Cancel();
+        _cts.Dispose();
         DisposeTimer();
     }
 }

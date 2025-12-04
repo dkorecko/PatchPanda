@@ -2,7 +2,7 @@
 @inject DockerService _dockerService
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject NavigationManager _nav
-@inject UpdateRegistry _updateRegistry
+@inject JobRegistry _jobRegistry
 @inject IJSRuntime _js
 @implements IDisposable
 
@@ -23,10 +23,14 @@ else
         <div><span class="h3 text-bg-danger">Docker is not running</span></div>
     } else
     {
-        <button class="btn btn-primary" type="button" disabled="@(_isReloading || _isRestarting)" @onclick="ReloadData">
-            @if (_isReloading)
+        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedResetAll() || _jobRegistry.IsProcessingResetAll())" @onclick="ReloadData">
+            @if (_jobRegistry.IsProcessingResetAll())
             {
                 <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+            }
+            else if (_jobRegistry.IsQueuedResetAll())
+            {
+                <span>Recheck queued</span>
             }
             else
             {
@@ -50,9 +54,9 @@ else
         @foreach (var context in _composeStacks.OrderBy(x => x.StackName))
         {
             var stackId = $"stack_{i}";
-            var appsWithNewerVersions = context.Apps.Where(x => x.IsSelectableForUpdate(_updateRegistry)).ToList();
-            var hasProcessing = context.Apps.Any(x => _updateRegistry.IsProcessing(x.Id));
-            var queuedUpdates = context.Apps.Count(x => _updateRegistry.IsQueued(x.Id));
+            var appsWithNewerVersions = context.Apps.Where(x => x.IsSelectableForUpdate(_jobRegistry)).ToList();
+            var hasProcessing = context.Apps.Any(x => _jobRegistry.GetProcessingUpdateForContainer(x.Id) is not null);
+            var queuedUpdates = context.Apps.Count(x => _jobRegistry.GetQueuedUpdateForContainer(x.Id) is not null);
             i++;
             <div @key=stackId class="accordion-item">
                 <h4 class="accordion-header">
@@ -106,59 +110,39 @@ else
                 </h4>
                 <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
                     <div class="accordion-body">
-                        <button class="btn btn-primary" type="button" disabled="@_isRestarting" @onclick="() => RestartStack(context)">
-                            @if (_isRestarting)
+                        <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedRestartForStack(context.Id) || _jobRegistry.IsProcessingRestartForStack(context.Id))" @onclick="() => RestartStack(context)">
+                            @if (_jobRegistry.IsProcessingRestartForStack(context.Id))
                             {
                                 <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
+                            }
+                            else if (_jobRegistry.IsQueuedRestartForStack(context.Id))
+                            {
+                                <span>Restart queued</span>
                             }
                             else
                             {
                                 <span>Restart</span>
                             }
                         </button>
-                        <button class="btn btn-danger" type="button" disabled="@_isRestarting" @onclick="() => DeleteStack(context)" title="Delete stack" aria-label="Delete stack">
+                        <button class="btn btn-danger" type="button" disabled="@(_jobRegistry.IsQueuedRestartForStack(context.Id) || _jobRegistry.IsProcessingRestartForStack(context.Id))" @onclick="() => DeleteStack(context)" title="Delete stack" aria-label="Delete stack">
                             <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                         </button>
                         <span>@context.ConfigFile</span>
                         <table class="table-striped table-hover table-bordered table">
                             <thead>
                                 <tr>
-                                    <th scope="col">
-                                        <input type="checkbox" checked=@IsAllSelectedForStack(context) @onchange="(e) => ToggleSelectAllForStack(context, e.Value)" />
-                                    </th>
-                                    <th scope="col">
-                                        App name
-                                    </th>
-                                    <th scope="col">
-                                        Github Repo
-                                    </th>
-                                    <th scope="col">
-                                        Version
-                                    </th>
-                                    <th scope="col">
-                                        Final regex
-                                    </th>
-                                    <th scope="col">
-                                        Newer versions
-                                    </th>
-                                    <th scope="col">
-                                        Current SHA
-                                    </th>
-                                    <th scope="col">
-                                        Target image
-                                    </th>
-                                    <th scope="col">
-                                        Notes
-                                    </th>
-                                    <th scope="col">
-                                        Uptime
-                                    </th>
-                                    <th scope="col">
-                                        Last version check
-                                    </th>
-                                    <th scope="col">
-                                        Controls
-                                    </th>
+                                    <th scope="col"><input type="checkbox" checked=@IsAllSelectedForStack(context) @onchange="(e) => ToggleSelectAllForStack(context, e.Value)" /></th>
+                                    <th scope="col">App name</th>
+                                    <th scope="col">Github Repo</th>
+                                    <th scope="col">Version</th>
+                                    <th scope="col">Final regex</th>
+                                    <th scope="col">Newer versions</th>
+                                    <th scope="col">Current SHA</th>
+                                    <th scope="col">Target image</th>
+                                    <th scope="col">Notes</th>
+                                    <th scope="col">Uptime</th>
+                                    <th scope="col">Last version check</th>
+                                    <th scope="col">Controls</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -166,22 +150,22 @@ else
                                 {
                                     var newestVersion = app.GetNewestAvailableVersion();
                                     var repo = app.GetGitHubRepo();
-                                    var isUpdating = _updateRegistry.IsQueued(app.Id) || _updateRegistry.IsProcessing(app.Id);
-                                    var isSelectable = app.IsSelectableForUpdate(_updateRegistry);
+                                    var isUpdating = _jobRegistry.GetQueuedUpdateForContainer(app.Id) is not null || _jobRegistry.GetProcessingUpdateForContainer(app.Id) is not null;
+                                    var isSelectable = app.IsSelectableForUpdate(_jobRegistry);
                                     <tr>
                                         <td>
                                             <input type="checkbox" checked=@_selectedAppIds.Contains(app.Id) disabled=@(!isSelectable) @onchange="(e) => ToggleSelection(app.Id, e.Value)" />
                                         </td>
                                         <td>
                                             @app.Name
-                                            @if (_updateRegistry.IsProcessing(app.Id))
+                                            @if (_jobRegistry.GetProcessingUpdateForContainer(app.Id) is not null)
                                             {
                                                 <span class="badge text-bg-primary ms-1">
                                                     <span class="spinner-border spinner-border-sm" role="status" aria-label="Updating" style="width: 0.75rem; height: 0.75rem; border-width: 0.1em;"></span>
                                                     Updating
                                                 </span>
                                             }
-                                            else if (_updateRegistry.IsQueued(app.Id))
+                                            else if (_jobRegistry.GetQueuedUpdateForContainer(app.Id) is not null)
                                             {
                                                 <span class="badge text-bg-secondary ms-1">
                                                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">schedule</span>
@@ -293,8 +277,6 @@ else
 
 @code {
     private List<ComposeStack>? _composeStacks;
-    private bool _isRestarting;
-    private bool _isReloading;
     private bool _isDockerRunning;
     private System.Timers.Timer? _pollTimer;
     private HashSet<int> _selectedAppIds = new();
@@ -351,11 +333,7 @@ else
 
     private async Task RestartStack(ComposeStack stack)
     {
-        _isRestarting = true;
-        StateHasChanged();
-        await _dockerService.RunDockerComposeOnPath(stack, "restart");
-        _isRestarting = false;
-        StateHasChanged();
+        await _jobRegistry.MarkForRestartStack(stack.Id);
     }
 
     private void ToggleSelection(int appId, object? rawValue)
@@ -376,7 +354,7 @@ else
         if (rawValue is not bool isChecked)
             return;
 
-        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_updateRegistry)).ToList();
+        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_jobRegistry)).ToList();
 
         if (isChecked)
         {
@@ -394,7 +372,7 @@ else
 
     private bool IsAllSelectedForStack(ComposeStack stack)
     {
-        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_updateRegistry)).ToList();
+        var selectableApps = stack.Apps.Where(a => a.IsSelectableForUpdate(_jobRegistry)).ToList();
 
         if (!selectableApps.Any())
             return false;
@@ -423,7 +401,7 @@ else
             if (target is null)
                 continue;
 
-            tasks.Add(_updateRegistry.MarkForUpdate(app.Id, target.Id, target.VersionNumber));
+            tasks.Add(_jobRegistry.MarkForUpdate(app.Id, target.Id, target.VersionNumber));
         }
 
         try
@@ -442,16 +420,7 @@ else
 
     private async Task ReloadData()
     {
-        _isReloading = true;
-        StateHasChanged();
-
-        var isReset = await _dockerService.ResetComposeStacks();
-        _isReloading = false;
-
-        if (isReset)
-        {
-            await LoadData();
-        }
+        await _jobRegistry.MarkForResetAll();
     }
 
     private async Task DeleteContainer(Container app)

@@ -48,8 +48,8 @@ public class Container : AbstractEntity
             .FirstOrDefault();
     }
 
-    public bool IsSelectableForUpdate(UpdateRegistry updateRegistry) =>
-        !updateRegistry.IsQueued(Id)
-        && !updateRegistry.IsProcessing(Id)
+    public bool IsSelectableForUpdate(JobRegistry jobRegistry) =>
+        jobRegistry.GetQueuedUpdateForContainer(Id) is null
+        && jobRegistry.GetProcessingUpdateForContainer(Id) is null
         && NewerVersions.Any(v => !v.Ignored);
 }
