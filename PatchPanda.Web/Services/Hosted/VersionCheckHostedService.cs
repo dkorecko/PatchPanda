@@ -2,7 +2,6 @@ namespace PatchPanda.Web.Services.Hosted;
 
 public class VersionCheckHostedService : IHostedService
 {
-    private readonly DockerService _dockerService;
     private readonly IVersionService _versionService;
     private readonly DiscordService _discordService;
     private readonly AppriseService _appriseService;
@@ -14,7 +13,6 @@ public class VersionCheckHostedService : IHostedService
     private volatile bool _pushedOnce;
 
     public VersionCheckHostedService(
-        DockerService dockerService,
         IVersionService versionService,
         DiscordService discordService,
         AppriseService appriseService,
@@ -23,14 +21,12 @@ public class VersionCheckHostedService : IHostedService
         JobRegistry jobRegistry
     )
     {
-        ArgumentNullException.ThrowIfNull(dockerService);
         ArgumentNullException.ThrowIfNull(versionService);
         ArgumentNullException.ThrowIfNull(discordService);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(jobRegistry);
 
-        _dockerService = dockerService;
         _versionService = versionService;
         _discordService = discordService;
         _appriseService = appriseService;
