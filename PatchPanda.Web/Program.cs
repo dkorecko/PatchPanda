@@ -20,7 +20,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<AppriseService>();
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
-        builder.Services.AddSingleton<UpdateRegistry>();
+        builder.Services.AddSingleton<JobRegistry>();
         builder.Services.AddSingleton<UpdateQueue>();
         builder.Services.AddHostedService<VersionCheckHostedService>();
         builder.Services.AddHostedService<UpdateBackgroundService>();

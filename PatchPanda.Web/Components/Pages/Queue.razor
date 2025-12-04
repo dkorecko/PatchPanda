@@ -1,6 +1,6 @@
 @page "/queue"
 
-@inject UpdateRegistry _updateRegistry
+@inject JobRegistry _jobRegistry
 @inject ILogger<Queue> _logger
 @implements IDisposable
 
@@ -23,17 +23,37 @@ else
     <table class="table">
         <thead>
             <tr>
+                <th>Type</th>
                 <th>Container Id</th>
                 <th>Target Version</th>
                 <th>Status</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var it in items)
             {
                 <tr>
-                    <td>@it.ContainerId</td>
-                    <td>@it.TargetVersionNumber (@it.TargetVersionId)</td>
+                    <td>@it.Kind</td>
+                    <td>
+                        @if (it is PendingUpdateJob uj)
+                        {
+                            @uj.ContainerId
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </td>
+                    <td>
+                        @if (it is PendingUpdateJob pu)
+                        {
+                            @pu.TargetVersionNumber @(" (" + pu.TargetVersionId + ")")
+                        } else
+                        {
+                            <span>-</span>
+                        }
+                    </td>
                     <td>
                         @if (it.IsProcessing)
                         {
@@ -48,6 +68,12 @@ else
                                 <span class="material-symbols-outlined nav-icon" aria-hidden="true">schedule</span>
                                 Queued
                             </span>
+                        }
+                    </td>
+                    <td>
+                        @if (!it.IsProcessing)
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Cancel(it.Sequence)">Cancel</button>
                         }
                     </td>
                 </tr>
@@ -71,7 +97,7 @@ else
     private Task LoadSnapshot()
     {
         try {
-            var snapshot = _updateRegistry.GetSnapshot();
+            var snapshot = _jobRegistry.GetSnapshot();
             items = snapshot
                 .OrderByDescending(i => i.IsProcessing)
                 .ThenBy(i => i.Sequence)
@@ -102,6 +128,16 @@ else
     private async Task CheckForUpdates()
     {
         await InvokeAsync(LoadSnapshot);
+    }
+
+    private async Task Cancel(long sequence)
+    {
+        var removed = _jobRegistry.TryRemove(sequence);
+
+        if (removed)
+        {
+            await LoadSnapshot();
+        }
     }
 
     public void Dispose()
