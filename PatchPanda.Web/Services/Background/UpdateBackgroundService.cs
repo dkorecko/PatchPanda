@@ -4,14 +4,14 @@ public class UpdateBackgroundService : IHostedService, IDisposable
 {
     private readonly IServiceScopeFactory _serviceProvider;
     private readonly JobRegistry _jobRegistry;
-    private readonly UpdateQueue _queue;
+    private readonly JobQueue _queue;
     private CancellationTokenSource? _cts;
     private Task? _processingTask;
 
     public UpdateBackgroundService(
         IServiceScopeFactory serviceProvider,
         JobRegistry jobRegistry,
-        UpdateQueue queue
+        JobQueue queue
     )
     {
         _serviceProvider = serviceProvider;

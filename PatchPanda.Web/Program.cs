@@ -21,7 +21,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
         builder.Services.AddSingleton<JobRegistry>();
-        builder.Services.AddSingleton<UpdateQueue>();
+        builder.Services.AddSingleton<JobQueue>();
         builder.Services.AddHostedService<VersionCheckHostedService>();
         builder.Services.AddHostedService<UpdateBackgroundService>();
 

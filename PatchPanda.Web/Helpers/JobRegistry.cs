@@ -32,11 +32,11 @@ public class PendingRestartStack : PendingUpdate
 public class JobRegistry
 {
     private readonly ConcurrentDictionary<long, PendingUpdate> _pending = new();
-    private readonly UpdateQueue _updateQueue;
+    private readonly JobQueue _updateQueue;
     private long _sequenceCounter;
     private readonly object _processingLock = new();
 
-    public JobRegistry(UpdateQueue updateQueue)
+    public JobRegistry(JobQueue updateQueue)
     {
         _updateQueue = updateQueue;
     }

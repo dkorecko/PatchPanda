@@ -2,11 +2,11 @@ using System.Threading.Channels;
 
 namespace PatchPanda.Web.Helpers;
 
-public class UpdateQueue
+public class JobQueue
 {
     private readonly Channel<AbstractJob> _channel;
 
-    public UpdateQueue()
+    public JobQueue()
     {
         _channel = Channel.CreateUnbounded<AbstractJob>(
             new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }
