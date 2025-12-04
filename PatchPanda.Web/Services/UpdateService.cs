@@ -9,13 +9,19 @@ public class UpdateService
     private readonly IFileService _fileService;
     private readonly IPortainerService _portainerService;
     private readonly ILogger<UpdateService> _logger;
+    private readonly IVersionService _versionService;
+    private readonly IAppriseService _appriseService;
+    private readonly IDiscordService _discordService;
 
     public UpdateService(
         DockerService dockerService,
         IDbContextFactory<DataContext> dbContextFactory,
         IFileService fileService,
         ILogger<UpdateService> logger,
-        IPortainerService portainerService
+        IPortainerService portainerService,
+        IVersionService versionService,
+        IAppriseService appriseService,
+        IDiscordService discordService
     )
     {
         _dockerService = dockerService;
@@ -23,6 +29,9 @@ public class UpdateService
         _fileService = fileService;
         _portainerService = portainerService;
         _logger = logger;
+        _versionService = versionService;
+        _appriseService = appriseService;
+        _discordService = discordService;
     }
 
     public bool IsUpdateAvailable(Container app) =>
@@ -30,6 +39,131 @@ public class UpdateService
         || app.Regex is null
         || app.GitHubVersionRegex is null
         || app.Version is null;
+
+    public async Task CheckAllForUpdates()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var containers = await db
+            .Containers.Include(x => x.NewerVersions)
+            .Where(x => !x.IsSecondary && (x.GitHubRepo != null || x.OverrideGitHubRepo != null))
+            .ToListAsync();
+
+        var uniqueRepoGroups = containers
+            .GroupBy(x => x.GetGitHubRepo()!)
+            .OrderBy(x => x.First().LastVersionCheck);
+
+        foreach (var uniqueRepoGroup in uniqueRepoGroups)
+        {
+            _logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
+
+            var currentVersionGroups = uniqueRepoGroup
+                .GroupBy(x => x.Version)
+                .Where(x => x.Key is not null);
+
+            foreach (var currentVersionGroup in currentVersionGroups)
+            {
+                _logger.LogInformation(
+                    "Checking version group: {Repo} {Version}",
+                    uniqueRepoGroup.Key,
+                    currentVersionGroup.Key
+                );
+                _logger.LogInformation("Got {Count} containers", currentVersionGroup.Count());
+
+                var mainApp = currentVersionGroup.First();
+
+                _logger.LogInformation(
+                    "Selected {MainApp} as main application for getting releases",
+                    mainApp.Name
+                );
+                try
+                {
+                    var otherApps = currentVersionGroup.Skip(1);
+
+                    var newerVersions = await _versionService.GetNewerVersions(
+                        mainApp,
+                        [.. otherApps]
+                    );
+
+                    if (newerVersions.Any() || mainApp.NewerVersions.Any(x => !x.Notified))
+                    {
+                        var container = await db
+                            .Containers.Include(x => x.NewerVersions)
+                            .FirstAsync(x => x.Id == mainApp.Id);
+                        var toNotify = container.NewerVersions.Where(x => !x.Notified).ToList();
+
+                        var fullMessage = NotificationMessageBuilder.Build(
+                            mainApp,
+                            otherApps,
+                            toNotify
+                        );
+                        int successCount = 0;
+
+                        if (_discordService.IsInitialized)
+                        {
+                            try
+                            {
+                                await _discordService.SendRawAsync(fullMessage);
+                                successCount++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(
+                                    ex,
+                                    "Discord notification failed, message {Message}",
+                                    ex.Message
+                                );
+                            }
+                        }
+
+                        if (_appriseService.IsInitialized)
+                        {
+                            try
+                            {
+                                await _appriseService.SendAsync(fullMessage);
+                                successCount++;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(
+                                    ex,
+                                    "Apprise notification failed, message {Message}",
+                                    ex.Message
+                                );
+                            }
+                        }
+
+                        if (successCount > 0)
+                        {
+                            try
+                            {
+                                foreach (var v in toNotify)
+                                    v.Notified = true;
+
+                                await db.SaveChangesAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed saving notified flags");
+                            }
+                        }
+                        else
+                            _logger.LogWarning(
+                                "All notification attempts have failed, will not be marked as notified."
+                            );
+                    }
+                }
+                catch (RateLimitException ex)
+                {
+                    _logger.LogWarning(
+                        "Rate limit {Limit} hit when checking for updates, skipping further checks until {Reset}",
+                        ex.Limit,
+                        ex.ResetsAt
+                    );
+                }
+            }
+        }
+    }
 
     public async Task<List<string>?> Update(
         Container app,

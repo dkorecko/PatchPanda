@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace PatchPanda.Web.Services;
 
-public class AppriseService
+public class AppriseService : IAppriseService
 {
     private readonly string[] _urls;
     private readonly string? _appriseUrl;
@@ -11,7 +11,11 @@ public class AppriseService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly bool _isInitialized;
 
-    public AppriseService(IConfiguration configuration, ILogger<AppriseService> logger, IHttpClientFactory httpClientFactory)
+    public AppriseService(
+        IConfiguration configuration,
+        ILogger<AppriseService> logger,
+        IHttpClientFactory httpClientFactory
+    )
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);

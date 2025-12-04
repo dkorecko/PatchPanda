@@ -11,6 +11,9 @@ public class UpdateServiceTests
     private readonly Mock<ILogger<UpdateService>> _updateLogger;
     private readonly Mock<IConfiguration> _configuration;
     private readonly Mock<IPortainerService> _portainerService;
+    private readonly Mock<IAppriseService> _appriseService;
+    private readonly Mock<IVersionService> _versionService;
+    private readonly Mock<IDiscordService> _discordService;
 
     public UpdateServiceTests()
     {
@@ -20,6 +23,9 @@ public class UpdateServiceTests
         _updateLogger = new Mock<ILogger<UpdateService>>();
         _configuration = new Mock<IConfiguration>();
         _portainerService = new Mock<IPortainerService>();
+        _appriseService = new Mock<IAppriseService>();
+        _versionService = new Mock<IVersionService>();
+        _discordService = new Mock<IDiscordService>();
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -52,7 +58,10 @@ public class UpdateServiceTests
             dbContextFactory,
             _systemFileService.Object,
             _updateLogger.Object,
-            _portainerService.Object
+            _portainerService.Object,
+            _versionService.Object,
+            _appriseService.Object,
+            _discordService.Object
         ).Update(stack.Apps[0], false);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
@@ -122,7 +131,10 @@ public class UpdateServiceTests
             dbContextFactory,
             _systemFileService.Object,
             _updateLogger.Object,
-            _portainerService.Object
+            _portainerService.Object,
+            _versionService.Object,
+            _appriseService.Object,
+            _discordService.Object
         ).Update(stack.Apps[0], false);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
@@ -226,7 +238,10 @@ public class UpdateServiceTests
             dbContextFactory,
             _systemFileService.Object,
             _updateLogger.Object,
-            _portainerService.Object
+            _portainerService.Object,
+            _versionService.Object,
+            _appriseService.Object,
+            _discordService.Object
         );
 
         var tasks = await updateService.Update(stack.Apps[0], false);
@@ -308,7 +323,10 @@ public class UpdateServiceTests
             dbContextFactory,
             _systemFileService.Object,
             _updateLogger.Object,
-            _portainerService.Object
+            _portainerService.Object,
+            _versionService.Object,
+            _appriseService.Object,
+            _discordService.Object
         );
 
         using var initialCheck = dbContextFactory.CreateDbContext();
