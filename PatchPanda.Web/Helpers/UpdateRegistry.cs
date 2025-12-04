@@ -41,7 +41,7 @@ public class JobRegistry
         _updateQueue = updateQueue;
     }
 
-    private long NextSequence() => Interlocked.Increment(ref _sequenceCounter);
+    private long GetNextSequence() => Interlocked.Increment(ref _sequenceCounter);
 
     public async Task MarkForUpdate(
         int containerId,
@@ -49,7 +49,7 @@ public class JobRegistry
         string targetVersionNumber
     )
     {
-        var seq = NextSequence();
+        var seq = GetNextSequence();
 
         var pending = new PendingUpdateJob
         {
@@ -68,7 +68,7 @@ public class JobRegistry
 
     public async Task MarkForResetAll()
     {
-        var seq = NextSequence();
+        var seq = GetNextSequence();
 
         var pending = new PendingResetAll { Sequence = seq };
 
@@ -79,7 +79,7 @@ public class JobRegistry
 
     public async Task MarkForRestartStack(int stackId)
     {
-        var seq = NextSequence();
+        var seq = GetNextSequence();
 
         var pending = new PendingRestartStack { StackId = stackId, Sequence = seq };
 
