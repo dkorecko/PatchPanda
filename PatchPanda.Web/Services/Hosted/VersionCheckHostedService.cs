@@ -8,6 +8,7 @@ public class VersionCheckHostedService : IHostedService
     private readonly AppriseService _appriseService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly ILogger<VersionCheckHostedService> _logger;
+    private readonly JobRegistry _jobRegistry;
 
     private Timer? _timer;
     private volatile bool _pushedOnce;
@@ -18,7 +19,8 @@ public class VersionCheckHostedService : IHostedService
         DiscordService discordService,
         AppriseService appriseService,
         IDbContextFactory<DataContext> dbContextFactory,
-        ILogger<VersionCheckHostedService> logger
+        ILogger<VersionCheckHostedService> logger,
+        JobRegistry jobRegistry
     )
     {
         ArgumentNullException.ThrowIfNull(dockerService);
@@ -26,6 +28,7 @@ public class VersionCheckHostedService : IHostedService
         ArgumentNullException.ThrowIfNull(discordService);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(jobRegistry);
 
         _dockerService = dockerService;
         _versionService = versionService;
@@ -33,6 +36,7 @@ public class VersionCheckHostedService : IHostedService
         _appriseService = appriseService;
         _dbContextFactory = dbContextFactory;
         _logger = logger;
+        _jobRegistry = jobRegistry;
 
         if (string.IsNullOrWhiteSpace(Constants.BASE_URL))
             _logger.LogWarning(
@@ -80,12 +84,7 @@ public class VersionCheckHostedService : IHostedService
             if (_pushedOnce)
                 return;
 
-            var isReset = await _dockerService.ResetComposeStacks();
-
-            if (!isReset)
-            {
-                return;
-            }
+            await _jobRegistry.MarkForResetAll();
 
             _pushedOnce = true;
             DoWork(null);
