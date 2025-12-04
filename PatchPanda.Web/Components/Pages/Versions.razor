@@ -210,7 +210,7 @@ else
             _currentJobSequence = _jobRegistry.GetProcessingUpdateForContainer(_app.Id) ?? _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
         }
 
-        var output = _jobRegistry.GetOutputSnapshot(_app.Id);
+        var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence);
 
         foreach (var line in output)
         {
