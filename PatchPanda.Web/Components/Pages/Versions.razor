@@ -71,18 +71,21 @@ else
 
         @if (_updatePlan is not null)
         {
-            <div class="alert alert-info" role="alert">
-                An update is available for this app!
-            </div>
+            @if(_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is null) 
+            {
+                <div class="alert alert-info" role="alert">
+                    An update is available for this app!
+                </div>
 
-            <ul>
-                @foreach(var step in _updatePlan)
-                {
-                    <li>
-                        @step
-                    </li>
-                }
-            </ul>
+                <ul>
+                    @foreach(var step in _updatePlan)
+                    {
+                        <li>
+                            @step
+                        </li>
+                    }
+                </ul>
+            }
 
             <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)">
                 @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
