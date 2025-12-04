@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace PatchPanda.Web.Services.Background;
 
 public class UpdateBackgroundService : IHostedService, IDisposable
@@ -57,6 +59,43 @@ public class UpdateBackgroundService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
+    private async Task ProcessJob<TJob>(
+        TJob job,
+        ILogger<UpdateBackgroundService> logger,
+        IServiceScope scope,
+        Func<string, Task> function
+    )
+        where TJob : AbstractJob
+    {
+        if (!_jobRegistry.TryStartProcessing(job.Sequence))
+            return;
+
+        var jobName = job.GetType().Name;
+
+        _jobRegistry.AppendOutput(job.Sequence, $"Starting job type {jobName} (queued)...");
+
+        try
+        {
+            await function.Invoke(jobName);
+
+            _jobRegistry.AppendOutput(job.Sequence, $"{jobName} finished.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Error while running job {JobName}, full job: {Job}",
+                jobName,
+                JsonSerializer.Serialize(job)
+            );
+            _jobRegistry.AppendOutput(job.Sequence, $"{jobName} failed: " + ex.Message);
+        }
+        finally
+        {
+            _jobRegistry.FinishProcessing(job.Sequence);
+        }
+    }
+
     private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
         await foreach (var job in _queue.Reader.ReadAllAsync(cancellationToken))
@@ -72,145 +111,122 @@ public class UpdateBackgroundService : IHostedService, IDisposable
             switch (job)
             {
                 case UpdateJob updateJob:
-                    if (!_jobRegistry.TryStartProcessing(updateJob.Sequence))
-                        continue;
-
-                    _jobRegistry.AppendOutput(updateJob.Sequence, "Starting update (queued)...");
-
-                    try
-                    {
-                        var updateService =
-                            scope.ServiceProvider.GetRequiredService<UpdateService>();
-                        var dbFactory = scope.ServiceProvider.GetRequiredService<
-                            IDbContextFactory<DataContext>
-                        >();
-
-                        using var db = dbFactory.CreateDbContext();
-                        var app = await db
-                            .Containers.Include(x => x.NewerVersions)
-                            .FirstOrDefaultAsync(
-                                x => x.Id == updateJob.ContainerId,
-                                cancellationToken
-                            );
-
-                        if (app is null)
+                    await ProcessJob(
+                        updateJob,
+                        logger,
+                        scope,
+                        async (string jobName) =>
                         {
-                            logger.LogInformation(
-                                "Disregarding job for missing container {ContainerId}",
-                                updateJob.ContainerId
+                            var updateService =
+                                scope.ServiceProvider.GetRequiredService<UpdateService>();
+                            var dbFactory = scope.ServiceProvider.GetRequiredService<
+                                IDbContextFactory<DataContext>
+                            >();
+
+                            using var db = dbFactory.CreateDbContext();
+                            var app = await db
+                                .Containers.Include(x => x.NewerVersions)
+                                .FirstOrDefaultAsync(
+                                    x => x.Id == updateJob.ContainerId,
+                                    cancellationToken
+                                );
+
+                            if (app is null)
+                            {
+                                logger.LogInformation(
+                                    "Disregarding job for missing container {ContainerId}",
+                                    updateJob.ContainerId
+                                );
+                                _jobRegistry.AppendOutput(
+                                    updateJob.Sequence,
+                                    "Container not found."
+                                );
+                                _jobRegistry.FinishProcessing(updateJob.Sequence);
+                                return;
+                            }
+
+                            await updateService.Update(
+                                app,
+                                false,
+                                (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
+                                app.NewerVersions.FirstOrDefault(v =>
+                                    v.Id == updateJob.TargetVersionId
+                                )
                             );
-                            _jobRegistry.AppendOutput(updateJob.Sequence, "Container not found.");
-                            _jobRegistry.FinishProcessing(updateJob.Sequence);
-                            continue;
                         }
-
-                        await updateService.Update(
-                            app,
-                            false,
-                            (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
-                            app.NewerVersions.FirstOrDefault(v => v.Id == updateJob.TargetVersionId)
-                        );
-
-                        _jobRegistry.AppendOutput(updateJob.Sequence, "Update finished.");
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(
-                            ex,
-                            "Error while updating container {ContainerId}",
-                            updateJob.ContainerId
-                        );
-                        _jobRegistry.AppendOutput(
-                            updateJob.Sequence,
-                            "Update failed: " + ex.Message
-                        );
-                    }
-                    finally
-                    {
-                        _jobRegistry.FinishProcessing(updateJob.Sequence);
-                    }
-
-                    break;
-
-                case ResetAllJob rall:
-                    if (!_jobRegistry.TryStartProcessing(rall.Sequence))
-                        continue;
-
-                    _jobRegistry.AppendOutput(
-                        rall.Sequence,
-                        "Starting full container reset (queued)..."
                     );
-
-                    try
-                    {
-                        var dockerService =
-                            scope.ServiceProvider.GetRequiredService<DockerService>();
-                        var success = await dockerService.ResetComposeStacks();
-                        _jobRegistry.AppendOutput(
-                            rall.Sequence,
-                            success ? "Reset finished." : "Reset failed."
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Error while resetting all containers");
-                        _jobRegistry.AppendOutput(rall.Sequence, "Reset failed: " + ex.Message);
-                    }
-                    finally
-                    {
-                        _jobRegistry.FinishProcessing(rall.Sequence);
-                    }
-
                     break;
 
-                case RestartStackJob rs:
-                    if (!_jobRegistry.TryStartProcessing(rs.Sequence))
-                        continue;
-
-                    _jobRegistry.AppendOutput(rs.Sequence, "Starting stack restart (queued)...");
-
-                    try
-                    {
-                        var dockerService =
-                            scope.ServiceProvider.GetRequiredService<DockerService>();
-                        var dbFactory = scope.ServiceProvider.GetRequiredService<
-                            IDbContextFactory<DataContext>
-                        >();
-
-                        using var db = dbFactory.CreateDbContext();
-                        var stack = await db
-                            .Stacks.Include(x => x.Apps)
-                            .FirstOrDefaultAsync(x => x.Id == rs.StackId, cancellationToken);
-
-                        if (stack is null)
+                case ResetAllJob resetAllJob:
+                    await ProcessJob(
+                        resetAllJob,
+                        logger,
+                        scope,
+                        async (string jobName) =>
                         {
-                            logger.LogInformation(
-                                "Disregarding job for missing stack {StackId}",
-                                rs.StackId
-                            );
-                            _jobRegistry.AppendOutput(rs.Sequence, "Stack not found.");
-                            _jobRegistry.FinishProcessing(rs.Sequence);
-                            continue;
+                            var dockerService =
+                                scope.ServiceProvider.GetRequiredService<DockerService>();
+                            await dockerService.ResetComposeStacks();
                         }
+                    );
+                    break;
 
-                        await dockerService.RunDockerComposeOnPath(
-                            stack,
-                            "restart",
-                            (line) => _jobRegistry.AppendOutput(rs.Sequence, line)
-                        );
+                case CheckForUpdatesAllJob checkForUpdatesAllJob:
+                    await ProcessJob(
+                        checkForUpdatesAllJob,
+                        logger,
+                        scope,
+                        async (string jobName) =>
+                        {
+                            var updateService =
+                                scope.ServiceProvider.GetRequiredService<UpdateService>();
+                            await updateService.CheckAllForUpdates();
+                        }
+                    );
+                    break;
 
-                        _jobRegistry.AppendOutput(rs.Sequence, "Restart finished.");
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogError(ex, "Error while restarting stack {StackId}", rs.StackId);
-                        _jobRegistry.AppendOutput(rs.Sequence, "Restart failed: " + ex.Message);
-                    }
-                    finally
-                    {
-                        _jobRegistry.FinishProcessing(rs.Sequence);
-                    }
+                case RestartStackJob restartStackJob:
+                    await ProcessJob(
+                        restartStackJob,
+                        logger,
+                        scope,
+                        async (string jobName) =>
+                        {
+                            var dockerService =
+                                scope.ServiceProvider.GetRequiredService<DockerService>();
+                            var dbFactory = scope.ServiceProvider.GetRequiredService<
+                                IDbContextFactory<DataContext>
+                            >();
 
+                            using var db = dbFactory.CreateDbContext();
+                            var stack = await db
+                                .Stacks.Include(x => x.Apps)
+                                .FirstOrDefaultAsync(
+                                    x => x.Id == restartStackJob.StackId,
+                                    cancellationToken
+                                );
+
+                            if (stack is null)
+                            {
+                                logger.LogInformation(
+                                    "Disregarding job for missing stack {StackId}",
+                                    restartStackJob.StackId
+                                );
+                                _jobRegistry.AppendOutput(
+                                    restartStackJob.Sequence,
+                                    "Stack not found."
+                                );
+                                _jobRegistry.FinishProcessing(restartStackJob.Sequence);
+                                return;
+                            }
+
+                            await dockerService.RunDockerComposeOnPath(
+                                stack,
+                                "restart",
+                                (line) => _jobRegistry.AppendOutput(restartStackJob.Sequence, line)
+                            );
+                        }
+                    );
                     break;
 
                 default:
