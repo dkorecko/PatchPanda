@@ -13,6 +13,7 @@ public sealed partial class Program
         builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
         builder.Services.AddHttpClient();
+        builder.Services.AddControllers();
         builder.Services.AddSingleton<DockerService>();
         builder.Services.AddSingleton<IPortainerService, PortainerService>();
         builder.Services.AddSingleton<IVersionService, VersionService>();
@@ -57,6 +58,8 @@ public sealed partial class Program
         app.UseAntiforgery();
         app.MapStaticAssets();
         app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+
+        app.MapControllers();
 
         app.Run();
     }
