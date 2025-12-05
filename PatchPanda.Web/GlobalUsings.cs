@@ -1,4 +1,5 @@
 global using System.Net.Http;
+global using System.Text.Json;
 global using Devity.Extensions;
 global using Docker.DotNet.Models;
 global using Microsoft.EntityFrameworkCore;

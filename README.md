@@ -119,6 +119,31 @@ Once the application is running, you can access it in your browser at `http://lo
 ![Image of the ongoing update](screenshots/terminal.png)
 ![Image of the Discord notification](screenshots/discord.png)
 
+## Homepage widget
+
+Here's the example configuration to add a PatchPanda widget:
+
+```yaml
+- PatchPanda:
+    container: patchpanda-app
+    href: http://your-url:5091 # Change this based on your setup
+    description: Compose updater and monitoring
+    widget:
+      type: customapi
+      url: http://patchpanda-app:8080/api/info # You may need to change the hostname/port based on your setup
+      refreshInterval: 600000 # 10 minutes
+      mappings:
+        - field: stackCount
+          label: Stack count
+          format: number
+        - field: containerCount
+          label: Container count
+          format: number
+        - field: toBeUpdatedContainersCount
+          label: Containers with updates
+          format: number
+```
+
 ## Run locally (development)
 
 Set env vars in PowerShell and run:
