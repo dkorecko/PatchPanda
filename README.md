@@ -67,7 +67,7 @@ Notes about the GitHub token
 
 ## Run with Docker Compose (recommended for hosting)
 
-Here is an example `docker-compose.yml` that runs PatchPanda and Apprise. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars):
+Here is an example `docker-compose.yml` that runs PatchPanda and Apprise. Save this next to the repo or adapt it for production (use secrets in production, not plain env vars, correct paths for volumes, etc...):
 
 ```yaml
 services:
@@ -95,8 +95,11 @@ services:
       # - PORTAINER_USERNAME=admin # if you wish to include stacks fully managed by Portainer
       # - PORTAINER_PASSWORD=CHANGEME # if you wish to include stacks fully managed by Portainer
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw # This can remain, no matter whether you're using Docker on Linux or Windows
+      # DOCKER ON LINUX VARIANT
       - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+      # DOCKER ON WINDOWS VARIANT
+      # /c/Users/PC/testing-compose:/c/Users/PC/testing-compose:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME. Make sure to format the paths like this, given that your initial path was C:\Users\PC\testing-compose.
       - ./data:/app/data:rw # persistent data storage for SQLite
     ports:
       - "5093:8080" # adjust as needed
