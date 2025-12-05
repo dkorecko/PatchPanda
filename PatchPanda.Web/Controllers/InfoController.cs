@@ -8,7 +8,7 @@ public class InfoController : ControllerBase
 {
     private readonly IDbContextFactory<DataContext> _dbFactory;
 
-    public InfoController(IDbContextFactory<DataContext> dbFactory, IWebHostEnvironment env)
+    public InfoController(IDbContextFactory<DataContext> dbFactory)
     {
         _dbFactory = dbFactory;
     }
