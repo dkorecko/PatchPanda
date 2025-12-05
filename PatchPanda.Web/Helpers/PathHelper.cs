@@ -2,8 +2,12 @@
 
 public static class PathHelper
 {
-    public static string? GetLinuxPath(this string? path)
+    public static string? ComputePathForEnvironment(this string? path)
     {
+#if DEBUG
+        return path;
+#endif
+
         if (string.IsNullOrWhiteSpace(path))
             return null;
 

@@ -9,9 +9,9 @@ namespace PatchPanda.Units.Helpers
             string? empty = string.Empty;
             string? whitespace = "   ";
 
-            Assert.Null(nullPath.GetLinuxPath());
-            Assert.Null(empty.GetLinuxPath());
-            Assert.Null(whitespace.GetLinuxPath());
+            Assert.Null(nullPath.ComputePathForEnvironment());
+            Assert.Null(empty.ComputePathForEnvironment());
+            Assert.Null(whitespace.ComputePathForEnvironment());
         }
 
         [Theory]
@@ -21,7 +21,7 @@ namespace PatchPanda.Units.Helpers
         [InlineData("/usr/local/bin//", "/usr/local/bin")]
         public void GetLinuxPath_ConvertsPaths_Correctly(string input, string expected)
         {
-            string? result = input.GetLinuxPath();
+            string? result = input.ComputePathForEnvironment();
 
             Assert.Equal(expected, result);
         }

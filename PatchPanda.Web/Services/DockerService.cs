@@ -325,7 +325,7 @@ public class DockerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"compose -f {stack.ConfigFile} {command}",
+            Arguments = $"compose -f {stack.ConfigFile.ComputePathForEnvironment()} {command}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,

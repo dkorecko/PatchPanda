@@ -183,7 +183,7 @@ public class UpdateService
 
         using var db = _dbContextFactory.CreateDbContext();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
-        var configPath = stack.ConfigFile.GetLinuxPath();
+        var configPath = stack.ConfigFile.ComputePathForEnvironment();
 
         if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
             return null;
