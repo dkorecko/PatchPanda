@@ -3,7 +3,7 @@ namespace PatchPanda.Units.Helpers
     public class PathHelperTests
     {
         [Fact]
-        public void GetLinuxPath_ReturnsNull_ForNullOrWhitespace()
+        public void ComputePathForEnvironment_ReturnsNull_ForNullOrWhitespace()
         {
             string? nullPath = null;
             string? empty = string.Empty;
