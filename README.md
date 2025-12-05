@@ -97,9 +97,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw # This can remain, no matter whether you're using Docker on Linux or Windows
       # DOCKER ON LINUX VARIANT
-      - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME.
+      - /srv/www:/srv/www:rw # This should be a path which contains the compose files as part of its subdirectories. For PatchPanda to discover compose files, the container path should match the host path. This is not a general Docker Compose requirement.
       # DOCKER ON WINDOWS VARIANT
-      # /c/Users/PC/testing-compose:/c/Users/PC/testing-compose:rw # This should be a path which contains the compose files as part of its subdirectories. Meaning if your compose files are at /srv/www in different folders, this is what you would use. BOTH PATHS MUST BE THE SAME. Make sure to format the paths like this, given that your initial path was C:\Users\PC\testing-compose.
+      # /c/Users/PC/testing-compose:/c/Users/PC/testing-compose:rw # This should be a path which contains the compose files as part of its subdirectories. For PatchPanda to discover compose files, the container path should match the host path. This is not a general Docker Compose requirement. Make sure to format the paths like this, given that your initial path was C:\Users\PC\testing-compose.
       - ./data:/app/data:rw # persistent data storage for SQLite
     ports:
       - "5093:8080" # adjust as needed
