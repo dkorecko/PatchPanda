@@ -121,7 +121,7 @@ Once the application is running, you can access it in your browser at `http://lo
 
 ## Homepage widget
 
-Here's the example configuration to add a PatchPanda widget:
+Here's the example configuration to add a PatchPanda widget to your Homepage instance:
 
 ```yaml
 - PatchPanda:
