@@ -19,7 +19,7 @@ namespace PatchPanda.Units.Helpers
         [InlineData("C:\\folder\\sub\\", "/c/folder/sub")]
         [InlineData("D:\\", "/d")]
         [InlineData("/usr/local/bin//", "/usr/local/bin")]
-        public void GetLinuxPath_ConvertsPaths_Correctly(string input, string expected)
+        public void ComputePathForEnvironment_ConvertsPaths_Correctly(string input, string expected)
         {
             string? result = input.ComputePathForEnvironment();
 
