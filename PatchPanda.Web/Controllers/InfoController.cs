@@ -33,6 +33,6 @@ public class InfoController : ControllerBase
             )
         };
 
-        return new JsonResult(result);
+        return Ok(result);
     }
 }
