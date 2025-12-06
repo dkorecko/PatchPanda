@@ -381,12 +381,28 @@ public class DockerService
     {
         using var db = _dbContextFactory.CreateDbContext();
 
-        var existing = await db.Containers.FindAsync(container.Id);
+        var existing = await db.Containers.SingleOrDefaultAsync(x => x.Id == container.Id);
 
         if (existing is null)
             return;
 
+        if (existing.MultiContainerAppId is not null)
+        {
+            var multiContainerApp = await db
+                .MultiContainerApps.Include(x => x.Containers)
+                .FirstOrDefaultAsync(app => app.Containers.Any(c => c.Id == existing.Id));
+
+            if (multiContainerApp is not null)
+            {
+                if (multiContainerApp.Containers.Count == 2)
+                {
+                    db.MultiContainerApps.Remove(multiContainerApp);
+                }
+            }
+        }
+
         db.Containers.Remove(existing);
+
         await db.SaveChangesAsync();
     }
 
