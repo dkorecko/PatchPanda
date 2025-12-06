@@ -390,7 +390,7 @@ public class DockerService
         {
             var multiContainerApp = await db
                 .MultiContainerApps.Include(x => x.Containers)
-                .FirstOrDefaultAsync(app => app.Containers.Any(c => c.Id == existing.Id));
+                .FirstOrDefaultAsync(app => app.Id == existing.MultiContainerAppId);
 
             if (multiContainerApp is not null)
             {
