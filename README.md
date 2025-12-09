@@ -18,12 +18,13 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Ability to ignore a specific version to not clutter the UI.
 - Update multiple applications at once.
 - Manually override the detected GitHub repo if it's incorrect.
+- Works with both Linux and Windows.
 - Integrate with Portainer API to update its managed compose stacks.
+- AI-powered release note summarization and breaking change detection using Ollama or compatible LLM API.
 
 Planned / upcoming features
 
 - Automatic non-breaking updates: a future enhancement will be able to apply updates automatically when the new release is classified as non-breaking. This is currently not allowed due to the beta nature.
-- Ollama integration for additional security when detecting breaking changes.
 - Ability for non-technical users of your server to subscribe to updates from specific containers, which will be provided in a simple and understandable manner.
 
 Why this is different from Watchtower / DockGe / similar

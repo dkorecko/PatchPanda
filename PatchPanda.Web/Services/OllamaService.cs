@@ -40,8 +40,8 @@ public class OllamaService : IAIService
         }
 
         _isInitialized = true;
-        _logger.LogWarning(
-            "OllamaService configured with endpoint {Endpoint} and key {Model}.",
+        _logger.LogInformation(
+            "OllamaService configured with endpoint {Endpoint} and model {Model}.",
             endpoint,
             model
         );
@@ -79,8 +79,8 @@ public class OllamaService : IAIService
             var ollamaResult = await response.Content.ReadFromJsonAsync<OllamaResult>(
                 CachedJsonSerializerOptions
             );
-            Console.WriteLine(ollamaResult?.Response);
-            Console.WriteLine(ollamaResult?.Thinking);
+            _logger.LogDebug("Ollama response: {Response}", ollamaResult?.Response);
+            _logger.LogDebug("Ollama thinking: {Thinking}", ollamaResult?.Thinking);
             var innerResponse = JsonSerializer.Deserialize<AIResult>(
                 ollamaResult?.Response ?? string.Empty,
                 CachedJsonSerializerOptions

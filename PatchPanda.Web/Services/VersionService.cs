@@ -148,7 +148,7 @@ public class VersionService : IVersionService
 
         UpdateBodiesWithSecondaryReleaseNotes(notSeenNewVersions, app, additionalReleases);
 
-        notSeenNewVersions.ForEach(x =>
+        notSeenNewVersions.ForEach(async x =>
         {
             if (
                 x.Body.Has("breaking")
@@ -165,13 +165,13 @@ public class VersionService : IVersionService
                 AIResult? result = null;
                 for (int i = 1; i <= Constants.Limits.MAX_OLLAMA_ATTEMPTS; i++)
                 {
-                    result = _aiService.SummarizeReleaseNotes(x.Body).GetAwaiter().GetResult();
+                    result = await _aiService.SummarizeReleaseNotes(x.Body);
 
                     if (result is not null)
-                        continue;
+                        break;
 
                     _logger.LogWarning(
-                        "Attemting to get summary notes from Ollama, request number {Count} out of {Max}",
+                        "Attempting to get summary notes from Ollama, request number {Count} out of {Max}",
                         i + 1,
                         Constants.Limits.MAX_OLLAMA_ATTEMPTS
                     );
