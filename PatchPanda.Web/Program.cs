@@ -19,6 +19,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<IVersionService, VersionService>();
         builder.Services.AddSingleton<IDiscordService, DiscordService>();
         builder.Services.AddSingleton<IAppriseService, AppriseService>();
+        builder.Services.AddSingleton<IAIService, OllamaService>();
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
         builder.Services.AddSingleton<JobRegistry>();
@@ -28,7 +29,7 @@ public sealed partial class Program
 
         var baseUrl = builder.Configuration.GetValue<string?>(Constants.VariableKeys.BASE_URL);
 
-        Constants.BASE_URL = baseUrl is null ? null : baseUrl.TrimEnd('/');
+        Constants.BASE_URL = baseUrl?.TrimEnd('/');
 
 #if DEBUG
         builder.Services.AddDbContextFactory<DataContext>(CreateDebugDatabaseAtWorkingFolder);

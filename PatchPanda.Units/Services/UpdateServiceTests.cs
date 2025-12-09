@@ -14,6 +14,7 @@ public class UpdateServiceTests
     private readonly Mock<IAppriseService> _appriseService;
     private readonly Mock<IVersionService> _versionService;
     private readonly Mock<IDiscordService> _discordService;
+    private readonly Mock<IAIService> _aiService;
 
     public UpdateServiceTests()
     {
@@ -26,6 +27,7 @@ public class UpdateServiceTests
         _appriseService = new Mock<IAppriseService>();
         _versionService = new Mock<IVersionService>();
         _discordService = new Mock<IDiscordService>();
+        _aiService = new Mock<IAIService>();
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -52,7 +54,12 @@ public class UpdateServiceTests
             new Mock<DockerService>(
                 _dockerLogger.Object,
                 dbContextFactory,
-                new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+                new VersionService(
+                    _versionLogger.Object,
+                    _configuration.Object,
+                    dbContextFactory,
+                    _aiService.Object
+                ),
                 _portainerService.Object,
                 _fileService.Object
             ).Object,
@@ -119,7 +126,12 @@ public class UpdateServiceTests
         var dockerMock = new Mock<DockerService>(
             _dockerLogger.Object,
             dbContextFactory,
-            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            new VersionService(
+                _versionLogger.Object,
+                _configuration.Object,
+                dbContextFactory,
+                _aiService.Object
+            ),
             _portainerService.Object,
             _fileService.Object
         );
@@ -227,7 +239,12 @@ public class UpdateServiceTests
         var dockerMock = new Mock<DockerService>(
             _dockerLogger.Object,
             dbContextFactory,
-            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            new VersionService(
+                _versionLogger.Object,
+                _configuration.Object,
+                dbContextFactory,
+                _aiService.Object
+            ),
             _portainerService.Object,
             _fileService.Object
         );
@@ -313,7 +330,12 @@ public class UpdateServiceTests
         var dockerMock = new Mock<DockerService>(
             _dockerLogger.Object,
             dbContextFactory,
-            new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
+            new VersionService(
+                _versionLogger.Object,
+                _configuration.Object,
+                dbContextFactory,
+                _aiService.Object
+            ),
             _portainerService.Object,
             _fileService.Object
         );
