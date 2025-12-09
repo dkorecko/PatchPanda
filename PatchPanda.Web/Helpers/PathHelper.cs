@@ -2,22 +2,42 @@
 
 public static class PathHelper
 {
-    public static string? ComputePathForEnvironment(this string? path)
+    public static string? ComputePathForEnvironment(this string? path, IFileService fileService)
     {
-#if DEBUG
-        return path;
-#endif
-
         if (string.IsNullOrWhiteSpace(path))
             return null;
 
-        string linuxPath = path.Replace('\\', '/');
+        if (fileService.Exists(path))
+            return path;
 
-        if (linuxPath.Length > 2 && linuxPath[1] == ':' && char.IsLetter(linuxPath[0]))
+        string? resultPath;
+        if (path.Contains(':'))
         {
-            linuxPath = "/" + char.ToLowerInvariant(linuxPath[0]) + linuxPath[2..];
+            resultPath = path.Replace('\\', '/');
+
+            if (resultPath.Length > 2 && resultPath[1] == ':' && char.IsLetter(resultPath[0]))
+            {
+                resultPath = "/" + char.ToLowerInvariant(resultPath[0]) + resultPath[2..];
+            }
+
+            resultPath = resultPath.TrimEnd('/');
+        }
+        else
+        {
+            resultPath = path.TrimStart('/').Replace('/', '\\');
+            if (resultPath.Length > 2 && resultPath[1] == '\\' && char.IsLetter(resultPath[0]))
+            {
+                resultPath = char.ToUpperInvariant(resultPath[0]) + ":" + resultPath[1..];
+            }
+            resultPath = resultPath.TrimEnd('\\');
+
+            if (fileService.Exists(resultPath))
+                return resultPath;
         }
 
-        return linuxPath.TrimEnd('/');
+        if (fileService.Exists(resultPath))
+            return resultPath;
+
+        return null;
     }
 }

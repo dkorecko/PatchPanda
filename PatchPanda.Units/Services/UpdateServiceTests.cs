@@ -5,7 +5,7 @@ namespace PatchPanda.Units.Services;
 
 public class UpdateServiceTests
 {
-    private readonly Mock<SystemFileService> _systemFileService;
+    private readonly Mock<IFileService> _fileService;
     private readonly Mock<ILogger<VersionService>> _versionLogger;
     private readonly Mock<ILogger<DockerService>> _dockerLogger;
     private readonly Mock<ILogger<UpdateService>> _updateLogger;
@@ -17,7 +17,7 @@ public class UpdateServiceTests
 
     public UpdateServiceTests()
     {
-        _systemFileService = new Mock<SystemFileService>();
+        _fileService = new Mock<IFileService>();
         _versionLogger = new Mock<ILogger<VersionService>>();
         _dockerLogger = new Mock<ILogger<DockerService>>();
         _updateLogger = new Mock<ILogger<UpdateService>>();
@@ -30,8 +30,8 @@ public class UpdateServiceTests
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
     {
-        _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
-        _systemFileService
+        _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
+        _fileService
             .Setup(_systemFileService => _systemFileService.ReadAllText(It.IsAny<string>()))
             .Returns(
                 $"""
@@ -53,10 +53,11 @@ public class UpdateServiceTests
                 _dockerLogger.Object,
                 dbContextFactory,
                 new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
-                _portainerService.Object
+                _portainerService.Object,
+                _fileService.Object
             ).Object,
             dbContextFactory,
-            _systemFileService.Object,
+            _fileService.Object,
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
@@ -88,8 +89,8 @@ public class UpdateServiceTests
         string parameterName
     )
     {
-        _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
-        _systemFileService
+        _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
+        _fileService
             .Setup(_systemFileService => _systemFileService.ReadAllText("docker-compose.yml"))
             .Returns(
                 $"""
@@ -100,7 +101,7 @@ public class UpdateServiceTests
                 """
             );
 
-        _systemFileService
+        _fileService
             .Setup(_systemFileService => _systemFileService.ReadAllText(".env"))
             .Returns(
                 $"""
@@ -119,7 +120,8 @@ public class UpdateServiceTests
             _dockerLogger.Object,
             dbContextFactory,
             new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
-            _portainerService.Object
+            _portainerService.Object,
+            _fileService.Object
         );
 
         dockerMock
@@ -129,7 +131,7 @@ public class UpdateServiceTests
         var tasks = await new UpdateService(
             dockerMock.Object,
             dbContextFactory,
-            _systemFileService.Object,
+            _fileService.Object,
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
@@ -226,7 +228,8 @@ public class UpdateServiceTests
             _dockerLogger.Object,
             dbContextFactory,
             new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
-            _portainerService.Object
+            _portainerService.Object,
+            _fileService.Object
         );
 
         dockerMock
@@ -236,7 +239,7 @@ public class UpdateServiceTests
         var updateService = new UpdateService(
             dockerMock.Object,
             dbContextFactory,
-            _systemFileService.Object,
+            _fileService.Object,
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
@@ -288,8 +291,8 @@ public class UpdateServiceTests
 
         stack.Apps.Add(secondApp);
 
-        _systemFileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
-        _systemFileService
+        _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
+        _fileService
             .Setup(_systemFileService => _systemFileService.ReadAllText(It.IsAny<string>()))
             .Returns(
                 $"""
@@ -311,7 +314,8 @@ public class UpdateServiceTests
             _dockerLogger.Object,
             dbContextFactory,
             new VersionService(_versionLogger.Object, _configuration.Object, dbContextFactory),
-            _portainerService.Object
+            _portainerService.Object,
+            _fileService.Object
         );
 
         dockerMock
@@ -321,7 +325,7 @@ public class UpdateServiceTests
         var updateService = new UpdateService(
             dockerMock.Object,
             dbContextFactory,
-            _systemFileService.Object,
+            _fileService.Object,
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
