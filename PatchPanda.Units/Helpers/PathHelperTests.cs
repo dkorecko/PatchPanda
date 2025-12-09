@@ -63,7 +63,7 @@ namespace PatchPanda.Units.Helpers
 
             string? result = input.ComputePathForEnvironment(_fileService.Object);
 
-            Assert.Equal(result, expected);
+            Assert.Equal(expected, result);
         }
     }
 }
