@@ -9,6 +9,17 @@ namespace PatchPanda.Units.Helpers;
 
 public class ParsingHelperTests
 {
+    private readonly Mock<ILogger<VersionService>> _logger;
+    private readonly Mock<IConfiguration> _configuration;
+    private readonly Mock<IAIService> _aiService;
+
+    public ParsingHelperTests()
+    {
+        _logger = new Mock<ILogger<VersionService>>();
+        _configuration = new Mock<IConfiguration>();
+        _aiService = new Mock<IAIService>();
+    }
+
     [Fact]
     public async Task SetGitHubRepo_DoesNothing_WhenOverrideIsSet()
     {
@@ -22,9 +33,10 @@ public class ParsingHelperTests
         var response = new ContainerListResponse { Image = TestData.IMAGE };
 
         var versionService = new VersionService(
-            new Mock<ILogger<VersionService>>().Object,
-            new Mock<IConfiguration>().Object,
-            Helper.CreateInMemoryFactory()
+            _logger.Object,
+            _configuration.Object,
+            Helper.CreateInMemoryFactory(),
+            _aiService.Object
         );
 
         var logger = new Mock<ILogger>().Object;
@@ -47,9 +59,10 @@ public class ParsingHelperTests
         var response = new ContainerListResponse { Image = TestData.ALPINE_IMAGE };
 
         var versionService = new VersionService(
-            new Mock<ILogger<VersionService>>().Object,
-            new Mock<IConfiguration>().Object,
-            Helper.CreateInMemoryFactory()
+            _logger.Object,
+            _configuration.Object,
+            Helper.CreateInMemoryFactory(),
+            _aiService.Object
         );
 
         var logger = new Mock<ILogger>().Object;
@@ -80,7 +93,7 @@ public class ParsingHelperTests
                     )
                 )
             )
-            .ReturnsAsync(new List<Release> { release });
+            .ReturnsAsync([release]);
 
         var logger = new Mock<ILogger>().Object;
 

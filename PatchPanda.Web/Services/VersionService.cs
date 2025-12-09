@@ -8,6 +8,7 @@ public class VersionService : IVersionService
     private readonly ILogger<VersionService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
+    private readonly IAIService _aiService;
 
     private string? Username { get; init; }
     private string? Password { get; init; }
@@ -15,7 +16,8 @@ public class VersionService : IVersionService
     public VersionService(
         ILogger<VersionService> logger,
         IConfiguration configuration,
-        IDbContextFactory<DataContext> dbContextFactory
+        IDbContextFactory<DataContext> dbContextFactory,
+        IAIService aiService
     )
     {
         _logger = logger;
@@ -30,6 +32,7 @@ public class VersionService : IVersionService
             );
 
         _dbContextFactory = dbContextFactory;
+        _aiService = aiService;
     }
 
     private GitHubClient GetClient()
@@ -107,7 +110,7 @@ public class VersionService : IVersionService
 
         List<Release> additionalReleases = [];
 
-        if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Any())
+        if (app.SecondaryGitHubRepos is not null && app.SecondaryGitHubRepos.Count != 0)
         {
             foreach (var secondaryRepo in app.SecondaryGitHubRepos)
             {
@@ -156,6 +159,30 @@ public class VersionService : IVersionService
                 || x.Body.Contains("Warning")
             )
                 x.Breaking = true;
+
+            if (_aiService.IsInitialized())
+            {
+                AIResult? result = null;
+                for (int i = 1; i <= Constants.Limits.MAX_OLLAMA_ATTEMPTS; i++)
+                {
+                    result = _aiService.SummarizeReleaseNotes(x.Body).GetAwaiter().GetResult();
+
+                    if (result is not null)
+                        continue;
+
+                    _logger.LogWarning(
+                        "Attemting to get summary notes from Ollama, request number {Count} out of {Max}",
+                        i + 1,
+                        Constants.Limits.MAX_OLLAMA_ATTEMPTS
+                    );
+                }
+
+                if (result is not null)
+                {
+                    x.AISummary = result.Summary;
+                    x.AIBreaking = result.Breaking;
+                }
+            }
         });
 
         db.AppVersions.AddRange(notSeenNewVersions);
@@ -198,9 +225,12 @@ public class VersionService : IVersionService
         if (matchingCurrentAdditionalRelease is null)
             return;
 
-        remainingSecondaryReleases = remainingSecondaryReleases
-            .Take(remainingSecondaryReleases.IndexOf(matchingCurrentAdditionalRelease))
-            .ToList();
+        remainingSecondaryReleases =
+        [
+            .. remainingSecondaryReleases.Take(
+                remainingSecondaryReleases.IndexOf(matchingCurrentAdditionalRelease)
+            )
+        ];
 
         newVersions.Reverse();
 
@@ -226,7 +256,7 @@ public class VersionService : IVersionService
                 .. earlierRelevantAdditionalReleases
             ];
 
-            if (allRelevantReleases.Any())
+            if (allRelevantReleases.Count != 0)
             {
                 newVersion.Body +=
                     $"\n\n## 📜 Additional Release Notes - {newVersion.VersionNumber}\n";

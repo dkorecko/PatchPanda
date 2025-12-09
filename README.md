@@ -49,15 +49,33 @@ PatchPanda requires the following env vars to function.
 
 General
 
+- BASE_URL - The base URL of PatchPanda, this will be used for creating clickable URLs in notifications (e.g. http://localhost:5093)
+
 GitHub
 
+- GITHUB_USERNAME - GitHub username
+- GITHUB_PASSWORD - GitHub personal access token (PAT) or password
+
 Notifications
+
+- DISCORD_WEBHOOK_URL - (optional) Full Discord webhook URL used to post notifications
+- APPRISE_API_URL - (optional) An Apprise API URL to send notifications to any services Apprise supports (e.g. email, Telegram, etc).
+- APPRISE_NOTIFICATION_URLS - (optional) A comma-separated list of Apprise notification URLs to send notifications to any services Apprise supports (e.g. email, Telegram, etc). For specific formats, take a look at the [Apprise documentation](https://github.com/caronc/apprise/wiki#notification-services).
+
+AI Summarization (Ollama or compatible LLM API)
+
+- OLLAMA_URL - (optional) Base URL to your Ollama or compatible LLM API (example: `http://localhost:11434`). If set, PatchPanda will use this endpoint to generate AI-powered summaries and breaking change detection for release notes. If not set, the feature is disabled and the app will work as usual.
+- OLLAMA_MODEL - (optional) Model name to use for summarization (default: `llama3`).
 
 Portainer
 
 - PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`). If provided and a stack does not expose a local compose config path, PatchPanda will assume the stack is Portainer-managed and use the Portainer API to read/update the compose file.
 - PORTAINER_USERNAME - (optional) Username for Portainer API authentication, must be provided if PORTAINER_URL is provided.
 - PORTAINER_PASSWORD - (optional) Password for Portainer API authentication, must be provided if PORTAINER_URL is provided.
+
+If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
+
+You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL` (default: `llama3`).
 
 When Portainer vars are present PatchPanda will authenticate to Portainer and use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service stores and re-uses the JWT returned by Portainer for API requests.
 
@@ -94,6 +112,8 @@ services:
       # - PORTAINER_URL=http://portainer:9000 # if you wish to include stacks fully managed by Portainer
       # - PORTAINER_USERNAME=admin # if you wish to include stacks fully managed by Portainer
       # - PORTAINER_PASSWORD=CHANGEME # if you wish to include stacks fully managed by Portainer
+      # - OLLAMA_URL=http://localhost:11434 # optional, if you wish to use Ollama or compatible LLM API for release note summarization
+      # - OLLAMA_MODEL=llama3 # optional, model name to use for summarization
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw # This can remain, no matter whether you're using Docker on Linux or Windows
       # DOCKER ON LINUX VARIANT

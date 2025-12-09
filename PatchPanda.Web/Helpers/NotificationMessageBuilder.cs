@@ -20,8 +20,14 @@ public static class NotificationMessageBuilder
         message.AppendLine($"- **New Version:** `{newestVersion.VersionNumber}`");
         message.AppendLine($"- **Previously Used Version:** `{mainApp.Version ?? "Missing"}`");
         message.AppendLine(
-            $"- **Breaking Change:** {(newerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
+            $"- **Breaking Change Algorithm:** {(newerVersions.Any(x => x.Breaking) ? "Yes :x:" : "No :white_check_mark:")}"
         );
+        if (newerVersions.Any(x => x.AIBreaking is not null))
+        {
+            message.AppendLine(
+                $"- **Breaking Change AI:** {(newerVersions.Any(x => x.AIBreaking == true) ? "Yes :x:" : "No :white_check_mark:")}"
+            );
+        }
         message.AppendLine(
             $"- **Prerelease:** {(newerVersions.Any(x => x.Prerelease) ? "Yes :x:" : "No :white_check_mark:")}"
         );
@@ -31,8 +37,12 @@ public static class NotificationMessageBuilder
         foreach (var newVersion in newerVersions)
         {
             message.AppendLine(
-                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)}\n"
+                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)} {(newVersion.AIBreaking == true ? "[AI BREAKING]" : string.Empty)}"
             );
+            if (!string.IsNullOrWhiteSpace(newVersion.AISummary))
+            {
+                message.AppendLine($"**AI Summary:** {newVersion.AISummary}");
+            }
             message.AppendLine(newVersion.Body);
             message.AppendLine("\n");
         }

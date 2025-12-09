@@ -19,5 +19,12 @@ public static class Constants
         public const string PORTAINER_URL = "PORTAINER_URL";
         public const string PORTAINER_USERNAME = "PORTAINER_USERNAME";
         public const string PORTAINER_PASSWORD = "PORTAINER_PASSWORD";
+        public const string OLLAMA_URL = "OLLAMA_URL";
+        public const string OLLAMA_MODEL = "OLLAMA_MODEL";
+    }
+
+    public static class Limits
+    {
+        public const int MAX_OLLAMA_ATTEMPTS = 3;
     }
 }

@@ -49,6 +49,10 @@ else
                         {
                             <b class="ms-2">[BREAKING]</b>
                         }
+                        @if(version.AIBreaking == true)
+                        {
+                            <b class="ms-2 text-danger">[AI: BREAKING]</b>
+                        }
                         @if(version.Ignored)
                         {
                             <span class="badge bg-secondary ms-2">Ignored</span>
@@ -64,7 +68,14 @@ else
                             <button class="btn btn-outline-success ms-2" @onclick="async () => await SetTargetVersion(version)">Select for Update</button>
                         }
                     </div>
-                    <div>@(version.Body.ToMarkupString())</div>
+                    @if (!string.IsNullOrWhiteSpace(version.AISummary))
+                    {
+                        <div class="alert alert-info mt-2 mb-2"><b>AI Summary:</b> @version.AISummary</div>
+                    }
+                    <details open>
+                        <summary>Show full release notes</summary>
+                        <div>@(version.Body.ToMarkupString())</div>
+                    </details>
                 </li>
             }
         </ul>
