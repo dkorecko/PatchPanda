@@ -183,7 +183,7 @@ public class UpdateService
 
         using var db = _dbContextFactory.CreateDbContext();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
-        var configPath = stack.ConfigFile.ComputePathForEnvironment();
+        var configPath = stack.ConfigFile;
 
         if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
             return null;

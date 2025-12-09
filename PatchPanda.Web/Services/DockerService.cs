@@ -13,12 +13,14 @@ public class DockerService
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IVersionService _versionService;
     private readonly IPortainerService _portainerService;
+    private readonly IFileService _fileService;
 
     public DockerService(
         ILogger<DockerService> logger,
         IDbContextFactory<DataContext> dbContextFactory,
         IVersionService versionService,
-        IPortainerService portainerService
+        IPortainerService portainerService,
+        IFileService fileService
     )
     {
         DockerSocket = "unix:///var/run/docker.sock";
@@ -30,6 +32,7 @@ public class DockerService
         _dbContextFactory = dbContextFactory;
         _versionService = versionService;
         _portainerService = portainerService;
+        _fileService = fileService;
     }
 
     /// <summary>
@@ -103,7 +106,7 @@ public class DockerService
                             "com.docker.compose.project.config_files",
                             out var configFile
                         )
-                            ? configFile
+                            ? configFile.ComputePathForEnvironment(_fileService)
                             : null
                     };
 
@@ -325,7 +328,7 @@ public class DockerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"compose -f {stack.ConfigFile.ComputePathForEnvironment()} {command}",
+            Arguments = $"compose -f {stack.ConfigFile} {command}",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
