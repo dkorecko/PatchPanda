@@ -148,24 +148,24 @@ public class VersionService : IVersionService
 
         UpdateBodiesWithSecondaryReleaseNotes(notSeenNewVersions, app, additionalReleases);
 
-        notSeenNewVersions.ForEach(async x =>
+        foreach (var notSeenNewVersion in notSeenNewVersions)
         {
             if (
-                x.Body.Has("breaking")
-                || x.Body.Has("critical")
-                || x.Body.Has("review before")
-                || x.Body.Has("before upgrad")
-                || x.Body.Has("important")
-                || x.Body.Contains("Warning")
+                notSeenNewVersion.Body.Has("breaking")
+                || notSeenNewVersion.Body.Has("critical")
+                || notSeenNewVersion.Body.Has("review before")
+                || notSeenNewVersion.Body.Has("before upgrad")
+                || notSeenNewVersion.Body.Has("important")
+                || notSeenNewVersion.Body.Contains("Warning")
             )
-                x.Breaking = true;
+                notSeenNewVersion.Breaking = true;
 
             if (_aiService.IsInitialized())
             {
                 AIResult? result = null;
                 for (int i = 1; i <= Constants.Limits.MAX_OLLAMA_ATTEMPTS; i++)
                 {
-                    result = await _aiService.SummarizeReleaseNotes(x.Body);
+                    result = await _aiService.SummarizeReleaseNotes(notSeenNewVersion.Body);
 
                     if (result is not null)
                         break;
@@ -179,11 +179,11 @@ public class VersionService : IVersionService
 
                 if (result is not null)
                 {
-                    x.AISummary = result.Summary;
-                    x.AIBreaking = result.Breaking;
+                    notSeenNewVersion.AISummary = result.Summary;
+                    notSeenNewVersion.AIBreaking = result.Breaking;
                 }
             }
-        });
+        }
 
         db.AppVersions.AddRange(notSeenNewVersions);
 

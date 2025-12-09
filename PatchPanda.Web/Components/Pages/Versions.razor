@@ -1,4 +1,4 @@
-@page "/versions/{ContainerId:int}"
+﻿@page "/versions/{ContainerId:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject IVersionService _versionService
 @inject UpdateService _updateService
@@ -51,7 +51,7 @@ else
                         }
                         @if(version.AIBreaking == true)
                         {
-                            <b class="ms-2 text-danger">[AI: BREAKING]</b>
+                            <b class="text-danger ms-2">[AI: BREAKING]</b>
                         }
                         @if(version.Ignored)
                         {
@@ -71,11 +71,14 @@ else
                     @if (!string.IsNullOrWhiteSpace(version.AISummary))
                     {
                         <div class="alert alert-info mt-2 mb-2"><b>AI Summary:</b> @version.AISummary</div>
-                    }
-                    <details open>
-                        <summary>Show full release notes</summary>
+                        <details>
+                            <summary>Full release notes</summary>
+                            <div>@(version.Body.ToMarkupString())</div>
+                        </details>
+                    } else
+                    {
                         <div>@(version.Body.ToMarkupString())</div>
-                    </details>
+                    }
                 </li>
             }
         </ul>
@@ -116,7 +119,7 @@ else
 
             @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
             {
-                <div class="mb-4 mt-4">
+                <div class="mt-4 mb-4">
                     <h5>Update Progress:</h5>
                     <Terminal @ref=_terminal/>
                 </div>

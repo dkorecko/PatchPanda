@@ -66,7 +66,7 @@ Notifications
 AI Summarization (Ollama or compatible LLM API)
 
 - OLLAMA_URL - (optional) Base URL to your Ollama or compatible LLM API (example: `http://localhost:11434`). If set, PatchPanda will use this endpoint to generate AI-powered summaries and breaking change detection for release notes. If not set, the feature is disabled and the app will work as usual.
-- OLLAMA_MODEL - (optional) Model name to use for summarization (default: `llama3`).
+- OLLAMA_MODEL - (optional) Model name to use for summarization.
 
 Portainer
 
