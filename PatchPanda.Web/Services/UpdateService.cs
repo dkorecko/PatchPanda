@@ -175,6 +175,8 @@ public class UpdateService
         if (!IsUpdateAvailable(app))
             throw new Exception("Update is not available.");
 
+        DateTime startedAt = DateTime.UtcNow;
+
         ArgumentNullException.ThrowIfNull(app.Regex);
         ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
         ArgumentNullException.ThrowIfNull(app.Version);
@@ -274,12 +276,18 @@ public class UpdateService
                         )
                         .Value;
 
-                    targetEnvLine = currentEnvLine.Replace(targetImageSecondPortion, newVersion);
+                    if (!string.IsNullOrWhiteSpace(currentEnvLine))
+                    {
+                        targetEnvLine = currentEnvLine.Replace(
+                            targetImageSecondPortion,
+                            newVersion
+                        );
 
-                    updateSteps.Add($"Looking at {envFile} .env file");
-                    updateSteps.Add(
-                        $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
-                    );
+                        updateSteps.Add($"Looking at {envFile} .env file");
+                        updateSteps.Add(
+                            $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
+                        );
+                    }
                 }
             }
         }
@@ -293,6 +301,9 @@ public class UpdateService
         }
 
         updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
+
+        if (updateSteps.Count < 3)
+            return null;
 
         if (planOnly)
             return updateSteps;
@@ -315,10 +326,10 @@ public class UpdateService
             }
         }
         else if (
-            envFile is not null
-            && envFileContent is not null
-            && currentEnvLine is not null
-            && targetEnvLine is not null
+            !string.IsNullOrWhiteSpace(envFile)
+            && !string.IsNullOrWhiteSpace(envFileContent)
+            && !string.IsNullOrWhiteSpace(currentEnvLine)
+            && !string.IsNullOrWhiteSpace(targetEnvLine)
         )
         {
             _fileService.WriteAllText(
@@ -327,11 +338,91 @@ public class UpdateService
             );
         }
 
+        string? combinedStdOuts = null;
+        string? combinedStdErrs = null;
+
         if (!string.IsNullOrWhiteSpace(configPath))
         {
-            await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
-            await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
-            await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+            bool turnedOff = false;
+            try
+            {
+                (string pullStdOut, string pullStdErr, int pullExitCode) =
+                    await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
+
+                combinedStdOuts += "[PULL STDOUT]\n" + pullStdOut + "\nExit code: " + pullExitCode;
+                combinedStdErrs += "[PULL STDERR]\n" + pullStdErr + "\nExit code: " + pullExitCode;
+
+                (string downStdOut, string downStdErr, int downExitCode) =
+                    await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
+
+                combinedStdOuts +=
+                    "\n[DOWN STDOUT]\n" + downStdOut + "\nExit code: " + downExitCode;
+                combinedStdErrs +=
+                    "\n[DOWN STDERR]\n" + downStdErr + "\nExit code: " + downExitCode;
+
+                turnedOff = true;
+                (string upStdOut, string upStdErr, int upExitCode) =
+                    await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+
+                combinedStdOuts += "\n[UP STDOUT]\n" + upStdOut + "\nExit code: " + upExitCode;
+                combinedStdErrs += "\n[UP STDERR]\n" + upStdErr + "\nExit code: " + upExitCode;
+            }
+            catch (DockerCommandException ex)
+            {
+                _logger.LogError(ex, "Failed to update, rolling back to previous file states");
+
+                if (resultingImage is not null)
+                    _fileService.WriteAllText(configPath, configFileContent);
+                else if (
+                    envFile is not null
+                    && envFileContent is not null
+                    && currentEnvLine is not null
+                    && targetEnvLine is not null
+                )
+                    _fileService.WriteAllText(envFile, envFileContent);
+
+                if (turnedOff)
+                {
+                    (string reupStdOut, string reupStdErr, int reupExitCode) =
+                        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+
+                    db.UpdateAttempts.Add(
+                        new()
+                        {
+                            StdOut = ex.StdOut + "\n[UP STDOUT]\n" + reupStdOut,
+                            StdErr = ex.StdErr + "\n[UP STDERR]\n" + reupStdErr,
+                            ExitCode = ex.ExitCode,
+                            StartedAt = startedAt,
+                            EndedAt = DateTime.UtcNow,
+                            ContainerId = app.Id,
+                            StackId = stack.Id,
+                            FailedCommand = ex.Command,
+                            UsedPlan = string.Join(", ", updateSteps)
+                        }
+                    );
+                }
+                else
+                {
+                    db.UpdateAttempts.Add(
+                        new()
+                        {
+                            StdOut = ex.StdOut,
+                            StdErr = ex.StdErr,
+                            ExitCode = ex.ExitCode,
+                            StartedAt = startedAt,
+                            EndedAt = DateTime.UtcNow,
+                            ContainerId = app.Id,
+                            StackId = stack.Id,
+                            FailedCommand = ex.Command,
+                            UsedPlan = string.Join(", ", updateSteps)
+                        }
+                    );
+                }
+
+                await db.SaveChangesAsync();
+
+                throw;
+            }
         }
 
         var targetApp = await db
@@ -370,6 +461,20 @@ public class UpdateService
         }
 
         targetApp.Version = newVersion;
+
+        db.UpdateAttempts.Add(
+            new()
+            {
+                StartedAt = startedAt,
+                EndedAt = DateTime.UtcNow,
+                ContainerId = app.Id,
+                StackId = stack.Id,
+                UsedPlan = string.Join(", ", updateSteps),
+                ExitCode = 0,
+                StdErr = combinedStdErrs,
+                StdOut = combinedStdOuts
+            }
+        );
 
         await db.SaveChangesAsync();
 

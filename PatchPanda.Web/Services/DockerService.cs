@@ -319,16 +319,19 @@ public class DockerService
         return true;
     }
 
-    public virtual async Task RunDockerComposeOnPath(
+    public virtual async Task<(string stdOut, string stdErr, int exitCode)> RunDockerComposeOnPath(
         ComposeStack stack,
         string command,
         Action<string>? outputCallback = null
     )
     {
+        var fileName = "docker";
+        var arguments = $"compose -f {stack.ConfigFile} {command}";
+
         var startInfo = new ProcessStartInfo
         {
-            FileName = "docker",
-            Arguments = $"compose -f {stack.ConfigFile} {command}",
+            FileName = fileName,
+            Arguments = arguments,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -375,9 +378,32 @@ public class DockerService
 
         if (!string.IsNullOrWhiteSpace(stdErr))
         {
-            _logger.LogInformation("--- STDERR ---");
+            _logger.LogInformation("--- STDERR - usual output from compose, not just errors ---");
             _logger.LogInformation(standardError.ToString());
         }
+
+        if (process.ExitCode != 0)
+        {
+            var fullCommand = fileName + " " + command;
+            var ex = new DockerCommandException(
+                fullCommand,
+                process.ExitCode,
+                stdOut.Shorten(8192),
+                stdErr.Shorten(8192)
+            );
+
+            _logger.LogError(
+                ex,
+                "Docker compose command '{Command}' failed for stack {Stack} with exit code {ExitCode}",
+                fullCommand,
+                stack.StackName,
+                process.ExitCode
+            );
+
+            throw ex;
+        }
+
+        return (stdOut, stdErr, process.ExitCode);
     }
 
     public async Task DeleteContainerRecord(Container container)
