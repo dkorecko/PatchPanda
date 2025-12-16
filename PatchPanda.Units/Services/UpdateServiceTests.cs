@@ -138,7 +138,7 @@ public class UpdateServiceTests
 
         dockerMock
             .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var tasks = await new UpdateService(
             dockerMock.Object,
@@ -251,7 +251,7 @@ public class UpdateServiceTests
 
         dockerMock
             .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var updateService = new UpdateService(
             dockerMock.Object,
@@ -342,7 +342,7 @@ public class UpdateServiceTests
 
         dockerMock
             .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var updateService = new UpdateService(
             dockerMock.Object,
