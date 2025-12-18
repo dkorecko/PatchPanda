@@ -390,23 +390,46 @@ public class UpdateService
 
                     while (attemptCount < 3)
                     {
-                    (string reupStdOut, string reupStdErr, int reupExitCode) =
-                        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+                        (string reupStdOut, string reupStdErr, int reupExitCode) =
+                            await _dockerService.RunDockerComposeOnPath(
+                                stack,
+                                "up -d",
+                                outputCallback
+                            );
 
-                    db.UpdateAttempts.Add(
-                        new()
+                        if (reupExitCode != 0)
                         {
-                            StdOut = ex.StdOut + "\n[UP STDOUT]\n" + reupStdOut,
-                            StdErr = ex.StdErr + "\n[UP STDERR]\n" + reupStdErr,
-                            ExitCode = ex.ExitCode,
-                            StartedAt = startedAt,
-                            EndedAt = DateTime.UtcNow,
-                            ContainerId = app.Id,
-                            StackId = stack.Id,
-                            FailedCommand = ex.Command,
-                            UsedPlan = string.Join(", ", updateSteps)
+                            rollbackStdOut +=
+                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDOUT]\n"
+                                + reupStdOut
+                                + "\nExit code: "
+                                + reupExitCode;
+                            rollbackStdErr +=
+                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
+                                + reupStdErr
+                                + "\nExit code: "
+                                + reupExitCode;
+                            attemptCount++;
+                            continue;
                         }
-                    );
+
+                        db.UpdateAttempts.Add(
+                            new()
+                            {
+                                StdOut =
+                                    ex.StdOut + rollbackStdOut + "\n[UP STDOUT]\n" + reupStdOut,
+                                StdErr =
+                                    ex.StdErr + rollbackStdErr + "\n[UP STDERR]\n" + reupStdErr,
+                                ExitCode = ex.ExitCode,
+                                StartedAt = startedAt,
+                                EndedAt = DateTime.UtcNow,
+                                ContainerId = app.Id,
+                                StackId = stack.Id,
+                                FailedCommand = ex.Command,
+                                UsedPlan = string.Join(", ", updateSteps)
+                            }
+                        );
+                    }
                 }
                 else
                 {
@@ -453,18 +476,19 @@ public class UpdateService
         if (resultingImage is not null)
         {
             targetApp.TargetImage = resultingImage;
+        }
 
-            foreach (var related in relatedApps)
-            {
+        foreach (var related in relatedApps)
+        {
+            if (resultingImage is not null)
                 related.TargetImage = resultingImage;
 
-                related.NewerVersions.RemoveAll(x =>
-                    targetVersionToUse.Id == x.Id
-                    || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
-                );
+            related.NewerVersions.RemoveAll(x =>
+                targetVersionToUse.Id == x.Id
+                || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+            );
 
-                related.Version = newVersion;
-            }
+            related.Version = newVersion;
         }
 
         targetApp.Version = newVersion;
