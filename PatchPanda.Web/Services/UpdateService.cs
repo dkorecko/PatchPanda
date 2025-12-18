@@ -383,6 +383,13 @@ public class UpdateService
 
                 if (turnedOff)
                 {
+                    int attemptCount = 0;
+
+                    string rollbackStdOut = string.Empty;
+                    string rollbackStdErr = string.Empty;
+
+                    while (attemptCount < 3)
+                    {
                     (string reupStdOut, string reupStdErr, int reupExitCode) =
                         await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
