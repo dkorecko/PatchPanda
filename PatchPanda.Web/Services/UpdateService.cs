@@ -239,19 +239,17 @@ public class UpdateService
         string? currentEnvLine = null;
         string? targetEnvLine = null;
 
+        List<Container>? appsWithSharedEnvVersion = null;
+
         if (matches == 0) // Did not find in main config, check .env
         {
-            var envVariable = Regex.Match(
-                configFileContent,
-                "\\${([a-zA-Z0-9\\-_]+):-[a-zA-Z0-9\\-_]+}"
-            );
+            var mainImageVersionLine = Regex
+                .Matches(configFileContent, "\\${([a-zA-Z0-9\\-_]+):-[a-zA-Z0-9\\-_]+}")
+                .FirstOrDefault(x =>
+                    configFileContent.Contains(app.TargetImage.Split(':')[0] + $":{x.Value}")
+                );
 
-            if (
-                envVariable.Success
-                && configFileContent.Contains(
-                    app.TargetImage.Split(':')[0] + $":{envVariable.Value}"
-                )
-            )
+            if (mainImageVersionLine is not null)
             {
                 if (string.IsNullOrWhiteSpace(configPath))
                 {
@@ -267,7 +265,7 @@ public class UpdateService
                 if (_fileService.Exists(envFile))
                 {
                     envFileContent = _fileService.ReadAllText(envFile);
-                    var envVarRegex = Regex.Escape(envVariable.Groups[1].Value);
+                    var envVarRegex = Regex.Escape(mainImageVersionLine.Groups[1].Value);
                     var targetImageSecondPortion = app.TargetImage.Split(':')[1];
                     currentEnvLine = Regex
                         .Match(
@@ -287,6 +285,28 @@ public class UpdateService
                         updateSteps.Add(
                             $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
                         );
+
+                        if (app.MultiContainerAppId is not null)
+                        {
+                            var targetMultiContainer = await db
+                                .MultiContainerApps.Include(x => x.Containers)
+                                .FirstAsync(x => x.Id == app.MultiContainerAppId);
+                            appsWithSharedEnvVersion =
+                            [
+                                .. targetMultiContainer.Containers.Where(x =>
+                                    x.Id != app.Id
+                                    && configFileContent.Contains(
+                                        x.TargetImage.Split(':')[0]
+                                            + $":{mainImageVersionLine.Value}"
+                                    )
+                                )
+                            ];
+
+                            if (appsWithSharedEnvVersion.Any())
+                                updateSteps.Add(
+                                    $"This update will also affect containers: {string.Join(", ", appsWithSharedEnvVersion.Select(x => x.Name))}"
+                                );
+                        }
                     }
                 }
             }
@@ -492,6 +512,29 @@ public class UpdateService
         }
 
         targetApp.Version = newVersion;
+
+        if (
+            !string.IsNullOrWhiteSpace(envFile)
+            && !string.IsNullOrWhiteSpace(envFileContent)
+            && !string.IsNullOrWhiteSpace(currentEnvLine)
+            && !string.IsNullOrWhiteSpace(targetEnvLine)
+            && appsWithSharedEnvVersion is not null
+        )
+        {
+            var sideEffectUpdated = await db
+                .Containers.Include(x => x.NewerVersions)
+                .Where(c => appsWithSharedEnvVersion.Select(x => x.Id).Contains(c.Id))
+                .ToListAsync();
+
+            foreach (var sideApp in sideEffectUpdated)
+            {
+                sideApp.NewerVersions.RemoveAll(x =>
+                    targetVersionToUse.VersionNumber == x.VersionNumber
+                    || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+                );
+                sideApp.Version = newVersion;
+            }
+        }
 
         db.UpdateAttempts.Add(
             new()
