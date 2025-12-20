@@ -302,7 +302,7 @@ public class UpdateService
 
         updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
-        if (updateSteps.Count < 3)
+        if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
             return null;
 
         if (planOnly)

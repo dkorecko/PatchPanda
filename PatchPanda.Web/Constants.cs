@@ -26,5 +26,6 @@ public static class Constants
     public static class Limits
     {
         public const int MAX_OLLAMA_ATTEMPTS = 3;
+        public const int MINIMUM_UPDATE_STEPS = 3;
     }
 }
