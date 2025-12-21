@@ -34,6 +34,8 @@ else
     }
     else
     {
+        var processingUpdate = _jobRegistry.GetProcessingUpdateForContainer(_app.Id);
+
         <ul>
             @foreach(var version in _app.NewerVersions)
             {
@@ -83,9 +85,9 @@ else
             }
         </ul>
 
-        @if (_updatePlan is not null)
+        @if (_updatePlan is not null || processingUpdate is not null)
         {
-            @if(_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is null) 
+            @if(processingUpdate is null && _updatePlan is not null) 
             {
                 <div class="alert alert-info" role="alert">
                     An update is available for this app!
@@ -101,8 +103,8 @@ else
                 </ul>
             }
 
-            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)">
-                @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
+            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || processingUpdate is not null)">
+                @if (processingUpdate is not null)
                 {
                     <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
                 }
@@ -117,7 +119,7 @@ else
                 }
             </button>
 
-            @if (_jobRegistry.GetProcessingUpdateForContainer(_app.Id) is not null)
+            @if (processingUpdate is not null)
             {
                 <div class="mb-4 mt-4">
                     <h5>Update Progress:</h5>
