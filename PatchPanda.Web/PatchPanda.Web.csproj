@@ -1,17 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <UserSecretsId>2c401345-2ffd-4b19-8611-f9cafe5cd8e0</UserSecretsId>
-		<RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Devity.Blazor" Version="2025.8.13.2012" />
-    <PackageReference Include="Devity.Extensions" Version="2025.8.13.2012" />
+    <PackageReference Include="Devity.Blazor" Version="2025.12.21.1700" />
+    <PackageReference Include="Devity.Extensions" Version="2025.12.21.1700" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.10">
@@ -24,5 +23,4 @@
   <ItemGroup>
     <Folder Include="Migrations\" />
   </ItemGroup>
-
 </Project>

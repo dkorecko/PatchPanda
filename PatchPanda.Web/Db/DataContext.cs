@@ -13,6 +13,8 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
 
     public DbSet<AppVersion> AppVersions { get; set; } = default!;
 
+    public DbSet<UpdateAttempt> UpdateAttempts { get; set; } = default!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -35,6 +37,20 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
             .Entity<Container>()
             .HasMany(x => x.NewerVersions)
             .WithMany(x => x.Applications);
+
+        modelBuilder
+            .Entity<Container>()
+            .HasMany(x => x.UpdateAttempts)
+            .WithOne(x => x.Container)
+            .HasForeignKey(x => x.ContainerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder
+            .Entity<ComposeStack>()
+            .HasMany(x => x.UpdateAttempts)
+            .WithOne(x => x.Stack)
+            .HasForeignKey(x => x.StackId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         var tupleStringConverter = new ValueConverter<Tuple<string, string>?, string?>(
             v => v == null ? null : v.Item1 + "/" + v.Item2,

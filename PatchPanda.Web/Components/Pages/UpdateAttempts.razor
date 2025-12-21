@@ -1,0 +1,142 @@
+﻿@page "/update-attempts"
+@implements IDisposable
+
+@inject IDbContextFactory<DataContext> _dbContextFactory
+
+<h3>Update Attempts</h3>
+
+<p>Shows historical update attempts and failures.</p>
+
+@if (_items is null)
+{
+    <div class="spinner-grow" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else if (_items.Count == 0)
+{
+    <p>No update attempts recorded yet.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Started</th>
+                <th>Ended</th>
+                <th>Container Id</th>
+                <th>Stack Id</th>
+                <th>Success/Fail</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var it in _items)
+            {
+                <tr>
+                    <td>@it.StartedAt.ToLocalTime()</td>
+                    <td>@it.EndedAt.ToLocalTime()</td>
+                    <td>@it.ContainerId</td>
+                    <td>@it.StackId</td>
+                    <td>
+                        @(it.IsFailed ? "Failed" : "Success")
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => ToggleOutput(it.Id)">Toggle Output</button>
+                    </td>
+                </tr>
+
+                @if (_expanded.Contains(it.Id))
+                {
+                    <tr>
+                        <td colspan="6">
+                            <div>
+                                <strong>Used Plan:</strong>
+                                <div class="small">@((MarkupString) it.UsedPlan)</div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(it.StdOut))
+                            {
+                                <div class="mt-2">
+                                    <strong>StdOut</strong>
+                                    <pre class="bg-light p-2">@it.StdOut</pre>
+                                </div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(it.StdErr))
+                            {
+                                <div class="mt-2">
+                                    <strong>StdErr</strong> (this does not mean it's an error, it's just where Docker usually writes output for humans)
+                                    <pre class="bg-light p-2">@it.StdErr</pre>
+                                </div>
+                            }
+                            @if (it.IsFailed)
+                            {
+                                <div class="mt-2">
+                                    <strong>Failed Command</strong>
+                                    <div class="small">@it.FailedCommand</div>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<UpdateAttempt>? _items;
+    private HashSet<int> _expanded = new();
+    private System.Timers.Timer? _pollTimer;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await LoadSnapshot();
+        StartPolling();
+    }
+
+    private async Task LoadSnapshot()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+
+        _items = await db.UpdateAttempts
+            .OrderByDescending(u => u.Id)
+            .Take(50)
+            .ToListAsync();
+
+        StateHasChanged();
+    }
+
+    private void StartPolling()
+    {
+        if (_pollTimer is not null)
+            return;
+
+        _pollTimer = new System.Timers.Timer(2000);
+        _pollTimer.Elapsed += async (_, __) => await InvokeAsync(LoadSnapshot);
+        _pollTimer.AutoReset = true;
+        _pollTimer.Start();
+    }
+
+    private void ToggleOutput(int id)
+    {
+        if (_expanded.Contains(id))
+            _expanded.Remove(id);
+        else
+            _expanded.Add(id);
+
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        if (_pollTimer is not null)
+        {
+            _pollTimer.Stop();
+            _pollTimer.Dispose();
+            _pollTimer = null;
+        }
+    }
+}

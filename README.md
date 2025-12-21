@@ -21,6 +21,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Works with both Linux and Windows.
 - Integrate with Portainer API to update its managed compose stacks.
 - AI-powered release note summarization and breaking change detection using Ollama or compatible LLM API.
+- Contains error handling, meaning if an update fails, it will do its best to revert to a working version. You also have a page available of all the past updates to view the stdout/stderr of each update operation.
 
 Planned / upcoming features
 

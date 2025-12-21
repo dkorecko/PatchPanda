@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PatchPanda.Web.Db;
 
@@ -10,12 +11,14 @@ using PatchPanda.Web.Db;
 namespace PatchPanda.Web.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20251216183148_ErrorHandlingTypes")]
+    partial class ErrorHandlingTypes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.1");
+            modelBuilder.HasAnnotation("ProductVersion", "9.0.10");
 
             modelBuilder.Entity("AppVersionContainer", b =>
                 {
@@ -206,10 +209,6 @@ namespace PatchPanda.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContainerId");
-
-                    b.HasIndex("StackId");
-
                     b.ToTable("UpdateAttempts");
                 });
 
@@ -246,35 +245,9 @@ namespace PatchPanda.Web.Migrations
                     b.Navigation("Stack");
                 });
 
-            modelBuilder.Entity("PatchPanda.Web.Entities.UpdateAttempt", b =>
-                {
-                    b.HasOne("PatchPanda.Web.Entities.Container", "Container")
-                        .WithMany("UpdateAttempts")
-                        .HasForeignKey("ContainerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PatchPanda.Web.Entities.ComposeStack", "Stack")
-                        .WithMany("UpdateAttempts")
-                        .HasForeignKey("StackId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Container");
-
-                    b.Navigation("Stack");
-                });
-
             modelBuilder.Entity("PatchPanda.Web.Entities.ComposeStack", b =>
                 {
                     b.Navigation("Apps");
-
-                    b.Navigation("UpdateAttempts");
-                });
-
-            modelBuilder.Entity("PatchPanda.Web.Entities.Container", b =>
-                {
-                    b.Navigation("UpdateAttempts");
                 });
 
             modelBuilder.Entity("PatchPanda.Web.Entities.MultiContainerApp", b =>
