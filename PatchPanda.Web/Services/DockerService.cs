@@ -26,7 +26,14 @@ public class DockerService
         DockerSocket = "unix:///var/run/docker.sock";
 
 #if DEBUG
-        DockerSocket = "npipe://./pipe/docker_engine";
+        if (OperatingSystem.IsWindows())
+        {
+            DockerSocket = "npipe://./pipe/docker_engine";
+        }
+        else
+        {
+            DockerSocket = "unix:///var/run/docker.sock";
+        }
 #endif
         _logger = logger;
         _dbContextFactory = dbContextFactory;
@@ -107,7 +114,7 @@ public class DockerService
                             out var configFile
                         )
                             ? configFile.ComputePathForEnvironment(_fileService)
-                            : null
+                            : null,
                     };
 
                     if (existingStack.ConfigFile is null && _portainerService.IsConfigured)
@@ -186,7 +193,7 @@ public class DockerService
                     "cache",
                     "postgres",
                     "broker",
-                    "mysql"
+                    "mysql",
                 ];
 
                 if (containsMap.Any(app.Name.Contains))
@@ -229,7 +236,7 @@ public class DockerService
 
         var existingStacks = await db
             .Stacks.Include(x => x.Apps)
-            .ThenInclude(x => x.NewerVersions)
+                .ThenInclude(x => x.NewerVersions)
             .ToListAsync();
 
         var runningStacks = await GetRunningStacks();
@@ -335,7 +342,7 @@ public class DockerService
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
 
         using var process = new Process { StartInfo = startInfo };
