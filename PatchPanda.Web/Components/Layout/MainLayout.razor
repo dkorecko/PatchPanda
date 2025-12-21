@@ -1,23 +1,94 @@
 ﻿@inherits LayoutComponentBase
+@inject IDbContextFactory<DataContext> _dbContextFactory
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<Toasts @ref="_toasts"/>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<CascadingValue Value="_toasts" Name="Toasts">
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+</CascadingValue>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private Toasts? _toasts;
+    private System.Timers.Timer? _pollTimer;
+    private DateTime? _lastFoundUpdate;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(!firstRender)
+            return;
+        
+        await CheckForNewJobResults();
+        StartPolling();
+    }
+
+    private void StartPolling()
+    {
+        if (_pollTimer is not null)
+            return;
+
+        _pollTimer = new System.Timers.Timer(5000);
+        _pollTimer.Elapsed += async (_, __) => await InvokeAsync(async () => await CheckForNewJobResults());
+        _pollTimer.AutoReset = true;
+        _pollTimer.Start();
+    }
+
+    private async Task CheckForNewJobResults()
+    {       
+        using var db = _dbContextFactory.CreateDbContext();
+
+        var updateAttempts = await db.UpdateAttempts.Include(x => x.Container).Where(x => _lastFoundUpdate == null || x.StartedAt > _lastFoundUpdate).OrderByDescending(x => x.StartedAt).ToListAsync();
+
+        if(updateAttempts.Count == 0)
+            return;
+
+        if(_lastFoundUpdate == null)
+        {
+            _lastFoundUpdate = updateAttempts.Max(x => x.StartedAt);
+            return;
+        }
+
+        foreach (var attempt in updateAttempts)
+        {
+            if (!attempt.IsFailed)
+                _toasts?.RunToast(new($"Update on app {attempt.Container.Name} succeeded", Toasts.ToastType.Success));
+            else
+                _toasts?.RunToast(new($"Update on app {attempt.Container.Name} failed", Toasts.ToastType.Error));
+        }
+
+        _lastFoundUpdate = updateAttempts.Max(x => x.StartedAt);
+
+        StateHasChanged();
+    }
+
+
+    public void Dispose()
+    {
+        if (_pollTimer is not null)
+        {
+            _pollTimer.Stop();
+            _pollTimer.Dispose();
+            _pollTimer = null;
+        }
+    }
+}

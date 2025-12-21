@@ -9,4 +9,5 @@ public class ComposeStack : AbstractEntity
     public bool PortainerManaged { get; set; }
 
     public virtual List<Container> Apps { get; set; } = [];
+    public virtual List<UpdateAttempt> UpdateAttempts { get; set; } = [];
 }

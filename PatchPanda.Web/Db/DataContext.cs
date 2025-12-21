@@ -38,6 +38,20 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
             .HasMany(x => x.NewerVersions)
             .WithMany(x => x.Applications);
 
+        modelBuilder
+            .Entity<Container>()
+            .HasMany(x => x.UpdateAttempts)
+            .WithOne(x => x.Container)
+            .HasForeignKey(x => x.ContainerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder
+            .Entity<ComposeStack>()
+            .HasMany(x => x.UpdateAttempts)
+            .WithOne(x => x.Stack)
+            .HasForeignKey(x => x.StackId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         var tupleStringConverter = new ValueConverter<Tuple<string, string>?, string?>(
             v => v == null ? null : v.Item1 + "/" + v.Item2,
             v =>
