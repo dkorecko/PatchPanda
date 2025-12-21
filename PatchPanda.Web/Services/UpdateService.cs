@@ -451,6 +451,8 @@ public class UpdateService
                                 UsedPlan = string.Join(", ", updateSteps),
                             }
                         );
+
+                        break;
                     }
                 }
                 else
