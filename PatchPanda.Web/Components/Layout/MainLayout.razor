@@ -57,7 +57,11 @@
     {       
         using var db = _dbContextFactory.CreateDbContext();
 
-        var updateAttempts = await db.UpdateAttempts.Include(x => x.Container).Where(x => _lastFoundUpdate == null || x.StartedAt > _lastFoundUpdate).OrderByDescending(x => x.StartedAt).ToListAsync();
+        var updateAttempts = await db.UpdateAttempts
+            .Include(x => x.Container)
+            .Where(x => _lastFoundUpdate == null || x.StartedAt > _lastFoundUpdate)
+            .OrderByDescending(x => x.StartedAt)
+            .ToListAsync();
 
         if(updateAttempts.Count == 0)
             return;

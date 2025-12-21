@@ -4,6 +4,8 @@ namespace PatchPanda.Web.Services;
 
 public class UpdateService
 {
+    private const int MAX_DOCKER_ROLLBACK_ATTEMPTS = 3;
+
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IFileService _fileService;
@@ -299,7 +301,7 @@ public class UpdateService
                                         x.TargetImage.Split(':')[0]
                                             + $":{mainImageVersionLine.Value}"
                                     )
-                                )
+                                ),
                             ];
 
                             if (appsWithSharedEnvVersion.Any())
@@ -408,7 +410,7 @@ public class UpdateService
                     string rollbackStdOut = string.Empty;
                     string rollbackStdErr = string.Empty;
 
-                    while (attemptCount < 3)
+                    while (attemptCount < MAX_DOCKER_ROLLBACK_ATTEMPTS)
                     {
                         (string reupStdOut, string reupStdErr, int reupExitCode) =
                             await _dockerService.RunDockerComposeOnPath(
@@ -446,7 +448,7 @@ public class UpdateService
                                 ContainerId = app.Id,
                                 StackId = stack.Id,
                                 FailedCommand = ex.Command,
-                                UsedPlan = string.Join(", ", updateSteps)
+                                UsedPlan = string.Join(", ", updateSteps),
                             }
                         );
                     }
@@ -464,7 +466,7 @@ public class UpdateService
                             ContainerId = app.Id,
                             StackId = stack.Id,
                             FailedCommand = ex.Command,
-                            UsedPlan = string.Join(", ", updateSteps)
+                            UsedPlan = string.Join(", ", updateSteps),
                         }
                     );
                 }
@@ -546,7 +548,7 @@ public class UpdateService
                 UsedPlan = string.Join(", ", updateSteps),
                 ExitCode = 0,
                 StdErr = combinedStdErrs,
-                StdOut = combinedStdOuts
+                StdOut = combinedStdOuts,
             }
         );
 
