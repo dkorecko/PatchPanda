@@ -11,13 +11,13 @@ public class ParsingHelperTests
 {
     private readonly Mock<ILogger<VersionService>> _logger;
     private readonly Mock<IConfiguration> _configuration;
-    private readonly Mock<IAIService> _aiService;
+    private readonly Mock<IAiService> _aiService;
 
     public ParsingHelperTests()
     {
         _logger = new Mock<ILogger<VersionService>>();
         _configuration = new Mock<IConfiguration>();
-        _aiService = new Mock<IAIService>();
+        _aiService = new Mock<IAiService>();
     }
 
     [Fact]

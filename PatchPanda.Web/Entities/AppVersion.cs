@@ -23,4 +23,8 @@ public class AppVersion : AbstractEntity
     public DateTime DateDiscovered { get; set; } = DateTime.Now;
 
     public virtual List<Container> Applications { get; set; } = [];
+
+    public string? SecurityAnalysis { get; set; }
+
+    public bool? IsSuspectedMalicious { get; set; }
 }

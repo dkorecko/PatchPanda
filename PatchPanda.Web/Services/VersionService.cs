@@ -8,7 +8,7 @@ public class VersionService : IVersionService
     private readonly ILogger<VersionService> _logger;
     private readonly IConfiguration _configuration;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
-    private readonly IAIService _aiService;
+    private readonly IAiService _aiService;
 
     private string? Username { get; init; }
     private string? Password { get; init; }
@@ -17,7 +17,7 @@ public class VersionService : IVersionService
         ILogger<VersionService> logger,
         IConfiguration configuration,
         IDbContextFactory<DataContext> dbContextFactory,
-        IAIService aiService
+        IAiService aiService
     )
     {
         _logger = logger;
@@ -69,7 +69,7 @@ public class VersionService : IVersionService
                 await client.Repository.Release.GetAll(
                     repo.Item1,
                     repo.Item2,
-                    new ApiOptions { PageSize = 100, PageCount = 1 }
+                    new() { PageSize = 100, PageCount = 1 }
                 )
             );
 
@@ -160,9 +160,68 @@ public class VersionService : IVersionService
             )
                 notSeenNewVersion.Breaking = true;
 
+            var securityScanningEnabled =
+                (
+                    await db.AppSettings.FirstOrDefaultAsync(x =>
+                        x.Key == Constants.SettingsKeys.SECURITY_SCANNING_ENABLED
+                    )
+                )?.Value == "true";
+
+            if (securityScanningEnabled && _aiService.IsInitialized())
+            {
+                try
+                {
+                    var client = GetClient();
+
+                    // Resolve the correct tag for the current version to ensure comparison works
+                    // We extract the semantic version portion from the app version and use it to find the source tag
+                    var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
+                    var versionMatch = Regex.Match(app.Version, adjustedRegex);
+
+                    if (versionMatch.Success)
+                    {
+                        var currentRelease = allReleases.FirstOrDefault(r =>
+                            r.TagName is not null && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
+                        );
+
+                        if (currentRelease != null)
+                        {
+                            var baseTag = currentRelease.TagName;
+
+                            // Get the difference between the current version and the new version
+                            var diff = await client.Repository.Commit.Compare(
+                                repo.Item1,
+                                repo.Item2,
+                                baseTag,
+                                notSeenNewVersion.VersionNumber
+                            );
+
+                            var textToAnalyze = string.Concat(diff.Files.Select(f => f.Patch ?? ""));
+
+                            var analysis = await _aiService.AnalyzeDiff(textToAnalyze);
+
+                            if (analysis is not null)
+                            {
+                                notSeenNewVersion.SecurityAnalysis = analysis.Analysis;
+                                notSeenNewVersion.IsSuspectedMalicious = analysis.IsSuspectedMalicious;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to perform security scan for {Repo} version {Version}",
+                        $"{repo.Item1}/{repo.Item2}",
+                        notSeenNewVersion.VersionNumber
+                    );
+                }
+            }
+
             if (_aiService.IsInitialized())
             {
-                AIResult? result = null;
+                SummaryResult? result = null;
                 for (int i = 1; i <= Constants.Limits.MAX_OLLAMA_ATTEMPTS; i++)
                 {
                     result = await _aiService.SummarizeReleaseNotes(notSeenNewVersion.Body);
