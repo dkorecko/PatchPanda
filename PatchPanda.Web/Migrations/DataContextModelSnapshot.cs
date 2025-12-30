@@ -34,12 +34,7 @@ namespace PatchPanda.Web.Migrations
 
             modelBuilder.Entity("PatchPanda.Web.Entities.AppSetting", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Key")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
@@ -48,7 +43,7 @@ namespace PatchPanda.Web.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Id");
+                    b.HasKey("Key");
 
                     b.ToTable("AppSettings");
                 });

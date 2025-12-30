@@ -35,13 +35,6 @@ else
                             How many hours to wait after discovering a new version before applying it. This gives time for issues to be reported by others.
                         </div>
                     </div>
-
-                    @if (_isSaved)
-                    {
-                        <div class="alert alert-success" role="alert">
-                            Settings saved!
-                        </div>
-                    }
                 </div>
             </div>
         </div>
@@ -49,10 +42,13 @@ else
 }
 
 @code {
+
+    [CascadingParameter(Name = Constants.Cascading.TOASTS)]
+    public Toasts? Toasts { get; set; }
+    
     private bool _isLoading = true;
     private bool _autoUpdateEnabled;
     private int _autoUpdateDelayHours;
-    private bool _isSaved;
 
     protected override async Task OnInitializedAsync()
     {
@@ -96,12 +92,12 @@ else
 
     private async Task SaveSetting(string key, string value)
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         var setting = await db.AppSettings.FindAsync(key);
 
         if (setting == null)
         {
-            setting = new Entities.AppSetting { Key = key, Value = value };
+            setting = new() { Key = key, Value = value };
             db.AppSettings.Add(setting);
         }
         else
@@ -110,18 +106,7 @@ else
         }
 
         await db.SaveChangesAsync();
-        
-        _isSaved = true;
         StateHasChanged();
-
-        // Hide success message after 3 seconds
-        var timer = new System.Timers.Timer(3000);
-        timer.Elapsed += (s, args) =>
-        {
-            _isSaved = false;
-            InvokeAsync(StateHasChanged);
-            timer.Dispose();
-        };
-        timer.Start();
+        Toasts?.RunToast(new("Settings saved.", Toasts.ToastType.Success));
     }
 }

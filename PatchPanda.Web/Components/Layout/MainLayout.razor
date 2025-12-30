@@ -54,8 +54,8 @@
     }
 
     private async Task CheckForNewJobResults()
-    {       
-        using var db = _dbContextFactory.CreateDbContext();
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
 
         var updateAttempts = await db.UpdateAttempts
             .Include(x => x.Container)

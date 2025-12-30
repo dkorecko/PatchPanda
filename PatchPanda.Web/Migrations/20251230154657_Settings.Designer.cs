@@ -11,7 +11,7 @@ using PatchPanda.Web.Db;
 namespace PatchPanda.Web.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20251230153137_Settings")]
+    [Migration("20251230154657_Settings")]
     partial class Settings
     {
         /// <inheritdoc />
@@ -37,12 +37,7 @@ namespace PatchPanda.Web.Migrations
 
             modelBuilder.Entity("PatchPanda.Web.Entities.AppSetting", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Key")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
@@ -51,7 +46,7 @@ namespace PatchPanda.Web.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
 
-                    b.HasKey("Id");
+                    b.HasKey("Key");
 
                     b.ToTable("AppSettings");
                 });

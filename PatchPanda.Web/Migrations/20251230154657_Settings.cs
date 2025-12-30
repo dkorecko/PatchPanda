@@ -22,14 +22,12 @@ namespace PatchPanda.Web.Migrations
                 name: "AppSettings",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
                     Key = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
                     Value = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AppSettings", x => x.Id);
+                    table.PrimaryKey("PK_AppSettings", x => x.Key);
                 });
         }
 

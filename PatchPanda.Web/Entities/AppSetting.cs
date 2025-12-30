@@ -1,7 +1,8 @@
 namespace PatchPanda.Web.Entities;
 
-public class AppSetting : AbstractEntity
+public class AppSetting
 {
+    [Key]
     [MaxLength(64)]
     public required string Key { get; init; }
 

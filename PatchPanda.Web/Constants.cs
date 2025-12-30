@@ -10,6 +10,11 @@ public static class Constants
 #endif
     public const string DB_NAME = "patchpanda.db";
 
+    public static class Cascading
+    {
+        public const string TOASTS = "TOASTS";
+    }
+
     public static class VariableKeys
     {
         public const string APPRISE_NOTIFICATION_URLS = "APPRISE_NOTIFICATION_URLS";
