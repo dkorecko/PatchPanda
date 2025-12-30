@@ -36,9 +36,14 @@ public static class NotificationMessageBuilder
 
         foreach (var newVersion in newerVersions)
         {
+            var securityBadge = newVersion.IsSuspectedMalicious == true ? " [POSSIBLE MALICIOUS]" : string.Empty;
             message.AppendLine(
-                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)} {(newVersion.AIBreaking == true ? "[AI BREAKING]" : string.Empty)}"
+                $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)} {(newVersion.AIBreaking == true ? "[AI BREAKING]" : string.Empty)}{securityBadge}"
             );
+            if (!string.IsNullOrWhiteSpace(newVersion.SecurityAnalysis))
+            {
+                message.AppendLine($"**Security Analysis:** {newVersion.SecurityAnalysis}");
+            }
             if (!string.IsNullOrWhiteSpace(newVersion.AISummary))
             {
                 message.AppendLine($"**AI Summary:** {newVersion.AISummary}");

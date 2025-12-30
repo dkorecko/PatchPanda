@@ -192,6 +192,7 @@ public class UpdateService
                 v => !v.Ignored
                 && !v.Breaking
                 && v.AIBreaking != true
+                && v.IsSuspectedMalicious != true
                 && v.DateDiscovered < threshold
             ))
             .ToListAsync();
@@ -203,7 +204,7 @@ public class UpdateService
                 continue;
 
             var targetVersion = container.NewerVersions
-                .Where(v => v is { Ignored: false, Breaking: false, AIBreaking: not true } && v.DateDiscovered < threshold)
+                .Where(v => v is { Ignored: false, Breaking: false, AIBreaking: not true, IsSuspectedMalicious: not true } && v.DateDiscovered < threshold)
                 .OrderByDescending(v => v.VersionNumber, Comparer<string>.Create(VersionHelper.NewerComparison))
                 .FirstOrDefault();
 

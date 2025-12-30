@@ -55,6 +55,10 @@ else
                         {
                             <b class="text-danger ms-2">[AI: BREAKING]</b>
                         }
+                        @if(version.IsSuspectedMalicious == true)
+                        {
+                            <b class="text-danger ms-2">[POSSIBLE MALICIOUS]</b>
+                        }
                         @if(version.Ignored)
                         {
                             <span class="badge bg-secondary ms-2">Ignored</span>
@@ -70,6 +74,10 @@ else
                             <button class="btn btn-outline-success ms-2" @onclick="async () => await SetTargetVersion(version)">Select for Update</button>
                         }
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(version.SecurityAnalysis))
+                    {
+                        <div class="alert alert-warning mb-2 mt-2"><b>Security Analysis:</b> @version.SecurityAnalysis</div>
+                    }
                     @if (!string.IsNullOrWhiteSpace(version.AISummary))
                     {
                         <div class="alert alert-info mb-2 mt-2"><b>AI Summary:</b> @version.AISummary</div>
@@ -123,7 +131,7 @@ else
             {
                 <div class="mb-4 mt-4">
                     <h5>Update Progress:</h5>
-                    <Terminal @ref=_terminal/>
+                    <Terminal @ref=_terminal />
                 </div>
             }
         } else

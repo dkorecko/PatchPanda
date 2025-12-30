@@ -14,7 +14,7 @@ public class UpdateServiceTests
     private readonly Mock<IAppriseService> _appriseService;
     private readonly Mock<IVersionService> _versionService;
     private readonly Mock<IDiscordService> _discordService;
-    private readonly Mock<IAIService> _aiService;
+    private readonly Mock<IAiService> _aiService;
     private readonly JobRegistry _jobRegistry;
 
     public UpdateServiceTests()
@@ -28,7 +28,7 @@ public class UpdateServiceTests
         _appriseService = new Mock<IAppriseService>();
         _versionService = new Mock<IVersionService>();
         _discordService = new Mock<IDiscordService>();
-        _aiService = new Mock<IAIService>();
+        _aiService = new Mock<IAiService>();
         _jobRegistry = new JobRegistry(new JobQueue());
     }
 

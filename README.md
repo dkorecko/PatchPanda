@@ -23,6 +23,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - AI-powered release note summarization and breaking change detection using Ollama or compatible LLM API.
 - Contains error handling, meaning if an update fails, it will do its best to revert to a working version. You also have a page available of all the past updates to view the stdout/stderr of each update operation.
 - Automatic non-breaking updates: You can now enable automatic updates in Settings. When enabled, PatchPanda will automatically apply updates that are not marked as breaking (and not analyzed as breaking by AI if enabled), after a configurable delay period.
+- Security Scanning: If enabled in settings and an LLM is configured (Ollama), PatchPanda can analyze the code changes (git diff) between versions to detect potential security issues like malicious code, backdoors, or suspicious network calls.
 
 Why this is different from Watchtower / DockGe / similar
 
@@ -63,7 +64,8 @@ Notifications
 AI Summarization (Ollama or compatible LLM API)
 
 - OLLAMA_URL - (optional) Base URL to your Ollama or compatible LLM API (example: `http://localhost:11434`). If set, PatchPanda will use this endpoint to generate AI-powered summaries and breaking change detection for release notes. If not set, the feature is disabled and the app will work as usual.
-- OLLAMA_MODEL - (optional) Model name to use for summarization.
+- OLLAMA_MODEL - (optional) Model name to use for summarization and security analysis.
+- OLLAMA_NUM_CTX - (optional) Context size to be used for summarization and security analysis. Defaults to 32768.
 
 Portainer
 
@@ -73,7 +75,7 @@ Portainer
 
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 
-You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL`.
+You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL`. The context size 
 
 When Portainer vars are present PatchPanda will authenticate to Portainer and use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service stores and re-uses the JWT returned by Portainer for API requests.
 
@@ -112,6 +114,7 @@ services:
       # - PORTAINER_PASSWORD=CHANGEME # if you wish to include stacks fully managed by Portainer
       # - OLLAMA_URL=http://localhost:11434 # optional, if you wish to use Ollama or compatible LLM API for release note summarization
       # - OLLAMA_MODEL=llama3 # optional, model name to use for summarization
+      # - OLLAMA_NUM_CTX=32768 # optional, context size to be used
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw # This can remain, no matter whether you're using Docker on Linux or Windows
       # DOCKER ON LINUX VARIANT

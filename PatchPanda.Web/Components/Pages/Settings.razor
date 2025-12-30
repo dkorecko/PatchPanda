@@ -36,6 +36,23 @@ else
                         </div>
                     </div>
                 </div>
+                </div>
+            </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Security Scanning
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Enable AI-powered security scanning for code diffs. This helps detect potential malicious code in updates.
+                    </p>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="securityScanningEnabled" checked="@_securityScanningEnabled" @onchange="OnSecurityScanningEnabledChanged">
+                        <label class="form-check-label" for="securityScanningEnabled">Enable Security Scanning</label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -49,6 +66,7 @@ else
     private bool _isLoading = true;
     private bool _autoUpdateEnabled;
     private int _autoUpdateDelayHours;
+    private bool _securityScanningEnabled;
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,6 +88,11 @@ else
         {
             _autoUpdateDelayHours = delay;
         }
+
+        if (settings.TryGetValue(Constants.SettingsKeys.SECURITY_SCANNING_ENABLED, out var secEnabledStr) && bool.TryParse(secEnabledStr, out var secEnabled))
+        {
+            _securityScanningEnabled = secEnabled;
+        }
     }
 
     private async Task OnAutoUpdateEnabledChanged(ChangeEventArgs e)
@@ -87,6 +110,15 @@ else
         {
             _autoUpdateDelayHours = val;
             await SaveSetting(Constants.SettingsKeys.AUTO_UPDATE_DELAY_HOURS, val.ToString());
+        }
+    }
+
+    private async Task OnSecurityScanningEnabledChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool val)
+        {
+            _securityScanningEnabled = val;
+            await SaveSetting(Constants.SettingsKeys.SECURITY_SCANNING_ENABLED, val.ToString().ToLower());
         }
     }
 

@@ -95,7 +95,12 @@ else
                         @if (appsWithNewerVersions.Count > 0)
                         {
                             <span class="badge text-bg-warning ms-2">@appsWithNewerVersions.Count updates</span>
-                        } else
+                        }
+                        @if (context.Apps.Any(x => x.NewerVersions.Any(v => v.IsSuspectedMalicious == true)))
+                        {
+                            <span class="badge text-bg-danger ms-2">SECURITY WARNING</span>
+                        }
+                        else
                         {
                             <span class="badge text-bg-success ms-2">All up-to-date</span>
                         }
@@ -253,7 +258,10 @@ else
                                             else
                                             {
                                                 <span class='badge text-bg-warning'>@newestVersion.VersionNumber</span>
-
+                                                @if (newestVersion.IsSuspectedMalicious == true)
+                                                {
+                                                    <span class="badge text-bg-danger ms-1" title="@newestVersion.SecurityAnalysis">MALICIOUS?</span>
+                                                }
                                                 if(newestVersion.Notified)
                                                 {
                                                     <span class="badge text-bg-info ms-1">Notified</span>
