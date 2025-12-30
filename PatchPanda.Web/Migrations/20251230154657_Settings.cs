@@ -16,7 +16,7 @@ namespace PatchPanda.Web.Migrations
                 table: "AppVersions",
                 type: "TEXT",
                 nullable: false,
-                defaultValueSql: "CURRENT_TIMESTAMP");
+                defaultValue: new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
 
             migrationBuilder.CreateTable(
                 name: "AppSettings",
