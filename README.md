@@ -24,9 +24,6 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Contains error handling, meaning if an update fails, it will do its best to revert to a working version. You also have a page available of all the past updates to view the stdout/stderr of each update operation.
 - Automatic non-breaking updates: You can now enable automatic updates in Settings. When enabled, PatchPanda will automatically apply updates that are not marked as breaking (and not analyzed as breaking by AI if enabled), after a configurable delay period.
 
-Planned / upcoming features
-- Ability for non-technical users of your server to subscribe to updates from specific containers, which will be provided in a simple and understandable manner.
-
 Why this is different from Watchtower / DockGe / similar
 
 - PatchPanda is release-oriented: it reads GitHub releases and their notes, not just the latest image on a registry. That gives you release notes, pre-release awareness, and a chance to inspect breaking-change markers.
