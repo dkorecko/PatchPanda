@@ -62,7 +62,7 @@ else
 
     private async Task LoadSettings()
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         var settings = await db.AppSettings.ToDictionaryAsync(x => x.Key, x => x.Value);
 
         if (settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr) && bool.TryParse(enabledStr, out var enabled))
