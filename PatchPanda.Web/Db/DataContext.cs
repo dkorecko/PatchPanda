@@ -13,6 +13,8 @@ public class DataContext(DbContextOptions<DataContext> options) : DbContext(opti
 
     public DbSet<AppVersion> AppVersions { get; set; } = default!;
 
+    public DbSet<AppSetting> AppSettings { get; set; } = default!;
+
     public DbSet<UpdateAttempt> UpdateAttempts { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -10,6 +10,11 @@ public static class Constants
 #endif
     public const string DB_NAME = "patchpanda.db";
 
+    public static class Cascading
+    {
+        public const string TOASTS = "TOASTS";
+    }
+
     public static class VariableKeys
     {
         public const string APPRISE_NOTIFICATION_URLS = "APPRISE_NOTIFICATION_URLS";
@@ -21,6 +26,12 @@ public static class Constants
         public const string PORTAINER_PASSWORD = "PORTAINER_PASSWORD";
         public const string OLLAMA_URL = "OLLAMA_URL";
         public const string OLLAMA_MODEL = "OLLAMA_MODEL";
+    }
+
+    public static class SettingsKeys
+    {
+        public const string AUTO_UPDATE_ENABLED = "AUTO_UPDATE_ENABLED";
+        public const string AUTO_UPDATE_DELAY_HOURS = "AUTO_UPDATE_DELAY_HOURS";
     }
 
     public static class Limits

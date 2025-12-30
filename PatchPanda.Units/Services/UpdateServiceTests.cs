@@ -15,6 +15,7 @@ public class UpdateServiceTests
     private readonly Mock<IVersionService> _versionService;
     private readonly Mock<IDiscordService> _discordService;
     private readonly Mock<IAIService> _aiService;
+    private readonly JobRegistry _jobRegistry;
 
     public UpdateServiceTests()
     {
@@ -28,6 +29,7 @@ public class UpdateServiceTests
         _versionService = new Mock<IVersionService>();
         _discordService = new Mock<IDiscordService>();
         _aiService = new Mock<IAIService>();
+        _jobRegistry = new JobRegistry(new JobQueue());
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -69,7 +71,8 @@ public class UpdateServiceTests
             _portainerService.Object,
             _versionService.Object,
             _appriseService.Object,
-            _discordService.Object
+            _discordService.Object,
+            _jobRegistry
         ).Update(stack.Apps[0], false);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
@@ -148,7 +151,8 @@ public class UpdateServiceTests
             _portainerService.Object,
             _versionService.Object,
             _appriseService.Object,
-            _discordService.Object
+            _discordService.Object,
+            _jobRegistry
         ).Update(stack.Apps[0], false);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
@@ -261,7 +265,8 @@ public class UpdateServiceTests
             _portainerService.Object,
             _versionService.Object,
             _appriseService.Object,
-            _discordService.Object
+            _discordService.Object,
+            _jobRegistry
         );
 
         var tasks = await updateService.Update(stack.Apps[0], false);
@@ -352,7 +357,8 @@ public class UpdateServiceTests
             _portainerService.Object,
             _versionService.Object,
             _appriseService.Object,
-            _discordService.Object
+            _discordService.Object,
+            _jobRegistry
         );
 
         using var initialCheck = dbContextFactory.CreateDbContext();

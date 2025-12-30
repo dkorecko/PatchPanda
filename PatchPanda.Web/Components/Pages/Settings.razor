@@ -1,0 +1,112 @@
+@page "/settings"
+@inject IDbContextFactory<DataContext> _dbContextFactory
+
+<PageTitle>Settings - @Constants.APP_NAME</PageTitle>
+
+<h1>Settings</h1>
+
+@if (_isLoading)
+{
+    <div class="spinner-grow" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    Automatic Updates
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Configure automatic updates for your containers. PatchPanda can automatically update containers when a new version is discovered, provided that the update is non-breaking.
+                    </p>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="autoUpdateEnabled" checked="@_autoUpdateEnabled" @onchange="OnAutoUpdateEnabledChanged">
+                        <label class="form-check-label" for="autoUpdateEnabled">Enable Automatic Updates (Non-breaking only)</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="updateDelay" class="form-label">Update Delay (Hours)</label>
+                        <input type="number" class="form-control" id="updateDelay" value="@_autoUpdateDelayHours" @onchange="OnDelayChanged" disabled="@(!_autoUpdateEnabled)">
+                        <div class="form-text">
+                            How many hours to wait after discovering a new version before applying it. This gives time for issues to be reported by others.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+
+    [CascadingParameter(Name = Constants.Cascading.TOASTS)]
+    public Toasts? Toasts { get; set; }
+    
+    private bool _isLoading = true;
+    private bool _autoUpdateEnabled;
+    private int _autoUpdateDelayHours;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+        _isLoading = false;
+    }
+
+    private async Task LoadSettings()
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var settings = await db.AppSettings.ToDictionaryAsync(x => x.Key, x => x.Value);
+
+        if (settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr) && bool.TryParse(enabledStr, out var enabled))
+        {
+            _autoUpdateEnabled = enabled;
+        }
+
+        if (settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_DELAY_HOURS, out var delayStr) && int.TryParse(delayStr, out var delay))
+        {
+            _autoUpdateDelayHours = delay;
+        }
+    }
+
+    private async Task OnAutoUpdateEnabledChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool val)
+        {
+            _autoUpdateEnabled = val;
+            await SaveSetting(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, val.ToString());
+        }
+    }
+
+    private async Task OnDelayChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+        {
+            _autoUpdateDelayHours = val;
+            await SaveSetting(Constants.SettingsKeys.AUTO_UPDATE_DELAY_HOURS, val.ToString());
+        }
+    }
+
+    private async Task SaveSetting(string key, string value)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        var setting = await db.AppSettings.FindAsync(key);
+
+        if (setting == null)
+        {
+            setting = new() { Key = key, Value = value };
+            db.AppSettings.Add(setting);
+        }
+        else
+        {
+            setting.Value = value;
+        }
+
+        await db.SaveChangesAsync();
+        StateHasChanged();
+        Toasts?.RunToast(new("Settings saved.", Toasts.ToastType.Success));
+    }
+}

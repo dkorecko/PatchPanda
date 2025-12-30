@@ -20,5 +20,7 @@ public class AppVersion : AbstractEntity
 
     public bool Ignored { get; set; }
 
+    public DateTime DateDiscovered { get; set; } = DateTime.Now;
+
     public virtual List<Container> Applications { get; set; } = [];
 }

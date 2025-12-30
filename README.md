@@ -22,11 +22,7 @@ This README covers what PatchPanda can do, what it intentionally doesn't do, how
 - Integrate with Portainer API to update its managed compose stacks.
 - AI-powered release note summarization and breaking change detection using Ollama or compatible LLM API.
 - Contains error handling, meaning if an update fails, it will do its best to revert to a working version. You also have a page available of all the past updates to view the stdout/stderr of each update operation.
-
-Planned / upcoming features
-
-- Automatic non-breaking updates: a future enhancement will be able to apply updates automatically when the new release is classified as non-breaking. This is currently not allowed due to the beta nature.
-- Ability for non-technical users of your server to subscribe to updates from specific containers, which will be provided in a simple and understandable manner.
+- Automatic non-breaking updates: You can now enable automatic updates in Settings. When enabled, PatchPanda will automatically apply updates that are not marked as breaking (and not analyzed as breaking by AI if enabled), after a configurable delay period.
 
 Why this is different from Watchtower / DockGe / similar
 
