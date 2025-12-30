@@ -75,7 +75,7 @@ Portainer
 
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 
-You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL`. The context size 
+You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL` and the context size can be configured with `OLLAMA_NUM_CTX` (defaults to 32768 tokens if not set).
 
 When Portainer vars are present PatchPanda will authenticate to Portainer and use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service stores and re-uses the JWT returned by Portainer for API requests.
 

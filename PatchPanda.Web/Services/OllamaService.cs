@@ -42,7 +42,7 @@ public class OllamaService : IAiService
 
         var contextSize = config[Constants.VariableKeys.OLLAMA_NUM_CTX];
         
-        if(contextSize is not null && int.TryParse(contextSize, out var contextSizeInt))
+        if (contextSize is not null && int.TryParse(contextSize, out var contextSizeInt))
             _contextSize = contextSizeInt;
 
         _isInitialized = true;
