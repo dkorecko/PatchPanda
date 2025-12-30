@@ -14,6 +14,7 @@ public class UpdateService
     private readonly IVersionService _versionService;
     private readonly IAppriseService _appriseService;
     private readonly IDiscordService _discordService;
+    private readonly JobRegistry _jobRegistry;
 
     public UpdateService(
         DockerService dockerService,
@@ -23,7 +24,8 @@ public class UpdateService
         IPortainerService portainerService,
         IVersionService versionService,
         IAppriseService appriseService,
-        IDiscordService discordService
+        IDiscordService discordService,
+        JobRegistry jobRegistry
     )
     {
         _dockerService = dockerService;
@@ -34,6 +36,7 @@ public class UpdateService
         _versionService = versionService;
         _appriseService = appriseService;
         _discordService = discordService;
+        _jobRegistry = jobRegistry;
     }
 
     public bool IsUpdateAvailable(Container app) =>
@@ -164,6 +167,51 @@ public class UpdateService
                     );
                 }
             }
+        }
+
+        await ProcessAutoUpdates(db);
+    }
+
+    private async Task ProcessAutoUpdates(DataContext db)
+    {
+        var settings = await db.AppSettings.ToDictionaryAsync(x => x.Key, x => x.Value);
+
+        if (!settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr) || !bool.TryParse(enabledStr, out var enabled) || !enabled)
+            return;
+
+        var delayHours = 0;
+        
+        if (settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_DELAY_HOURS, out var delayStr))
+            int.TryParse(delayStr, out delayHours);
+
+        var threshold = DateTime.Now.AddHours(-delayHours);
+
+        var candidates = await db.Containers
+            .Include(x => x.NewerVersions)
+            .Where(x => x.NewerVersions.Any(
+                v => !v.Ignored
+                && !v.Breaking
+                && v.AIBreaking != true
+                && v.DateDiscovered < threshold
+            ))
+            .ToListAsync();
+
+        foreach (var container in candidates)
+        {
+            if (_jobRegistry.GetQueuedUpdateForContainer(container.Id) is not null
+                || _jobRegistry.GetProcessingUpdateForContainer(container.Id) is not null)
+                continue;
+
+            var targetVersion = container.NewerVersions
+                .Where(v => v is { Ignored: false, Breaking: false, AIBreaking: not true } && v.DateDiscovered < threshold)
+                .OrderByDescending(v => v.VersionNumber, Comparer<string>.Create(VersionHelper.NewerComparison))
+                .FirstOrDefault();
+
+            if (targetVersion == null) 
+                continue;
+            
+            _logger.LogInformation("Auto-queueing update for {Container} to version {Version}", container.Name, targetVersion.VersionNumber);
+            await _jobRegistry.MarkForUpdate(container.Id, targetVersion.Id, targetVersion.VersionNumber);
         }
     }
 

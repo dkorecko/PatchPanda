@@ -23,6 +23,12 @@ public static class Constants
         public const string OLLAMA_MODEL = "OLLAMA_MODEL";
     }
 
+    public static class SettingsKeys
+    {
+        public const string AUTO_UPDATE_ENABLED = "AUTO_UPDATE_ENABLED";
+        public const string AUTO_UPDATE_DELAY_HOURS = "AUTO_UPDATE_DELAY_HOURS";
+    }
+
     public static class Limits
     {
         public const int MAX_OLLAMA_ATTEMPTS = 3;
