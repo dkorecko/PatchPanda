@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject IDbContextFactory<DataContext> _dbContextFactory
+@inject IConfiguration Configuration
 @implements IDisposable
 
 <Toasts @ref="_toasts"/>
@@ -11,8 +12,9 @@
         </div>
 
         <main>
-            <div class="top-row px-4">
-                <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <div class="top-row px-4 gap-2">
+                <span>Version: @(Configuration[Constants.VariableKeys.APP_VERSION] ?? "dev")</span>
+                <a href="https://github.com/dkorecko/PatchPanda" target="_blank">GitHub</a>
             </div>
 
             <article class="content px-4">

@@ -61,4 +61,9 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/publish .
+
+ARG RELEASE_VERSION
+ENV APP_VERSION=$RELEASE_VERSION
+LABEL version=$RELEASE_VERSION
+
 ENTRYPOINT ["dotnet", "PatchPanda.Web.dll"]

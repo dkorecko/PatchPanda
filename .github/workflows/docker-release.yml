@@ -41,6 +41,8 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm
           file: ./Dockerfile
           push: true
+          build-args: |
+            RELEASE_VERSION=${{ env.RELEASE_VERSION }}
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}:${{ env.RELEASE_VERSION }}
             ghcr.io/${{ env.REPO_LOWER }}:latest
