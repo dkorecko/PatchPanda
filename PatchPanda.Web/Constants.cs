@@ -27,6 +27,7 @@ public static class Constants
         public const string OLLAMA_URL = "OLLAMA_URL";
         public const string OLLAMA_MODEL = "OLLAMA_MODEL";
         public const string OLLAMA_NUM_CTX = "OLLAMA_NUM_CTX";
+        public const string APP_VERSION = "APP_VERSION";
     }
 
     public static class SettingsKeys

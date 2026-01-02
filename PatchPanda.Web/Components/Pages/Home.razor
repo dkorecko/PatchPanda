@@ -129,7 +129,7 @@ else
                         }
                     </button>
                 </h4>
-                <div id=@stackId class="accordion-collapse collapse" data-bs-parent="#stacksAccordion">
+                <div id=@stackId class="accordion-collapse collapse">
                     <div class="accordion-body">
                         <button class="btn btn-primary" type="button" disabled="@(_jobRegistry.IsQueuedRestartForStack(context.Id) || _jobRegistry.IsProcessingRestartForStack(context.Id))" @onclick="() => RestartStack(context)">
                             @if (_jobRegistry.IsProcessingRestartForStack(context.Id))
