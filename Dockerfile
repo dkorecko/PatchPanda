@@ -62,7 +62,7 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=build /app/publish .
 
-ARG RELEASE_VERSION=dev
+ARG RELEASE_VERSION
 ENV APP_VERSION=$RELEASE_VERSION
 LABEL version=$RELEASE_VERSION
 
