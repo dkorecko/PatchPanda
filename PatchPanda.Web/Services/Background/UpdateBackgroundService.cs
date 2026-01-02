@@ -123,7 +123,7 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 IDbContextFactory<DataContext>
                             >();
 
-                            using var db = dbFactory.CreateDbContext();
+                            await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
                             var app = await db
                                 .Containers.Include(x => x.NewerVersions)
                                 .FirstOrDefaultAsync(
@@ -145,14 +145,50 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 return;
                             }
 
-                            await updateService.Update(
-                                app,
-                                false,
-                                (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
-                                app.NewerVersions.FirstOrDefault(v =>
-                                    v.Id == updateJob.TargetVersionId
-                                )
-                            );
+                            var success = false;
+                            string? error = null;
+                            try
+                            {
+                                await updateService.Update(
+                                    app,
+                                    false,
+                                    (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
+                                    app.NewerVersions.FirstOrDefault(v =>
+                                        v.Id == updateJob.TargetVersionId
+                                    )
+                                );
+                                success = true;
+                            }
+                            catch (Exception ex)
+                            {
+                                error = ex.Message;
+                                throw;
+                            }
+                            finally
+                            {
+                                if (updateJob.IsAutomatic)
+                                {
+                                    try
+                                    {
+                                        var discord = scope.ServiceProvider.GetRequiredService<IDiscordService>();
+                                        var apprise = scope.ServiceProvider.GetRequiredService<IAppriseService>();
+
+                                        var message = NotificationMessageBuilder.BuildAutoUpdateResult(
+                                            app,
+                                            updateJob.TargetVersionNumber,
+                                            success,
+                                            error
+                                        );
+
+                                        if (discord.IsInitialized) await discord.SendRawAsync(message);
+                                        if (apprise.IsInitialized) await apprise.SendAsync(message, cancellationToken);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        logger.LogError(ex, "Failed to send automatic update notification");
+                                    }
+                                }
+                            }
                         }
                     );
                     break;

@@ -4,5 +4,6 @@ public record UpdateJob(
     long Sequence,
     int ContainerId,
     int TargetVersionId,
-    string TargetVersionNumber
+    string TargetVersionNumber,
+    bool IsAutomatic = false
 ) : AbstractJob(Sequence);

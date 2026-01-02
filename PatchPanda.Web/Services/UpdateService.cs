@@ -83,7 +83,7 @@ public class UpdateService
                 );
                 try
                 {
-                    var otherApps = currentVersionGroup.Skip(1);
+                    var otherApps = currentVersionGroup.Skip(1).ToList();
 
                     var newerVersions = await _versionService.GetNewerVersions(
                         mainApp,
@@ -212,7 +212,7 @@ public class UpdateService
                 continue;
             
             _logger.LogInformation("Auto-queueing update for {Container} to version {Version}", container.Name, targetVersion.VersionNumber);
-            await _jobRegistry.MarkForUpdate(container.Id, targetVersion.Id, targetVersion.VersionNumber);
+            await _jobRegistry.MarkForUpdate(container.Id, targetVersion.Id, targetVersion.VersionNumber, true);
         }
     }
 

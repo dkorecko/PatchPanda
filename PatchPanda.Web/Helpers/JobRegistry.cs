@@ -15,6 +15,7 @@ public class PendingUpdateJob : PendingUpdate
     public required int ContainerId { get; set; }
     public required int TargetVersionId { get; set; }
     public required string TargetVersionNumber { get; set; }
+    public bool IsAutomatic { get; set; }
     public override string Kind => "Update";
 }
 
@@ -51,7 +52,8 @@ public class JobRegistry
     public async Task MarkForUpdate(
         int containerId,
         int targetVersionId,
-        string targetVersionNumber
+        string targetVersionNumber,
+        bool isAutomatic = false
     )
     {
         var seq = GetNextSequence();
@@ -61,13 +63,14 @@ public class JobRegistry
             ContainerId = containerId,
             TargetVersionId = targetVersionId,
             TargetVersionNumber = targetVersionNumber,
+            IsAutomatic = isAutomatic,
             Sequence = seq
         };
 
         _pending.TryAdd(seq, pending);
 
         await _updateQueue.EnqueueAsync(
-            new UpdateJob(seq, containerId, targetVersionId, targetVersionNumber)
+            new UpdateJob(seq, containerId, targetVersionId, targetVersionNumber, isAutomatic)
         );
     }
 
@@ -183,6 +186,7 @@ public class JobRegistry
                     ContainerId = pendingUpdateJob.ContainerId,
                     TargetVersionId = pendingUpdateJob.TargetVersionId,
                     TargetVersionNumber = pendingUpdateJob.TargetVersionNumber,
+                    IsAutomatic = pendingUpdateJob.IsAutomatic,
                     IsProcessing = pendingUpdateJob.IsProcessing,
                     Sequence = pendingUpdateJob.Sequence
                 };
