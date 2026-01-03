@@ -210,6 +210,11 @@ public class UpdateService
 
             if (targetVersion == null) 
                 continue;
+
+            var plan = await Update(container, true, targetVersion: targetVersion);
+
+            if (plan is null)
+                continue;
             
             _logger.LogInformation("Auto-queueing update for {Container} to version {Version}", container.Name, targetVersion.VersionNumber);
             await _jobRegistry.MarkForUpdate(container.Id, targetVersion.Id, targetVersion.VersionNumber, true);
