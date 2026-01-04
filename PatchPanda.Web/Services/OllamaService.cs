@@ -162,19 +162,17 @@ public class OllamaService : IAiService
             );
             var combinedAnalyses = string.Join("\n\n", analyses);
             var finalPrompt =
-                "You are a security expert. The git diff was too large and was analyzed in multiple chunks. "
-                + "Below are the per-chunk short findings. Please provide a single consolidated analysis combining these findings, "
-                + "and indicate whether the overall diff is suspected malicious. Be concise.\n\nPer-chunk findings:\n"
-                + combinedAnalyses
-                + "\n\n **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}.";
+                @$"You are a security expert. The git diff was too large and was analyzed in multiple chunks. Below are the per-chunk short findings. Please provide a single consolidated analysis combining these findings, and indicate whether the overall diff is suspected malicious. Be concise.
 
+                Per-chunk findings:
+                {combinedAnalyses}
+
+                 **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {{""analysis"": string (short summary of findings), ""isSuspectedMalicious"": bool}}.";
             var finalResult = await SendPrompt<SecurityAnalysisResult>(finalPrompt);
             if (finalResult != null)
             {
                 return finalResult;
             }
-
-            // If final summarization failed, fall back to returning the combined chunk analyses
         }
 
         return new SecurityAnalysisResult
