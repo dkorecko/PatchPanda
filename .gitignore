@@ -365,3 +365,6 @@ FodyWeavers.xsd
 /PatchPanda.Web/patchpanda.db-shm
 /PatchPanda.Web/patchpanda.db-wal
 /PatchPanda.Web/app/data
+
+# Idea
+.idea/
