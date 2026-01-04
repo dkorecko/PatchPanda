@@ -117,7 +117,12 @@ public class DockerService
                             : null,
                     };
 
-                    if (existingStack.ConfigFile is null && _portainerService.IsConfigured)
+                    if (
+                        (
+                            existingStack.ConfigFile is null
+                            || !_fileService.Exists(existingStack.ConfigFile)
+                        ) && _portainerService.IsConfigured
+                    )
                     {
                         var stackFileContent = await _portainerService.GetStackFileContentAsync(
                             stackName
