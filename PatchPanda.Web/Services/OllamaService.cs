@@ -58,7 +58,7 @@ public class OllamaService : IAiService
 
     public bool IsInitialized() => _isInitialized;
 
-    private async Task<T?> SendPrompt<T>(string prompt)
+    private async Task<T?> SendPrompt<T>(string prompt, string? enforceFormat = null)
         where T : class, IAiResult
     {
         if (!_isInitialized)
@@ -66,10 +66,14 @@ public class OllamaService : IAiService
 
         using var httpClient = _httpClientFactory.CreateClient();
 
+        var enforceFormatString = enforceFormat is not null
+            ? $"\n\n**RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {enforceFormat}"
+            : null;
+
         var request = new
         {
             model = _model,
-            prompt,
+            prompt = prompt + (enforceFormatString ?? string.Empty),
             stream = false,
             options = new { num_ctx = _contextSize },
         };
@@ -102,12 +106,15 @@ public class OllamaService : IAiService
         }
     }
 
-    public async Task<SummaryResult?> SummarizeReleaseNotes(string releaseNotes) =>
-        await SendPrompt<SummaryResult>(
-            $"Summarize the following release notes in one short paragraph (3-5 sentences), formulated for the people self-hosting this application. Only highlight important changes and cool new features. Also, determine if there are any breaking changes. \n\nRelease notes:\n{releaseNotes}\n\n **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {{\"summary\": string, \"breaking\": bool}}."
-        );
-
-    public async Task<SecurityAnalysisResult?> AnalyzeDiff(string diff)
+    private async Task<T?> SendPromptWithChunking<T>(
+        string text,
+        Func<string, string> buildPrompt,
+        Func<T, string> extractChunkSummary,
+        Func<List<string>, string> buildFinalPrompt,
+        Func<List<T>, T> buildFallback,
+        string? jsonTemplate = null
+    )
+        where T : class, IAiResult
     {
         if (!_isInitialized)
             return null;
@@ -115,77 +122,98 @@ public class OllamaService : IAiService
         // Estimate character limit per chunk (tokens to chars, conservative 1 token = 2.5 chars)
         // Leave room for the prompt - 200
         var maxCharsPerChunk = (int)((_contextSize - 200) * 2.5);
+
         if (maxCharsPerChunk <= 0)
             maxCharsPerChunk = 4096; // Fallback
 
-        if (diff.Length <= maxCharsPerChunk)
-        {
-            return await SendPrompt<SecurityAnalysisResult>(
-                $"You are a security expert. Analyze the following git diff for any malicious code, backdoors, obfuscated code, or suspicious network calls. \n\nDiff:\n{diff}\n\n **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {{\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}}."
-            );
-        }
+        if (text.Length <= maxCharsPerChunk)
+            return await SendPrompt<T>(buildPrompt(text), jsonTemplate);
 
         _logger.LogInformation(
-            "Diff is too large ({Length} chars), splitting into chunks...",
-            diff.Length
+            "Text is too large ({Length} chars), splitting into chunks...",
+            text.Length
         );
 
         var chunks = new List<string>();
-        for (var i = 0; i < diff.Length; i += maxCharsPerChunk)
+        for (var i = 0; i < text.Length; i += maxCharsPerChunk)
         {
-            chunks.Add(diff.Substring(i, Math.Min(maxCharsPerChunk, diff.Length - i)));
+            chunks.Add(text.Substring(i, Math.Min(maxCharsPerChunk, text.Length - i)));
         }
+        var perChunkSummaries = new List<string>();
+        var perChunkResults = new List<T>();
 
-        var analyses = new List<string>();
-        var isAnyMalicious = false;
-
-        for (int i = 0; i < chunks.Count; i++)
+        for (var i = 0; i < chunks.Count; i++)
         {
-            _logger.LogInformation("Analyzing chunk {Current}/{Total}...", i + 1, chunks.Count);
-            var result = await SendPrompt<SecurityAnalysisResult>(
-                $"You are a security expert. Analyze the following chunk ({i + 1}/{chunks.Count}) of a git diff for any malicious code, backdoors, obfuscated code, or suspicious network calls. \n\nDiff Chunk:\n{chunks[i]}\n\n **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {{\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}}."
-            );
-
+            _logger.LogInformation("Processing chunk {Current}/{Total}...", i + 1, chunks.Count);
+            var result = await SendPrompt<T>(buildPrompt(chunks[i]), jsonTemplate);
             if (result == null)
                 continue;
 
-            analyses.Add($"Chunk {i + 1}: {result.Analysis}");
-            if (result.IsSuspectedMalicious)
-                isAnyMalicious = true;
+            perChunkResults.Add(result);
+            perChunkSummaries.Add($"Chunk {i + 1}: {extractChunkSummary(result)}");
         }
 
-        // If we split into multiple chunks, ask the model one more time to summarize all chunk analyses
-        if (chunks.Count > 1)
-        {
-            _logger.LogInformation(
-                "Requesting final summary of all chunk analyses from the model..."
-            );
-            var combinedAnalyses = string.Join("\n\n", analyses);
-            var finalPrompt =
-                @$"You are a security expert. The git diff was too large and was analyzed in multiple chunks. Below are the per-chunk short findings. Please provide a single consolidated analysis combining these findings, and indicate whether the overall diff is suspected malicious. Be concise.
+        if (chunks.Count <= 1)
+            return buildFallback(perChunkResults);
+
+        _logger.LogInformation("Requesting final summary of all chunk summaries from the model...");
+
+        var finalPrompt = buildFinalPrompt(perChunkSummaries);
+        var finalResult = await SendPrompt<T>(finalPrompt, jsonTemplate);
+
+        return finalResult ?? buildFallback(perChunkResults);
+    }
+
+    public async Task<SummaryResult?> SummarizeReleaseNotes(string releaseNotes)
+    {
+        return await SendPromptWithChunking<SummaryResult>(
+            releaseNotes,
+            whole =>
+                $"Summarize the following release notes in one short paragraph (3-5 sentences), formulated for the people self-hosting this application. Only highlight important changes and cool new features. Also, determine if there are any breaking changes. \n\nRelease notes:\n{whole}",
+            r => r.Summary,
+            perChunkSummaries =>
+                $"""
+                Summarize the following release notes that were analyzed in multiple chunks. Provide a single consolidated summary (1 short paragraph, 3-5 sentences) suitable for self-hosting users, and indicate whether the release contains any breaking changes. Be concise.
+
+                Per-chunk summaries:
+                {string.Join("\n\n", perChunkSummaries)}
+                """,
+            results =>
+                new()
+                {
+                    Summary = string.Join("\n\n", results.Select(r => r.Summary)),
+                    Breaking = results.Any(r => r.Breaking),
+                },
+            "{\"summary\": string, \"breaking\": bool}"
+        );
+    }
+
+    public async Task<SecurityAnalysisResult?> AnalyzeDiff(string diff)
+    {
+        return await SendPromptWithChunking<SecurityAnalysisResult>(
+            diff,
+            whole =>
+                $"You are a security expert. Analyze the following git diff for any malicious code, backdoors, obfuscated code, or suspicious network calls. \n\nDiff:\n{whole}",
+            r => r.Analysis,
+            perChunkSummaries =>
+                $"""
+                You are a security expert. The git diff was too large and was analyzed in multiple chunks. Below are the per-chunk short findings. Please provide a single consolidated analysis combining these findings, and indicate whether the overall diff is suspected malicious. Be concise.
 
                 Per-chunk findings:
-                {combinedAnalyses}
-
-                 **RESPOND IN THE PROVIDED JSON FORMAT** You MUST respond in JSON no matter the circumstance: {{""analysis"": string (short summary of findings), ""isSuspectedMalicious"": bool}}.";
-            var finalResult = await SendPrompt<SecurityAnalysisResult>(finalPrompt);
-            if (finalResult != null)
+                {string.Join("\n\n", perChunkSummaries)}
+                """,
+            results => new SecurityAnalysisResult
             {
-                return finalResult;
-            }
-        }
-
-        return new SecurityAnalysisResult
-        {
-            Analysis = string.Join("\n\n", analyses),
-            IsSuspectedMalicious = isAnyMalicious,
-        };
+                Analysis = string.Join("\n\n", results.Select(r => r.Analysis)),
+                IsSuspectedMalicious = results.Any(r => r.IsSuspectedMalicious),
+            },
+            "{\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}"
+        );
     }
 
     public class OllamaResult
     {
         public required string Response { get; set; }
-
         public string? Thinking { get; set; }
     }
 }
