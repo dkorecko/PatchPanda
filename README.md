@@ -138,10 +138,15 @@ Once the application is running, you can access it in your browser at `http://lo
 ## Screenshots
 
 ![Image of the homepage](screenshots/home.png)
-![Image of a single line with a pending update](screenshots/line.png)
 ![Image of the page with release notes and ability to update](screenshots/versions.png)
 ![Image of the ongoing update](screenshots/terminal.png)
+![Image of the Queue page](screenshots/queue.png)
+![Image of the Update Attempts page](screenshots/attempts.png)
+![Image of the output of an update attempt](screenshots/attempt-output.png)
+![Image of the Settings page](screenshots/settings.png)
+![Image of the Notifications page](screenshots/notifications.png)
 ![Image of the Discord notification](screenshots/discord.png)
+![Image of the Discord auto-update notifications](screenshots/discord-auto-update.png)
 
 ## Homepage widget
 
