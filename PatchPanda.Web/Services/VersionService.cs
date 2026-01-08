@@ -50,7 +50,7 @@ public class VersionService : IVersionService
 
     public async Task<IReadOnlyList<Release>> GetVersions(Tuple<string, string> repo)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Going to initiate request to get newer versions for {RepoOwner}/{RepoName}",
             repo.Item1,
             repo.Item2
@@ -73,7 +73,12 @@ public class VersionService : IVersionService
                 )
             );
 
-            _logger.LogInformation("Got {Count} releases.", allReleases.Count);
+            _logger.LogDebug(
+                "Got {Count} releases for {RepoOwner}/{RepoName}.",
+                allReleases.Count,
+                repo.Item1,
+                repo.Item2
+            );
 
             return allReleases;
         }
@@ -181,7 +186,8 @@ public class VersionService : IVersionService
                     if (versionMatch.Success)
                     {
                         var currentRelease = allReleases.FirstOrDefault(r =>
-                            r.TagName is not null && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
+                            r.TagName is not null
+                            && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
                         );
 
                         if (currentRelease != null)
@@ -196,14 +202,17 @@ public class VersionService : IVersionService
                                 notSeenNewVersion.VersionNumber
                             );
 
-                            var textToAnalyze = string.Concat(diff.Files.Select(f => f.Patch ?? ""));
+                            var textToAnalyze = string.Concat(
+                                diff.Files.Select(f => f.Patch ?? "")
+                            );
 
                             var analysis = await _aiService.AnalyzeDiff(textToAnalyze);
 
                             if (analysis is not null)
                             {
                                 notSeenNewVersion.SecurityAnalysis = analysis.Analysis;
-                                notSeenNewVersion.IsSuspectedMalicious = analysis.IsSuspectedMalicious;
+                                notSeenNewVersion.IsSuspectedMalicious =
+                                    analysis.IsSuspectedMalicious;
                             }
                         }
                     }
