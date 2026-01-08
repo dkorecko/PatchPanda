@@ -60,7 +60,7 @@ public class UpdateService
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
-            _logger.LogInformation("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
+            _logger.LogDebug("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
 
             var currentVersionGroups = uniqueRepoGroup
                 .GroupBy(x => x.Version)
@@ -68,16 +68,16 @@ public class UpdateService
 
             foreach (var currentVersionGroup in currentVersionGroups)
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Checking version group: {Repo} {Version}",
                     uniqueRepoGroup.Key,
                     currentVersionGroup.Key
                 );
-                _logger.LogInformation("Got {Count} containers", currentVersionGroup.Count());
+                _logger.LogDebug("Got {Count} containers", currentVersionGroup.Count());
 
                 var mainApp = currentVersionGroup.First();
 
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Selected {MainApp} as main application for getting releases",
                     mainApp.Name
                 );
@@ -176,48 +176,77 @@ public class UpdateService
     {
         var settings = await db.AppSettings.ToDictionaryAsync(x => x.Key, x => x.Value);
 
-        if (!settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr) || !bool.TryParse(enabledStr, out var enabled) || !enabled)
+        if (
+            !settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr)
+            || !bool.TryParse(enabledStr, out var enabled)
+            || !enabled
+        )
             return;
 
         var delayHours = 0;
-        
+
         if (settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_DELAY_HOURS, out var delayStr))
             int.TryParse(delayStr, out delayHours);
 
         var threshold = DateTime.Now.AddHours(-delayHours);
 
-        var candidates = await db.Containers
-            .Include(x => x.NewerVersions)
-            .Where(x => x.NewerVersions.Any(
-                v => !v.Ignored
-                && !v.Breaking
-                && v.AIBreaking != true
-                && v.IsSuspectedMalicious != true
-                && v.DateDiscovered < threshold
-            ))
+        var candidates = await db
+            .Containers.Include(x => x.NewerVersions)
+            .Where(x =>
+                x.NewerVersions.Any(v =>
+                    !v.Ignored
+                    && !v.Breaking
+                    && v.AIBreaking != true
+                    && v.IsSuspectedMalicious != true
+                    && v.DateDiscovered < threshold
+                )
+            )
             .ToListAsync();
 
         foreach (var container in candidates)
         {
-            if (_jobRegistry.GetQueuedUpdateForContainer(container.Id) is not null
-                || _jobRegistry.GetProcessingUpdateForContainer(container.Id) is not null)
+            if (
+                _jobRegistry.GetQueuedUpdateForContainer(container.Id) is not null
+                || _jobRegistry.GetProcessingUpdateForContainer(container.Id) is not null
+            )
                 continue;
 
-            var targetVersion = container.NewerVersions
-                .Where(v => v is { Ignored: false, Breaking: false, AIBreaking: not true, IsSuspectedMalicious: not true } && v.DateDiscovered < threshold)
-                .OrderByDescending(v => v.VersionNumber, Comparer<string>.Create(VersionHelper.NewerComparison))
+            var targetVersion = container
+                .NewerVersions.Where(v =>
+                    v
+                        is {
+                            Ignored: false,
+                            Breaking: false,
+                            AIBreaking: not true,
+                            IsSuspectedMalicious: not true
+                        }
+                    && v.DateDiscovered < threshold
+                )
+                .OrderByDescending(
+                    v => v.VersionNumber,
+                    Comparer<string>.Create(VersionHelper.NewerComparison)
+                )
                 .FirstOrDefault();
 
-            if (targetVersion == null) 
+            if (targetVersion == null)
                 continue;
 
             var plan = await Update(container, true, targetVersion: targetVersion);
 
             if (plan is null)
                 continue;
-            
-            _logger.LogInformation("Auto-queueing update for {Container} to version {Version}", container.Name, targetVersion.VersionNumber);
-            await _jobRegistry.MarkForUpdate(container.Id, targetVersion.Id, targetVersion.VersionNumber, true);
+
+            _logger.LogInformation(
+                "Auto-queueing update for {Container} to version {Version}",
+                container.Name,
+                targetVersion.VersionNumber
+            );
+            await _jobRegistry.MarkForUpdate(
+                container.Id,
+                targetVersion.Id,
+                targetVersion.VersionNumber,
+                true
+            );
         }
     }
 
