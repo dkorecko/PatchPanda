@@ -258,7 +258,7 @@ public class UpdateService
     )
     {
         if (!IsUpdateAvailable(app))
-            throw new Exception("Update is not available.");
+            return null;
 
         DateTime startedAt = DateTime.UtcNow;
 
