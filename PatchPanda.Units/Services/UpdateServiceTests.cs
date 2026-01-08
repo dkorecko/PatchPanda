@@ -73,7 +73,7 @@ public class UpdateServiceTests
             _appriseService.Object,
             _discordService.Object,
             _jobRegistry
-        ).Update(stack.Apps[0], false);
+        ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
 
@@ -153,7 +153,7 @@ public class UpdateServiceTests
             _appriseService.Object,
             _discordService.Object,
             _jobRegistry
-        ).Update(stack.Apps[0], false);
+        ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
         var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
 
@@ -269,7 +269,11 @@ public class UpdateServiceTests
             _jobRegistry
         );
 
-        var tasks = await updateService.Update(stack.Apps[0], false);
+        var tasks = await updateService.Update(
+            stack.Apps[0],
+            false,
+            stack.Apps[0].NewerVersions[0]
+        );
 
         Assert.NotNull(tasks);
 
@@ -370,7 +374,11 @@ public class UpdateServiceTests
 
         Assert.True(hasVersion);
 
-        var tasks = await updateService.Update(stack.Apps[0], false);
+        var tasks = await updateService.Update(
+            stack.Apps[0],
+            false,
+            stack.Apps[0].NewerVersions[0]
+        );
 
         using var dbCheck = dbContextFactory.CreateDbContext();
         var apps = await dbCheck.Containers.OrderBy(x => x.Name).ToListAsync();

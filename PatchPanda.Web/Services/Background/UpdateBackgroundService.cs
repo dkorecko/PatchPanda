@@ -123,7 +123,9 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 IDbContextFactory<DataContext>
                             >();
 
-                            await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+                            await using var db = await dbFactory.CreateDbContextAsync(
+                                cancellationToken
+                            );
                             var app = await db
                                 .Containers.Include(x => x.NewerVersions)
                                 .FirstOrDefaultAsync(
@@ -145,6 +147,13 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 return;
                             }
 
+                            var targetVersion = app.NewerVersions.FirstOrDefault(v =>
+                                v.Id == updateJob.TargetVersionId
+                            );
+
+                            if (targetVersion is null)
+                                return;
+
                             var success = false;
                             string? error = null;
                             try
@@ -152,10 +161,8 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 await updateService.Update(
                                     app,
                                     false,
-                                    (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
-                                    app.NewerVersions.FirstOrDefault(v =>
-                                        v.Id == updateJob.TargetVersionId
-                                    )
+                                    targetVersion,
+                                    (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line)
                                 );
                                 success = true;
                             }
@@ -170,22 +177,30 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                                 {
                                     try
                                     {
-                                        var discord = scope.ServiceProvider.GetRequiredService<IDiscordService>();
-                                        var apprise = scope.ServiceProvider.GetRequiredService<IAppriseService>();
+                                        var discord =
+                                            scope.ServiceProvider.GetRequiredService<IDiscordService>();
+                                        var apprise =
+                                            scope.ServiceProvider.GetRequiredService<IAppriseService>();
 
-                                        var message = NotificationMessageBuilder.BuildAutoUpdateResult(
-                                            app,
-                                            updateJob.TargetVersionNumber,
-                                            success,
-                                            error
-                                        );
+                                        var message =
+                                            NotificationMessageBuilder.BuildAutoUpdateResult(
+                                                app,
+                                                updateJob.TargetVersionNumber,
+                                                success,
+                                                error
+                                            );
 
-                                        if (discord.IsInitialized) await discord.SendRawAsync(message);
-                                        if (apprise.IsInitialized) await apprise.SendAsync(message, cancellationToken);
+                                        if (discord.IsInitialized)
+                                            await discord.SendRawAsync(message);
+                                        if (apprise.IsInitialized)
+                                            await apprise.SendAsync(message, cancellationToken);
                                     }
                                     catch (Exception ex)
                                     {
-                                        logger.LogError(ex, "Failed to send automatic update notification");
+                                        logger.LogError(
+                                            ex,
+                                            "Failed to send automatic update notification"
+                                        );
                                     }
                                 }
                             }
