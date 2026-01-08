@@ -231,7 +231,7 @@ public class UpdateService
             if (targetVersion == null)
                 continue;
 
-            var plan = await Update(container, true, targetVersion: targetVersion);
+            var plan = await Update(container, true, targetVersion);
 
             if (plan is null)
                 continue;
@@ -253,12 +253,12 @@ public class UpdateService
     public async Task<List<string>?> Update(
         Container app,
         bool planOnly,
-        Action<string>? outputCallback = null,
-        AppVersion? targetVersion = null
+        AppVersion targetVersion,
+        Action<string>? outputCallback = null
     )
     {
         if (!IsUpdateAvailable(app))
-            throw new Exception("Update is not available.");
+            return null;
 
         DateTime startedAt = DateTime.UtcNow;
 
@@ -293,8 +293,7 @@ public class UpdateService
         }
 
         var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-        var targetVersionToUse = targetVersion ?? app.NewerVersions.First();
-        var newVersion = targetVersionToUse.VersionNumber;
+        var newVersion = targetVersion.VersionNumber;
         var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
         var versionMatch = Regex.Match(app.Version, adjustedRegex);
 
@@ -567,8 +566,7 @@ public class UpdateService
             .FirstAsync(x => x.Id == app.Id);
 
         var removedVersions = targetApp.NewerVersions.RemoveAll(x =>
-            targetVersionToUse.Id == x.Id
-            || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+            targetVersion.Id == x.Id || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
         );
 
         var relatedApps = await db
@@ -591,8 +589,7 @@ public class UpdateService
                 related.TargetImage = resultingImage;
 
             related.NewerVersions.RemoveAll(x =>
-                targetVersionToUse.Id == x.Id
-                || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+                targetVersion.Id == x.Id || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
             );
 
             related.Version = newVersion;
@@ -616,8 +613,8 @@ public class UpdateService
             foreach (var sideApp in sideEffectUpdated)
             {
                 sideApp.NewerVersions.RemoveAll(x =>
-                    targetVersionToUse.VersionNumber == x.VersionNumber
-                    || targetVersionToUse.VersionNumber.IsNewerThan(x.VersionNumber)
+                    targetVersion.VersionNumber == x.VersionNumber
+                    || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
                 );
                 sideApp.Version = newVersion;
             }

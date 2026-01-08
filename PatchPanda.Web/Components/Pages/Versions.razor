@@ -180,7 +180,7 @@ else
             if (_updateService.IsUpdateAvailable(app))
             {
                 _selectedVersion ??= app.NewerVersions.First();
-                _updatePlan = await _updateService.Update(app, true, targetVersion: _selectedVersion);
+                _updatePlan = await _updateService.Update(app, true, _selectedVersion);
             }
         }
         _app = app;
@@ -199,7 +199,7 @@ else
 
         if (_app is not null && _updateService.IsUpdateAvailable(_app))
         {
-            _updatePlan = await _updateService.Update(_app, true, targetVersion: _selectedVersion);
+            _updatePlan = await _updateService.Update(_app, true, _selectedVersion);
             StateHasChanged();
         }
     }
