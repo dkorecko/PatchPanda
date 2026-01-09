@@ -28,6 +28,8 @@ public static class Constants
         public const string OLLAMA_MODEL = "OLLAMA_MODEL";
         public const string OLLAMA_NUM_CTX = "OLLAMA_NUM_CTX";
         public const string APP_VERSION = "APP_VERSION";
+        public const string DOCKER_HOST = "DOCKER_HOST";
+        public const string DOCKER_TLS_VERIFY = "DOCKER_TLS_VERIFY";
     }
 
     public static class SettingsKeys

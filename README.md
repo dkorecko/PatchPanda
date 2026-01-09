@@ -73,6 +73,11 @@ Portainer
 - PORTAINER_USERNAME - (optional) Username for Portainer API authentication, must be provided if PORTAINER_URL is provided.
 - PORTAINER_PASSWORD - (optional) Password for Portainer API authentication, must be provided if PORTAINER_URL is provided.
 
+Docker (only use if you are using a special proxy setup, such as Docker Socket Proxy)
+
+- DOCKER_HOST - (optional) The Docker host to connect to (example: `tcp://docker-socket-proxy:2375`). If not set, it defaults to the local Docker socket.
+- DOCKER_TLS_VERIFY - (optional) Whether to verify TLS when connecting to the Docker host. Defaults to `true`. Set to `false` if using a non-TLS proxy.
+
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 
 You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL` and the context size can be configured with `OLLAMA_NUM_CTX` (defaults to 32768 tokens if not set).
@@ -115,6 +120,8 @@ services:
       # - OLLAMA_URL=http://localhost:11434 # optional, if you wish to use Ollama or compatible LLM API for release note summarization
       # - OLLAMA_MODEL=llama3 # optional, model name to use for summarization
       # - OLLAMA_NUM_CTX=32768 # optional, context size to be used
+      # - DOCKER_HOST=tcp://docker-socket-proxy:2375 # optional, if you use a Docker Socket Proxy
+      # - DOCKER_TLS_VERIFY=false # optional, if your proxy doesn't use TLS
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw # This can remain, no matter whether you're using Docker on Linux or Windows
       # DOCKER ON LINUX VARIANT

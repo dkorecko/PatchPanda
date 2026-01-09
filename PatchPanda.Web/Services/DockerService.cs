@@ -7,34 +7,50 @@ namespace PatchPanda.Web.Services;
 
 public class DockerService
 {
-    private string DockerSocket { get; init; }
+    private readonly string _dockerSocket;
+    private readonly bool _dockerTlsVerify;
 
     private readonly ILogger<DockerService> _logger;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
     private readonly IVersionService _versionService;
     private readonly IPortainerService _portainerService;
     private readonly IFileService _fileService;
+    private readonly IConfiguration _configuration;
 
     public DockerService(
         ILogger<DockerService> logger,
         IDbContextFactory<DataContext> dbContextFactory,
         IVersionService versionService,
         IPortainerService portainerService,
-        IFileService fileService
+        IFileService fileService,
+        IConfiguration configuration
     )
     {
-        DockerSocket = "unix:///var/run/docker.sock";
+        _configuration = configuration;
+        var dockerHost = _configuration.GetValue<string?>(Constants.VariableKeys.DOCKER_HOST);
 
-#if DEBUG
-        if (OperatingSystem.IsWindows())
+        if (!string.IsNullOrWhiteSpace(dockerHost))
         {
-            DockerSocket = "npipe://./pipe/docker_engine";
+            _dockerSocket = dockerHost;
         }
         else
         {
-            DockerSocket = "unix:///var/run/docker.sock";
-        }
+            _dockerSocket = "unix:///var/run/docker.sock";
+
+#if DEBUG
+            if (OperatingSystem.IsWindows())
+            {
+                _dockerSocket = "npipe://./pipe/docker_engine";
+            }
+            else
+            {
+                _dockerSocket = "unix:///var/run/docker.sock";
+            }
 #endif
+        }
+
+        _dockerTlsVerify = _configuration.GetValue<bool>(Constants.VariableKeys.DOCKER_TLS_VERIFY, true);
+
         _logger = logger;
         _dbContextFactory = dbContextFactory;
         _versionService = versionService;
@@ -60,7 +76,7 @@ public class DockerService
     }
 
     private DockerClient GetClient() =>
-        new DockerClientConfiguration(new Uri(DockerSocket)).CreateClient();
+        new DockerClientConfiguration(new Uri(_dockerSocket)).CreateClient();
 
     private async Task<IList<ContainerListResponse>?> GetAllContainers()
     {
@@ -349,6 +365,15 @@ public class DockerService
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+
+        if (_dockerSocket.StartsWith("tcp://"))
+        {
+            startInfo.EnvironmentVariables["DOCKER_HOST"] = _dockerSocket;
+            if (!_dockerTlsVerify)
+            {
+                startInfo.EnvironmentVariables["DOCKER_TLS_VERIFY"] = "0";
+            }
+        }
 
         using var process = new Process { StartInfo = startInfo };
         var standardOutput = new StringBuilder();
