@@ -30,7 +30,8 @@ public class UpdateServiceTests
         _discordService = new Mock<IDiscordService>();
         _aiService = new Mock<IAiService>();
         _jobRegistry = new JobRegistry(new JobQueue());
-        _configuration = new Mock<IConfiguration>();
+
+        _configuration.Setup(x => x.GetSection(It.IsAny<string>())).Returns(new Mock<IConfigurationSection>().Object);
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
