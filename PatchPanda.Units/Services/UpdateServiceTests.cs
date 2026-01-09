@@ -30,6 +30,8 @@ public class UpdateServiceTests
         _discordService = new Mock<IDiscordService>();
         _aiService = new Mock<IAiService>();
         _jobRegistry = new JobRegistry(new JobQueue());
+
+        _configuration.Setup(x => x.GetSection(It.IsAny<string>())).Returns(new Mock<IConfigurationSection>().Object);
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -63,7 +65,8 @@ public class UpdateServiceTests
                     _aiService.Object
                 ),
                 _portainerService.Object,
-                _fileService.Object
+                _fileService.Object,
+                _configuration.Object
             ).Object,
             dbContextFactory,
             _fileService.Object,
@@ -136,7 +139,8 @@ public class UpdateServiceTests
                 _aiService.Object
             ),
             _portainerService.Object,
-            _fileService.Object
+            _fileService.Object,
+            _configuration.Object
         );
 
         dockerMock
@@ -250,7 +254,8 @@ public class UpdateServiceTests
                 _aiService.Object
             ),
             _portainerService.Object,
-            _fileService.Object
+            _fileService.Object,
+            _configuration.Object
         );
 
         dockerMock
@@ -346,7 +351,8 @@ public class UpdateServiceTests
                 _aiService.Object
             ),
             _portainerService.Object,
-            _fileService.Object
+            _fileService.Object,
+            _configuration.Object
         );
 
         dockerMock
