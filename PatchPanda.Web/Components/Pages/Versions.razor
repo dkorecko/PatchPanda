@@ -112,7 +112,7 @@ else
             } else if (_updatePlan?.FailReason is not null)
             {
                 <div class="alert alert-danger" role="alert">
-                    No valid update plan could be generated for this update for reason: @_updatePlan.FailReason<br/>
+                    No valid update plan could be generated for this update for the following reason: @_updatePlan.FailReason<br/>
                     Please check the logs, make sure you're running on a specific version image (e.g. v1.5.0) as latest, stable, etc. are not supported yet.<br/>
                     Furthermore, make sure either the compose file or the .env file contains the text of the version.<br/>
                     If you cannot figure out the reason for why a plan could not be generated, open up an issue on GitHub.
