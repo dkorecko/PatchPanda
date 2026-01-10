@@ -411,9 +411,29 @@ public class UpdateService
         updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
         if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
+        {
+            _logger.LogWarning(
+                "Did not generate a valid update plan, actually generated: {Steps}\n"
+                    + "===================================================\n"
+                    + "configFileContent: {ConfigFileContent}\nmatches: {Matches}, newVersion: {NewVersion}, adjustedRegex: {AdjustedRegex}, versionMatch: {VersionMatch}, resultingImage: {ResultingImage}\n"
+                    + "envFile: {EnvFile}\nenvFileContent: {EnvFileContent}\ncurrentEnvLine: {CurrentEnvLine}\ntargetEnvLine: {TargetEnvLine}\n"
+                    + "===================================================",
+                updateSteps,
+                configFileContent,
+                matches,
+                newVersion,
+                adjustedRegex,
+                versionMatch.Success,
+                resultingImage,
+                envFile,
+                envFileContent,
+                currentEnvLine,
+                targetEnvLine
+            );
             return new(
                 $"Did not generate a valid update plan. Update plan has fewer than {Constants.Limits.MINIMUM_UPDATE_STEPS} steps ({updateSteps.Count})."
             );
+        }
 
         if (planOnly)
             return new(updateSteps);
