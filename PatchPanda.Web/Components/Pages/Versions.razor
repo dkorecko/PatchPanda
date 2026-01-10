@@ -95,20 +95,28 @@ else
 
         @if (_updatePlan is not null || processingUpdate is not null)
         {
-            @if(processingUpdate is null && _updatePlan is not null) 
+            @if(processingUpdate is null && _updatePlan?.Steps is not null) 
             {
                 <div class="alert alert-info" role="alert">
                     An update is available for this app!
                 </div>
 
                 <ul>
-                    @foreach(var step in _updatePlan)
+                    @foreach(var step in _updatePlan.Steps)
                     {
                         <li>
                             @step
                         </li>
                     }
                 </ul>
+            } else if (_updatePlan?.FailReason is not null)
+            {
+                <div class="alert alert-danger" role="alert">
+                    No valid update plan could be generated for this update for reason: @_updatePlan.FailReason<br/>
+                    Please check the logs, make sure you're running on a specific version image (e.g. v1.5.0) as latest, stable, etc. are not supported yet.<br/>
+                    Furthermore, make sure either the compose file or the .env file contains the text of the version.<br/>
+                    If you cannot figure out the reason for why a plan could not be generated, open up an issue on GitHub.
+                </div>
             }
 
             <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || processingUpdate is not null)">
@@ -134,14 +142,6 @@ else
                     <Terminal @ref=_terminal />
                 </div>
             }
-        } else
-        {
-            <div class="alert alert-danger" role="alert">
-				No valid update plan could be generated for this update.<br/>
-                Please check the logs, make sure you're running on a specific version image (e.g. v1.5.0) as latest, stable, etc. are not supported yet.<br/>
-                Furthermore, make sure either the compose file or the .env file contains the text of the version.<br/>
-                If you cannot figure out the reason for why a plan could not be generated, open up an issue on GitHub.
-            </div>
         }
     }
 }
@@ -152,11 +152,11 @@ else
     public required int ContainerId { get; set; }
 
     private Container? _app;
-    private List<string>? _updatePlan;
+    private UpdatePlanModel? _updatePlan;
     private Terminal _terminal = default!;
     private AppVersion? _selectedVersion;
     private System.Timers.Timer? _pollTimer;
-    private CancellationTokenSource _cts = new CancellationTokenSource();
+    private readonly CancellationTokenSource _cts = new();
     private long? _currentJobSequence;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -167,9 +167,9 @@ else
         await LoadData();
     }
 
-    public async Task LoadData()
+    private async Task LoadData()
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
 
         var app = await db.Containers.Include(x => x.MultiContainerApp).ThenInclude(x => x!.Containers).Include(x => x.NewerVersions).FirstAsync(a => a.Id == ContainerId);
 
@@ -193,7 +193,7 @@ else
         await InvokeAsync(StateHasChanged);
     }
 
-    public async Task SetTargetVersion(AppVersion version)
+    private async Task SetTargetVersion(AppVersion version)
     {
         _selectedVersion = version;
 
@@ -204,7 +204,7 @@ else
         }
     }
 
-    public async Task ExecuteUpdate()
+    private async Task ExecuteUpdate()
     {
         ArgumentNullException.ThrowIfNull(_app);
         ArgumentNullException.ThrowIfNull(_selectedVersion);
@@ -221,7 +221,7 @@ else
         if (_pollTimer is not null)
             return;
 
-        _pollTimer = new System.Timers.Timer(1000);
+        _pollTimer = new(1000);
         _pollTimer.Elapsed += async (_, __) => await PollOutput();
         _pollTimer.AutoReset = true;
         _pollTimer.Start();
@@ -259,15 +259,15 @@ else
         }
     }
 
-    public async Task ToggleIgnoreVersion(AppVersion version)
+    private async Task ToggleIgnoreVersion(AppVersion version)
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
 
         version.Ignored = !version.Ignored;
         await db.AppVersions.Where(x => x.Id == version.Id).ExecuteUpdateAsync(x => x.SetProperty(setter => setter.Ignored, version.Ignored));
     }
 
-    public void DisposeTimer() 
+    private void DisposeTimer() 
     {
         if (_pollTimer is not null)
         {

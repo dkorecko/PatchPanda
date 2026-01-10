@@ -250,7 +250,7 @@ public class UpdateService
         }
     }
 
-    public async Task<List<string>?> Update(
+    public async Task<UpdatePlanModel> Update(
         Container app,
         bool planOnly,
         AppVersion targetVersion,
@@ -258,7 +258,9 @@ public class UpdateService
     )
     {
         if (!IsUpdateAvailable(app))
-            return null;
+            return new(
+                "App is missing required information such as GitHub repo, version regex or is secondary (DB, etc.)."
+            );
 
         DateTime startedAt = DateTime.UtcNow;
 
@@ -268,12 +270,12 @@ public class UpdateService
 
         List<string> updateSteps = [];
 
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
         var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
         var configPath = stack.ConfigFile;
 
         if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
-            return null;
+            return new("Did not get config path and Portainer integration is disabled.");
 
         string? configFileContent;
 
@@ -287,7 +289,7 @@ public class UpdateService
             configFileContent = await _portainerService.GetStackFileContentAsync(stack.StackName);
 
             if (configFileContent is null)
-                return null;
+                return new("Failed to get content from Portainer.");
 
             updateSteps.Add("Using Portainer-managed stack file for update");
         }
@@ -311,7 +313,7 @@ public class UpdateService
                 var match = Regex.Match(app.Version, app.Regex);
 
                 if (!match.Success)
-                    throw new Exception("Could not match versions for update.");
+                    return new("Could not match versions for update.");
 
                 newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
             }
@@ -341,7 +343,7 @@ public class UpdateService
                         "Cannot update .env file for Portainer-managed stack {StackName}.",
                         stack.StackName
                     );
-                    return null;
+                    return new("Cannot update .env file for Portainer-managed stacks.");
                 }
 
                 envFile = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, ".env");
@@ -407,10 +409,10 @@ public class UpdateService
         updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
         if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
-            return null;
+            return new("Did not generate a valid update plan.");
 
         if (planOnly)
-            return updateSteps;
+            return new(updateSteps);
 
         if (resultingImage is not null)
         {
@@ -447,7 +449,7 @@ public class UpdateService
 
         if (!string.IsNullOrWhiteSpace(configPath))
         {
-            bool turnedOff = false;
+            var turnedOff = false;
             try
             {
                 (string pullStdOut, string pullStdErr, int pullExitCode) =
@@ -643,6 +645,6 @@ public class UpdateService
             newVersion
         );
 
-        return updateSteps;
+        return new(updateSteps);
     }
 }

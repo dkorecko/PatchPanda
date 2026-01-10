@@ -5,38 +5,23 @@ namespace PatchPanda.Units.Services;
 
 public class UpdateServiceTests
 {
-    private readonly Mock<IFileService> _fileService;
-    private readonly Mock<ILogger<VersionService>> _versionLogger;
-    private readonly Mock<ILogger<DockerService>> _dockerLogger;
-    private readonly Mock<ILogger<UpdateService>> _updateLogger;
-    private readonly Mock<IConfiguration> _configuration;
-    private readonly Mock<IPortainerService> _portainerService;
-    private readonly Mock<IAppriseService> _appriseService;
-    private readonly Mock<IVersionService> _versionService;
-    private readonly Mock<IDiscordService> _discordService;
-    private readonly Mock<IAiService> _aiService;
-    private readonly JobRegistry _jobRegistry;
-
-    public UpdateServiceTests()
-    {
-        _fileService = new Mock<IFileService>();
-        _versionLogger = new Mock<ILogger<VersionService>>();
-        _dockerLogger = new Mock<ILogger<DockerService>>();
-        _updateLogger = new Mock<ILogger<UpdateService>>();
-        _configuration = new Mock<IConfiguration>();
-        _portainerService = new Mock<IPortainerService>();
-        _appriseService = new Mock<IAppriseService>();
-        _versionService = new Mock<IVersionService>();
-        _discordService = new Mock<IDiscordService>();
-        _aiService = new Mock<IAiService>();
-        _jobRegistry = new JobRegistry(new JobQueue());
-    }
+    private readonly Mock<IFileService> _fileService = new();
+    private readonly Mock<ILogger<VersionService>> _versionLogger = new();
+    private readonly Mock<ILogger<DockerService>> _dockerLogger = new();
+    private readonly Mock<ILogger<UpdateService>> _updateLogger = new();
+    private readonly Mock<IConfiguration> _configuration = new();
+    private readonly Mock<IPortainerService> _portainerService = new();
+    private readonly Mock<IAppriseService> _appriseService = new();
+    private readonly Mock<IVersionService> _versionService = new();
+    private readonly Mock<IDiscordService> _discordService = new();
+    private readonly Mock<IAiService> _aiService = new();
+    private readonly JobRegistry _jobRegistry = new(new());
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
     {
         _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
         _fileService
-            .Setup(_systemFileService => _systemFileService.ReadAllText(It.IsAny<string>()))
+            .Setup(systemFileService => systemFileService.ReadAllText(It.IsAny<string>()))
             .Returns(
                 $"""
                 version: '3'
@@ -47,7 +32,7 @@ public class UpdateServiceTests
             );
         var dbContextFactory = Helper.CreateInMemoryFactory();
 
-        using var db = dbContextFactory.CreateDbContext();
+        await using var db = await dbContextFactory.CreateDbContextAsync();
 
         db.Stacks.Add(stack);
         await db.SaveChangesAsync();
@@ -75,7 +60,7 @@ public class UpdateServiceTests
             _jobRegistry
         ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
-        var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
+        var importantTask = tasks!.Steps!.FirstOrDefault(t => t.Contains("Will"));
 
         Assert.NotNull(importantTask);
 
@@ -84,7 +69,7 @@ public class UpdateServiceTests
         Assert.Contains(stack.Apps[0].TargetImage, importantTask);
         Assert.Contains(resultImage, importantTask);
 
-        using var dbCheck = dbContextFactory.CreateDbContext();
+        await using var dbCheck = await dbContextFactory.CreateDbContextAsync();
 
         var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
 
@@ -101,7 +86,7 @@ public class UpdateServiceTests
     {
         _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
         _fileService
-            .Setup(_systemFileService => _systemFileService.ReadAllText("docker-compose.yml"))
+            .Setup(systemFileService => systemFileService.ReadAllText("docker-compose.yml"))
             .Returns(
                 $"""
                 version: '3'
@@ -112,7 +97,7 @@ public class UpdateServiceTests
             );
 
         _fileService
-            .Setup(_systemFileService => _systemFileService.ReadAllText(".env"))
+            .Setup(systemFileService => systemFileService.ReadAllText(".env"))
             .Returns(
                 $"""
                 {parameterName}={stack.Apps[0].Version}
@@ -155,7 +140,7 @@ public class UpdateServiceTests
             _jobRegistry
         ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
-        var importantTask = tasks!.FirstOrDefault(t => t.Contains("Will"));
+        var importantTask = tasks!.Steps!.FirstOrDefault(t => t.Contains("Will"));
 
         Assert.NotNull(importantTask);
 
@@ -167,7 +152,7 @@ public class UpdateServiceTests
             importantTask
         );
 
-        using var dbCheck = dbContextFactory.CreateDbContext();
+        await using var dbCheck = await dbContextFactory.CreateDbContextAsync();
 
         var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
 
@@ -287,7 +272,7 @@ public class UpdateServiceTests
             Times.Once
         );
 
-        using var dbCheck = dbContextFactory.CreateDbContext();
+        await using var dbCheck = await dbContextFactory.CreateDbContextAsync();
         var app = await dbCheck.Containers.Include(x => x.NewerVersions).FirstAsync();
 
         Assert.Empty(app.NewerVersions);
@@ -312,14 +297,14 @@ public class UpdateServiceTests
             StackId = stack.Id,
             Regex = TestData.REGEX,
             GitHubVersionRegex = TestData.REGEX,
-            NewerVersions = [stack.Apps[0].NewerVersions[0]]
+            NewerVersions = [stack.Apps[0].NewerVersions[0]],
         };
 
         stack.Apps.Add(secondApp);
 
         _fileService.Setup(x => x.Exists(It.IsAny<string>())).Returns(true);
         _fileService
-            .Setup(_systemFileService => _systemFileService.ReadAllText(It.IsAny<string>()))
+            .Setup(systemFileService => systemFileService.ReadAllText(It.IsAny<string>()))
             .Returns(
                 $"""
                 version: '3'
@@ -331,7 +316,7 @@ public class UpdateServiceTests
 
         var dbContextFactory = Helper.CreateInMemoryFactory();
 
-        using var db = dbContextFactory.CreateDbContext();
+        await using var db = await dbContextFactory.CreateDbContextAsync();
 
         db.Stacks.Add(stack);
         await db.SaveChangesAsync();
@@ -365,7 +350,7 @@ public class UpdateServiceTests
             _jobRegistry
         );
 
-        using var initialCheck = dbContextFactory.CreateDbContext();
+        await using var initialCheck = await dbContextFactory.CreateDbContextAsync();
         var hasVersion = await initialCheck
             .Containers.Where(x => x.Id == secondApp.Id)
             .Include(x => x.NewerVersions)
@@ -380,8 +365,11 @@ public class UpdateServiceTests
             stack.Apps[0].NewerVersions[0]
         );
 
-        using var dbCheck = dbContextFactory.CreateDbContext();
-        var apps = await dbCheck.Containers.OrderBy(x => x.Name).ToListAsync();
+        await using var dbCheck = await dbContextFactory.CreateDbContextAsync();
+        var apps = await dbCheck
+            .Containers.OrderBy(x => x.Name)
+            .Include(container => container.NewerVersions)
+            .ToListAsync();
 
         Assert.Equal(2, apps.Count);
 
