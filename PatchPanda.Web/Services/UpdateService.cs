@@ -313,7 +313,9 @@ public class UpdateService
                 var match = Regex.Match(app.Version, app.Regex);
 
                 if (!match.Success)
-                    return new("Could not match versions for update.");
+                    return new(
+                        $"Could not match version pattern '{app.Regex}' against current version '{app.Version}' while updating to target version '{newVersion}'."
+                    );
 
                 newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
             }
@@ -409,7 +411,9 @@ public class UpdateService
         updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
         if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
-            return new("Did not generate a valid update plan.");
+            return new(
+                $"Did not generate a valid update plan. Update plan has fewer than {Constants.Limits.MINIMUM_UPDATE_STEPS} steps ({updateSteps.Count})."
+            );
 
         if (planOnly)
             return new(updateSteps);
