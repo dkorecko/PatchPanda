@@ -619,6 +619,12 @@ public class UpdateService
 
                         while (attemptCount < MAX_DOCKER_ROLLBACK_ATTEMPTS)
                         {
+                            if (attemptCount > 0)
+                            {
+                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                                await Task.Delay(delayMs);
+                            }
+
                             (string reupStdOut, string reupStdErr, int reupExitCode) =
                                 await _dockerService.RunDockerComposeOnPath(
                                     stack,
