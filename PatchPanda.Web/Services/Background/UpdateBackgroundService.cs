@@ -154,56 +154,13 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                             if (targetVersion is null)
                                 return;
 
-                            var success = false;
-                            string? error = null;
-                            try
-                            {
-                                await updateService.Update(
-                                    app,
-                                    false,
-                                    targetVersion,
-                                    (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line)
-                                );
-                                success = true;
-                            }
-                            catch (Exception ex)
-                            {
-                                error = ex.Message;
-                                throw;
-                            }
-                            finally
-                            {
-                                if (updateJob.IsAutomatic)
-                                {
-                                    try
-                                    {
-                                        var discord =
-                                            scope.ServiceProvider.GetRequiredService<IDiscordService>();
-                                        var apprise =
-                                            scope.ServiceProvider.GetRequiredService<IAppriseService>();
-
-                                        var message =
-                                            NotificationMessageBuilder.BuildAutoUpdateResult(
-                                                app,
-                                                updateJob.TargetVersionNumber,
-                                                success,
-                                                error
-                                            );
-
-                                        if (discord.IsInitialized)
-                                            await discord.SendRawAsync(message);
-                                        if (apprise.IsInitialized)
-                                            await apprise.SendAsync(message, cancellationToken);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        logger.LogError(
-                                            ex,
-                                            "Failed to send automatic update notification"
-                                        );
-                                    }
-                                }
-                            }
+                            await updateService.Update(
+                                app,
+                                false,
+                                targetVersion,
+                                (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
+                                updateJob.IsAutomatic
+                            );
                         }
                     );
                     break;
