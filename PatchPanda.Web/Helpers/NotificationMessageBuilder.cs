@@ -4,7 +4,7 @@ namespace PatchPanda.Web.Helpers;
 
 public static class NotificationMessageBuilder
 {
-    public static string Build(
+    public static string BuildNewVersion(
         Container mainApp,
         List<Container> otherApps,
         List<AppVersion> newerVersions
@@ -43,7 +43,8 @@ public static class NotificationMessageBuilder
 
         foreach (var newVersion in newerVersions)
         {
-            var securityBadge = newVersion.IsSuspectedMalicious == true ? " [POSSIBLE MALICIOUS]" : string.Empty;
+            var securityBadge =
+                newVersion.IsSuspectedMalicious == true ? " [POSSIBLE MALICIOUS]" : string.Empty;
             message.AppendLine(
                 $"## 📜 Release Notes - {newVersion.VersionNumber} {(newVersion.Prerelease ? "[PRERELEASE]" : string.Empty)} {(newVersion.Breaking ? "[BREAKING]" : string.Empty)} {(newVersion.AIBreaking == true ? "[AI BREAKING]" : string.Empty)}{securityBadge}"
             );
@@ -88,12 +89,16 @@ public static class NotificationMessageBuilder
         if (success)
         {
             message.AppendLine($"# Automatic Update Successful: {container.Name} ✅\n");
-            message.AppendLine($"The application has been successfully updated to version `{targetVersion}`. More details can be viewed in the update attempts panel.");
+            message.AppendLine(
+                $"The application has been successfully updated to version `{targetVersion}`. More details can be viewed in the update attempts panel."
+            );
         }
         else
         {
             message.AppendLine($"# ❌ Automatic Update Failed: {container.Name} ❌\n");
-            message.AppendLine($"An attempt to automatically update to version `{targetVersion}` failed. More details can be viewed in the update attempts panel.");
+            message.AppendLine(
+                $"An attempt to automatically update to version `{targetVersion}` failed. More details can be viewed in the update attempts panel."
+            );
 
             if (!string.IsNullOrWhiteSpace(errorMessage))
             {
@@ -102,7 +107,9 @@ public static class NotificationMessageBuilder
         }
 
         if (Constants.BASE_URL is not null)
-            message.AppendLine($"\n__View Container Details:__ {Constants.BASE_URL}/versions/{container.Id}");
+            message.AppendLine(
+                $"\n__View Container Details:__ {Constants.BASE_URL}/versions/{container.Id}"
+            );
 
         return message.ToString();
     }

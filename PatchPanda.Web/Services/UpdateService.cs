@@ -4,7 +4,7 @@ namespace PatchPanda.Web.Services;
 
 public class UpdateService
 {
-    private const int MAX_DOCKER_ROLLBACK_ATTEMPTS = 3;
+    private const int MaxDockerRollbackAttempts = 3;
 
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
@@ -12,9 +12,8 @@ public class UpdateService
     private readonly IPortainerService _portainerService;
     private readonly ILogger<UpdateService> _logger;
     private readonly IVersionService _versionService;
-    private readonly IAppriseService _appriseService;
-    private readonly IDiscordService _discordService;
     private readonly JobRegistry _jobRegistry;
+    private readonly INotificationService _notificationService;
 
     public UpdateService(
         DockerService dockerService,
@@ -23,9 +22,8 @@ public class UpdateService
         ILogger<UpdateService> logger,
         IPortainerService portainerService,
         IVersionService versionService,
-        IAppriseService appriseService,
-        IDiscordService discordService,
-        JobRegistry jobRegistry
+        JobRegistry jobRegistry,
+        INotificationService notificationService
     )
     {
         _dockerService = dockerService;
@@ -34,52 +32,8 @@ public class UpdateService
         _portainerService = portainerService;
         _logger = logger;
         _versionService = versionService;
-        _appriseService = appriseService;
-        _discordService = discordService;
         _jobRegistry = jobRegistry;
-    }
-
-    private async Task SendNotification(
-        Container container,
-        string targetVersion,
-        bool success,
-        bool isAutomatic,
-        string? errorMessage = null
-    )
-    {
-        if (!isAutomatic)
-            return;
-
-        var message = NotificationMessageBuilder.BuildAutoUpdateResult(
-            container,
-            targetVersion,
-            success,
-            errorMessage
-        );
-
-        if (_discordService.IsInitialized)
-        {
-            try
-            {
-                await _discordService.SendRawAsync(message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Discord notification failed");
-            }
-        }
-
-        if (_appriseService.IsInitialized)
-        {
-            try
-            {
-                await _appriseService.SendAsync(message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Apprise notification failed");
-            }
-        }
+        _notificationService = notificationService;
     }
 
     private void CleanUpContainerJobs(int containerId)
@@ -126,7 +80,7 @@ public class UpdateService
 
     public async Task CheckAllForUpdates()
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
@@ -176,48 +130,13 @@ public class UpdateService
                             .FirstAsync(x => x.Id == mainApp.Id);
                         var toNotify = container.NewerVersions.Where(x => !x.Notified).ToList();
 
-                        var fullMessage = NotificationMessageBuilder.Build(
+                        var result = await _notificationService.SendNewVersion(
                             mainApp,
                             otherApps,
                             toNotify
                         );
-                        int successCount = 0;
 
-                        if (_discordService.IsInitialized)
-                        {
-                            try
-                            {
-                                await _discordService.SendRawAsync(fullMessage);
-                                successCount++;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(
-                                    ex,
-                                    "Discord notification failed, message {Message}",
-                                    ex.Message
-                                );
-                            }
-                        }
-
-                        if (_appriseService.IsInitialized)
-                        {
-                            try
-                            {
-                                await _appriseService.SendAsync(fullMessage);
-                                successCount++;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(
-                                    ex,
-                                    "Apprise notification failed, message {Message}",
-                                    ex.Message
-                                );
-                            }
-                        }
-
-                        if (successCount > 0)
+                        if (result)
                         {
                             try
                             {
@@ -307,7 +226,7 @@ public class UpdateService
 
             var plan = await Update(container, true, targetVersion);
 
-            if (plan is null)
+            if (plan.Steps is null)
                 continue;
 
             _logger.LogInformation(
@@ -617,7 +536,7 @@ public class UpdateService
                     {
                         int attemptCount = 0;
 
-                        while (attemptCount < MAX_DOCKER_ROLLBACK_ATTEMPTS)
+                        while (attemptCount < MaxDockerRollbackAttempts)
                         {
                             if (attemptCount > 0)
                             {
@@ -736,7 +655,12 @@ public class UpdateService
             );
             await db.SaveChangesAsync();
 
-            await SendNotification(app, targetVersion.VersionNumber, true, isAutomatic);
+            await _notificationService.SendAutoUpdateResult(
+                app,
+                targetVersion.VersionNumber,
+                true,
+                isAutomatic
+            );
 
             _logger.LogInformation(
                 "Updated through {UpdateCount} versions from {InitialVersion} to {NewVersion}.",
@@ -772,7 +696,7 @@ public class UpdateService
 
             CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 
-            await SendNotification(
+            await _notificationService.SendAutoUpdateResult(
                 app,
                 targetVersion.VersionNumber,
                 false,
@@ -807,7 +731,7 @@ public class UpdateService
 
                 CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 
-                await SendNotification(
+                await _notificationService.SendAutoUpdateResult(
                     app,
                     targetVersion.VersionNumber,
                     false,

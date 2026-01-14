@@ -1,23 +1,18 @@
 @page "/notifications"
-@inject IAppriseService _appriseService
-@inject IDiscordService _discordService
+@inject NotificationService NotificationService
 
 <h1>Notifications</h1>
 
-@if (!_appriseService.IsInitialized && !_discordService.IsInitialized)
+@if (!NotificationService.AnyInitialized)
 {
     <p>No notification endpoints configured.</p>
 }
 else
 {
     <ul>
-        @foreach (var url in _appriseService.GetEndpoints())
+        @foreach (var url in NotificationService.GetEndpoints())
         {
             <li>@url</li>
-        }
-        @if (_discordService.IsInitialized)
-        {
-            <li>@_discordService.WebhookUrl</li>
         }
     </ul>
 
@@ -48,9 +43,7 @@ else
 
         try
         {
-            var testMessage = "This is a test notification from PatchPanda.";
-            await _appriseService.SendAsync(testMessage);
-            await _discordService.SendRawAsync(testMessage);
+            await NotificationService.SendNotification("This is a test notification from PatchPanda.");
             _error = null;
         }
         catch (Exception ex)
