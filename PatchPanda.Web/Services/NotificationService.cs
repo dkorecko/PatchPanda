@@ -44,7 +44,7 @@ public class NotificationService(
         var result = await TrySendNotification(message);
 
         if (!result)
-            logger.LogError(
+            logger.LogWarning(
                 "Failed to send auto-update notification for container {ContainerName}",
                 container.Name
             );
@@ -61,7 +61,11 @@ public class NotificationService(
         return await TrySendNotification(message);
     }
 
-    public async Task<bool> TrySendNotification(string message, bool propagateExceptions = false)
+    public async Task<bool> TrySendNotification(
+        string message,
+        bool propagateExceptions = false,
+        bool noSuccessIsError = false
+    )
     {
         var success = 0;
         if (discordService.IsInitialized)
@@ -97,21 +101,18 @@ public class NotificationService(
         if (success != 0)
             return true;
 
-        if (!AnyInitialized)
-            logger.LogWarning("No notification services are initialized. Message was not sent.");
-        else
-            logger.LogError("The notification could not be sent successfully.");
+        var errorMessage = !AnyInitialized
+            ? "No notification services are initialized. Message was not sent."
+            : "The notification could not be sent successfully.";
+
+        if (noSuccessIsError)
+            throw new(errorMessage);
+
+        logger.LogWarning(errorMessage);
 
         return false;
     }
 
-    public async Task SendNotification(string message)
-    {
-        var result = await TrySendNotification(message, true);
-
-        if (!result)
-            throw new Exception(
-                "No notification services have been initialized. Check logs for details."
-            );
-    }
+    public async Task SendNotification(string message) =>
+        await TrySendNotification(message, true, true);
 }
