@@ -4,7 +4,7 @@ namespace PatchPanda.Web.Services;
 
 public class UpdateService
 {
-    private const int MaxDockerRollbackAttempts = 3;
+    private const int MaxRollbackAttempts = 3;
 
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
@@ -250,6 +250,16 @@ public class UpdateService
         return new(errorMessage);
     }
 
+    private string LogAndGetRollbackFailedMessage()
+    {
+        string message =
+            "[ROLLBACK FAILED] Rollback failed after maximum attempts. Manual intervention may be required to restore the application to a stable state.";
+
+        _logger.LogError(message);
+
+        return message;
+    }
+
     public async Task<UpdatePlanModel> Update(
         Container app,
         bool planOnly,
@@ -269,6 +279,7 @@ public class UpdateService
         string rollbackStdErr = string.Empty;
         List<Container>? relatedApps = null;
         List<Container>? sideEffectUpdated = null;
+        var rollbackFailed = false;
 
         try
         {
@@ -477,7 +488,7 @@ public class UpdateService
 
                         int attemptCount = 0;
 
-                        while (attemptCount < MaxDockerRollbackAttempts)
+                        while (attemptCount < MaxRollbackAttempts)
                         {
                             if (attemptCount > 0)
                             {
@@ -503,6 +514,9 @@ public class UpdateService
                                 attemptCount++;
                             }
                         }
+
+                        if (attemptCount >= MaxRollbackAttempts)
+                            rollbackFailed = true;
 
                         throw;
                     }
@@ -577,7 +591,7 @@ public class UpdateService
                     {
                         int attemptCount = 0;
 
-                        while (attemptCount < MaxDockerRollbackAttempts)
+                        while (attemptCount < MaxRollbackAttempts)
                         {
                             if (attemptCount > 0)
                             {
@@ -613,6 +627,9 @@ public class UpdateService
 
                             break;
                         }
+
+                        if (attemptCount >= MaxRollbackAttempts)
+                            rollbackFailed = true;
                     }
 
                     throw;
@@ -700,7 +717,8 @@ public class UpdateService
                 app,
                 targetVersion.VersionNumber,
                 true,
-                isAutomatic
+                isAutomatic,
+                false
             );
 
             _logger.LogInformation(
@@ -718,6 +736,9 @@ public class UpdateService
             // This catch handles post-failure cleanup: UpdateAttempt logging, job cleanup, notifications
             await using var db = await _dbContextFactory.CreateDbContextAsync();
             var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+
+            if (rollbackFailed)
+                rollbackStdErr += $"\n{LogAndGetRollbackFailedMessage()}";
 
             db.UpdateAttempts.Add(
                 new()
@@ -742,6 +763,7 @@ public class UpdateService
                 targetVersion.VersionNumber,
                 false,
                 isAutomatic,
+                rollbackFailed,
                 ex.Message
             );
 
@@ -758,7 +780,13 @@ public class UpdateService
                     new()
                     {
                         StdOut = string.Empty,
-                        StdErr = ex.ToString(),
+                        StdErr =
+                            ex
+                            + (
+                                rollbackFailed
+                                    ? $"\n{LogAndGetRollbackFailedMessage()}"
+                                    : string.Empty
+                            ),
                         ExitCode = -1,
                         StartedAt = startedAt,
                         EndedAt = DateTime.UtcNow,
@@ -777,6 +805,7 @@ public class UpdateService
                     targetVersion.VersionNumber,
                     false,
                     isAutomatic,
+                    rollbackFailed,
                     ex.Message
                 );
             }

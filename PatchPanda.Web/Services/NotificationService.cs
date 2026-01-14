@@ -28,6 +28,7 @@ public class NotificationService(
         string targetVersion,
         bool success,
         bool isAutomatic,
+        bool rollbackFailed,
         string? errorMessage = null
     )
     {
@@ -38,6 +39,7 @@ public class NotificationService(
             container,
             targetVersion,
             success,
+            rollbackFailed,
             errorMessage
         );
 
@@ -64,7 +66,7 @@ public class NotificationService(
     public async Task<bool> TrySendNotification(
         string message,
         bool propagateExceptions = false,
-        bool noSuccessIsError = false
+        bool throwOnNoSuccess = false
     )
     {
         var success = 0;
@@ -105,7 +107,7 @@ public class NotificationService(
             ? "No notification services are initialized. Message was not sent."
             : "The notification could not be sent successfully.";
 
-        if (noSuccessIsError)
+        if (throwOnNoSuccess)
             throw new(errorMessage);
 
         logger.LogWarning(errorMessage);

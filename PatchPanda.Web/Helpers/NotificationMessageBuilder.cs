@@ -81,6 +81,7 @@ public static class NotificationMessageBuilder
         Container container,
         string targetVersion,
         bool success,
+        bool rollbackFailed,
         string? errorMessage = null
     )
     {
@@ -100,10 +101,13 @@ public static class NotificationMessageBuilder
                 $"An attempt to automatically update to version `{targetVersion}` failed. More details can be viewed in the update attempts panel."
             );
 
+            if (rollbackFailed)
+                message.AppendLine(
+                    "\n**Additionally, the rollback to the previous version also failed.**"
+                );
+
             if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
                 message.AppendLine($"\n**Error Details:**\n{errorMessage}");
-            }
         }
 
         if (Constants.BASE_URL is not null)

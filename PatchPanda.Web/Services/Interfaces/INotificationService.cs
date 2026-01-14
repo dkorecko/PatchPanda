@@ -11,6 +11,7 @@ public interface INotificationService
         string targetVersion,
         bool success,
         bool isAutomatic,
+        bool rollbackFailed,
         string? errorMessage = null
     );
 
@@ -25,12 +26,12 @@ public interface INotificationService
     /// </summary>
     /// <param name="message">Message to send</param>
     /// <param name="propagateExceptions">Whether any failures should throw. If false, it will log failures instead of throwing</param>
-    /// <param name="noSuccessIsError">Whether it should throw error when sending notification was not successful</param>
+    /// <param name="throwOnNoSuccess">Whether it should throw error when sending notification was not successful</param>
     /// <returns>Boolean determining if any notifications were successful</returns>
     Task<bool> TrySendNotification(
         string message,
         bool propagateExceptions = false,
-        bool noSuccessIsError = true
+        bool throwOnNoSuccess = false
     );
 
     /// <summary>
