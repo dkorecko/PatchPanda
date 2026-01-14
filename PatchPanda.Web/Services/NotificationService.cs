@@ -10,7 +10,7 @@ public class NotificationService(
 
     public List<string> GetEndpoints()
     {
-        List<string> endpoints = [.. appriseService.GetEndpoints()];
+        List<string> endpoints = [];
 
         if (discordService.IsInitialized && !string.IsNullOrWhiteSpace(discordService.WebhookUrl))
             endpoints.Add(discordService.WebhookUrl);

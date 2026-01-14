@@ -19,7 +19,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<IVersionService, VersionService>();
         builder.Services.AddSingleton<IDiscordService, DiscordService>();
         builder.Services.AddSingleton<IAppriseService, AppriseService>();
-        builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<INotificationService, NotificationService>();
         builder.Services.AddSingleton<IAiService, OllamaService>();
         builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<IFileService, SystemFileService>();
