@@ -792,7 +792,7 @@ public class UpdateService
                         EndedAt = DateTime.UtcNow,
                         ContainerId = app.Id,
                         StackId = stack.Id,
-                        FailedCommand = null,
+                        FailedCommand = "Unhandled exception",
                         UsedPlan = string.Join(", ", updateSteps),
                     }
                 );
