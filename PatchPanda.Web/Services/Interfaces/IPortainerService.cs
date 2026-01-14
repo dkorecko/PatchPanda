@@ -6,5 +6,5 @@ public interface IPortainerService
 
     Task<string?> GetStackFileContentAsync(string stackName);
 
-    Task<bool> UpdateStackFileContentAsync(string stackName, string newFileContent);
+    Task UpdateStackFileContentAsync(string stackName, string newFileContent);
 }

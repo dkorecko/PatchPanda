@@ -211,13 +211,13 @@ public class UpdateServiceTests
         _portainerService
             .Setup(p => p.GetStackFileContentAsync(It.IsAny<string>()))
             .ReturnsAsync(composeContent);
-        _portainerService
-            .Setup(p => p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(true);
+        _portainerService.Setup(p =>
+            p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>())
+        );
 
         var dbContextFactory = Helper.CreateInMemoryFactory();
 
-        using var db = dbContextFactory.CreateDbContext();
+        await using var db = await dbContextFactory.CreateDbContextAsync();
 
         db.Stacks.Add(stack);
         await db.SaveChangesAsync();

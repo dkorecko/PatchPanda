@@ -461,10 +461,51 @@ public class UpdateService
             {
                 if (string.IsNullOrWhiteSpace(configPath))
                 {
-                    await _portainerService.UpdateStackFileContentAsync(
-                        stack.StackName,
-                        configFileContent.Replace(app.TargetImage, resultingImage)
-                    );
+                    try
+                    {
+                        await _portainerService.UpdateStackFileContentAsync(
+                            stack.StackName,
+                            configFileContent.Replace(app.TargetImage, resultingImage)
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            ex,
+                            "Failed to update, rolling back to previous file states"
+                        );
+
+                        int attemptCount = 0;
+
+                        while (attemptCount < MaxDockerRollbackAttempts)
+                        {
+                            if (attemptCount > 0)
+                            {
+                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                                await Task.Delay(delayMs);
+                            }
+
+                            try
+                            {
+                                await _portainerService.UpdateStackFileContentAsync(
+                                    stack.StackName,
+                                    configFileContent
+                                );
+
+                                rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n";
+                                break;
+                            }
+                            catch (Exception rollbackException)
+                            {
+                                rollbackStdErr +=
+                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
+                                    + rollbackException;
+                                attemptCount++;
+                            }
+                        }
+
+                        throw;
+                    }
                 }
                 else
                 {
