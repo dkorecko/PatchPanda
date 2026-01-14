@@ -41,7 +41,13 @@ public class NotificationService(
             errorMessage
         );
 
-        await TrySendNotification(message);
+        var result = await TrySendNotification(message);
+
+        if (!result)
+            logger.LogError(
+                "Failed to send auto-update notification for container {ContainerName}",
+                container.Name
+            );
     }
 
     public async Task<bool> SendNewVersion(
@@ -91,7 +97,11 @@ public class NotificationService(
         if (success != 0)
             return true;
 
-        logger.LogError("The notification could not be sent successfully.");
+        if (!AnyInitialized)
+            logger.LogWarning("No notification services are initialized. Message was not sent.");
+        else
+            logger.LogError("The notification could not be sent successfully.");
+
         return false;
     }
 
