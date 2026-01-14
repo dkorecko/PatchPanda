@@ -159,12 +159,12 @@ public class PortainerService : IPortainerService
         return fileDto?.StackFileContent;
     }
 
-    public async Task<bool> UpdateStackFileContentAsync(string stackName, string newFileContent)
+    public async Task UpdateStackFileContentAsync(string stackName, string newFileContent)
     {
         var first = await GetStack(stackName);
 
         if (first is null)
-            return false;
+            throw new("No such stack found.");
 
         var payload = JsonSerializer.Serialize(
             new { stackFileContent = newFileContent, pullImage = true }
@@ -175,16 +175,8 @@ public class PortainerService : IPortainerService
         );
 
         if (!putResp.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Could not update Portainer stack file: {Status}, full response: {Response}. Check {UrlKey} and credentials",
-                putResp.StatusCode,
-                await putResp.Content.ReadAsStringAsync(),
-                Constants.VariableKeys.PORTAINER_URL
+            throw new(
+                $"Could not update Portainer stack file: {putResp.StatusCode}, full response: {await putResp.Content.ReadAsStringAsync()}. Check {Constants.VariableKeys.PORTAINER_URL} and credentials"
             );
-            return false;
-        }
-
-        return true;
     }
 }

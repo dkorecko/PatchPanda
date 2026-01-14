@@ -1,3 +1,4 @@
+global using System.ComponentModel.DataAnnotations;
 global using System.Net.Http;
 global using System.Text.Json.Serialization;
 global using Devity.Extensions;
@@ -12,4 +13,4 @@ global using PatchPanda.Web.Models;
 global using PatchPanda.Web.Models.Jobs;
 global using PatchPanda.Web.Services;
 global using PatchPanda.Web.Services.Hosted;
-global using System.ComponentModel.DataAnnotations;
+global using PatchPanda.Web.Services.Interfaces;

@@ -1,6 +1,6 @@
 using Octokit;
 
-namespace PatchPanda.Web.Services;
+namespace PatchPanda.Web.Services.Interfaces;
 
 public interface IVersionService
 {

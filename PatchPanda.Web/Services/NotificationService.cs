@@ -1,0 +1,120 @@
+namespace PatchPanda.Web.Services;
+
+public class NotificationService(
+    IDiscordService discordService,
+    IAppriseService appriseService,
+    ILogger<NotificationService> logger
+) : INotificationService
+{
+    public bool AnyInitialized => discordService.IsInitialized || appriseService.IsInitialized;
+
+    public List<string> GetEndpoints()
+    {
+        List<string> endpoints = [];
+
+        if (discordService.IsInitialized && !string.IsNullOrWhiteSpace(discordService.WebhookUrl))
+            endpoints.Add(discordService.WebhookUrl);
+
+        var appriseEndpoints = appriseService.IsInitialized ? appriseService.GetEndpoints() : [];
+
+        if (appriseEndpoints.Any())
+            endpoints.AddRange(appriseEndpoints);
+
+        return endpoints;
+    }
+
+    public async Task SendAutoUpdateResult(
+        Container container,
+        string targetVersion,
+        bool success,
+        bool isAutomatic,
+        bool rollbackFailed,
+        string? errorMessage = null
+    )
+    {
+        if (!isAutomatic)
+            return;
+
+        var message = NotificationMessageBuilder.BuildAutoUpdateResult(
+            container,
+            targetVersion,
+            success,
+            rollbackFailed,
+            errorMessage
+        );
+
+        var result = await TrySendNotification(message);
+
+        if (!result)
+            logger.LogWarning(
+                "Failed to send auto-update notification for container {ContainerName}",
+                container.Name
+            );
+    }
+
+    public async Task<bool> SendNewVersion(
+        Container mainApp,
+        List<Container> otherApps,
+        List<AppVersion> newerVersions
+    )
+    {
+        var message = NotificationMessageBuilder.BuildNewVersion(mainApp, otherApps, newerVersions);
+
+        return await TrySendNotification(message);
+    }
+
+    public async Task<bool> TrySendNotification(
+        string message,
+        bool propagateExceptions = false,
+        bool throwOnNoSuccess = false
+    )
+    {
+        var success = 0;
+        if (discordService.IsInitialized)
+        {
+            try
+            {
+                await discordService.SendRawAsync(message);
+                success++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Discord notification failed");
+                if (propagateExceptions)
+                    throw;
+            }
+        }
+
+        if (appriseService.IsInitialized)
+        {
+            try
+            {
+                await appriseService.SendAsync(message);
+                success++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Apprise notification failed");
+                if (propagateExceptions)
+                    throw;
+            }
+        }
+
+        if (success != 0)
+            return true;
+
+        var errorMessage = !AnyInitialized
+            ? "No notification services are initialized. Message was not sent."
+            : "The notification could not be sent successfully.";
+
+        if (throwOnNoSuccess)
+            throw new(errorMessage);
+
+        logger.LogWarning(errorMessage);
+
+        return false;
+    }
+
+    public async Task SendNotification(string message) =>
+        await TrySendNotification(message, true, true);
+}

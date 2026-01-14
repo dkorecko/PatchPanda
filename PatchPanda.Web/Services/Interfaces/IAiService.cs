@@ -1,4 +1,4 @@
-namespace PatchPanda.Web.Services;
+namespace PatchPanda.Web.Services.Interfaces;
 
 public interface IAiService
 {
@@ -9,10 +9,7 @@ public interface IAiService
     bool IsInitialized();
 }
 
-public interface IAiResult
-{
-    
-}
+public interface IAiResult { }
 
 public class SummaryResult : IAiResult
 {

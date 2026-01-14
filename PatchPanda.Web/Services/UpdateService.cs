@@ -4,7 +4,7 @@ namespace PatchPanda.Web.Services;
 
 public class UpdateService
 {
-    private const int MAX_DOCKER_ROLLBACK_ATTEMPTS = 3;
+    private const int MaxRollbackAttempts = 3;
 
     private readonly DockerService _dockerService;
     private readonly IDbContextFactory<DataContext> _dbContextFactory;
@@ -12,9 +12,8 @@ public class UpdateService
     private readonly IPortainerService _portainerService;
     private readonly ILogger<UpdateService> _logger;
     private readonly IVersionService _versionService;
-    private readonly IAppriseService _appriseService;
-    private readonly IDiscordService _discordService;
     private readonly JobRegistry _jobRegistry;
+    private readonly INotificationService _notificationService;
 
     public UpdateService(
         DockerService dockerService,
@@ -23,9 +22,8 @@ public class UpdateService
         ILogger<UpdateService> logger,
         IPortainerService portainerService,
         IVersionService versionService,
-        IAppriseService appriseService,
-        IDiscordService discordService,
-        JobRegistry jobRegistry
+        JobRegistry jobRegistry,
+        INotificationService notificationService
     )
     {
         _dockerService = dockerService;
@@ -34,9 +32,44 @@ public class UpdateService
         _portainerService = portainerService;
         _logger = logger;
         _versionService = versionService;
-        _appriseService = appriseService;
-        _discordService = discordService;
         _jobRegistry = jobRegistry;
+        _notificationService = notificationService;
+    }
+
+    private void CleanUpContainerJobs(int containerId)
+    {
+        var queuedSequence = _jobRegistry.GetQueuedUpdateForContainer(containerId);
+        if (queuedSequence.HasValue)
+            _jobRegistry.TryRemove(queuedSequence.Value);
+
+        var processingSequence = _jobRegistry.GetProcessingUpdateForContainer(containerId);
+        if (processingSequence.HasValue)
+            _jobRegistry.FinishProcessing(processingSequence.Value);
+    }
+
+    private void CleanUpAllContainerJobs(
+        int mainContainerId,
+        List<Container>? relatedApps,
+        List<Container>? sideEffectUpdated
+    )
+    {
+        CleanUpContainerJobs(mainContainerId);
+
+        if (relatedApps is not null)
+        {
+            foreach (var related in relatedApps)
+            {
+                CleanUpContainerJobs(related.Id);
+            }
+        }
+
+        if (sideEffectUpdated is not null)
+        {
+            foreach (var sideApp in sideEffectUpdated)
+            {
+                CleanUpContainerJobs(sideApp.Id);
+            }
+        }
     }
 
     public bool IsUpdateAvailable(Container app) =>
@@ -47,7 +80,7 @@ public class UpdateService
 
     public async Task CheckAllForUpdates()
     {
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync();
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
@@ -97,48 +130,13 @@ public class UpdateService
                             .FirstAsync(x => x.Id == mainApp.Id);
                         var toNotify = container.NewerVersions.Where(x => !x.Notified).ToList();
 
-                        var fullMessage = NotificationMessageBuilder.Build(
+                        var result = await _notificationService.SendNewVersion(
                             mainApp,
                             otherApps,
                             toNotify
                         );
-                        int successCount = 0;
 
-                        if (_discordService.IsInitialized)
-                        {
-                            try
-                            {
-                                await _discordService.SendRawAsync(fullMessage);
-                                successCount++;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(
-                                    ex,
-                                    "Discord notification failed, message {Message}",
-                                    ex.Message
-                                );
-                            }
-                        }
-
-                        if (_appriseService.IsInitialized)
-                        {
-                            try
-                            {
-                                await _appriseService.SendAsync(fullMessage);
-                                successCount++;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(
-                                    ex,
-                                    "Apprise notification failed, message {Message}",
-                                    ex.Message
-                                );
-                            }
-                        }
-
-                        if (successCount > 0)
+                        if (result)
                         {
                             try
                             {
@@ -211,29 +209,24 @@ public class UpdateService
             )
                 continue;
 
-            var targetVersion = container
-                .NewerVersions.Where(v =>
-                    v
-                        is {
-                            Ignored: false,
-                            Breaking: false,
-                            AIBreaking: not true,
-                            IsSuspectedMalicious: not true
-                        }
-                    && v.DateDiscovered < threshold
-                )
-                .OrderByDescending(
+            var allNewerVersions = container
+                .NewerVersions.Where(v => !v.Ignored && v.DateDiscovered < threshold)
+                .OrderBy(
                     v => v.VersionNumber,
                     Comparer<string>.Create(VersionHelper.NewerComparison)
                 )
-                .FirstOrDefault();
+                .ToList();
+
+            var targetVersion = allNewerVersions.FirstOrDefault(v =>
+                !v.Breaking && v.AIBreaking != true && v.IsSuspectedMalicious != true
+            );
 
             if (targetVersion == null)
                 continue;
 
             var plan = await Update(container, true, targetVersion);
 
-            if (plan is null)
+            if (plan.Steps is null)
                 continue;
 
             _logger.LogInformation(
@@ -250,11 +243,29 @@ public class UpdateService
         }
     }
 
+    private UpdatePlanModel HandleError(string errorMessage, bool planOnly)
+    {
+        if (!planOnly)
+            throw new InvalidOperationException(errorMessage);
+        return new(errorMessage);
+    }
+
+    private string LogAndGetRollbackFailedMessage()
+    {
+        string message =
+            "[ROLLBACK FAILED] Rollback failed after maximum attempts. Manual intervention may be required to restore the application to a stable state.";
+
+        _logger.LogError(message);
+
+        return message;
+    }
+
     public async Task<UpdatePlanModel> Update(
         Container app,
         bool planOnly,
         AppVersion targetVersion,
-        Action<string>? outputCallback = null
+        Action<string>? outputCallback = null,
+        bool isAutomatic = false
     )
     {
         if (!IsUpdateAvailable(app))
@@ -263,412 +274,543 @@ public class UpdateService
             );
 
         DateTime startedAt = DateTime.UtcNow;
-
-        ArgumentNullException.ThrowIfNull(app.Regex);
-        ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
-        ArgumentNullException.ThrowIfNull(app.Version);
-
         List<string> updateSteps = [];
+        string rollbackStdOut = string.Empty;
+        string rollbackStdErr = string.Empty;
+        List<Container>? relatedApps = null;
+        List<Container>? sideEffectUpdated = null;
+        var rollbackFailed = false;
 
-        await using var db = await _dbContextFactory.CreateDbContextAsync();
-        var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
-        var configPath = stack.ConfigFile;
-
-        if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
-            return new("Did not get config path and Portainer integration is disabled.");
-
-        string? configFileContent;
-
-        if (!string.IsNullOrWhiteSpace(configPath))
+        try
         {
-            updateSteps.Add($"In folder: {configPath}");
-            configFileContent = _fileService.ReadAllText(configPath);
-        }
-        else
-        {
-            configFileContent = await _portainerService.GetStackFileContentAsync(stack.StackName);
+            ArgumentNullException.ThrowIfNull(app.Regex);
+            ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
+            ArgumentNullException.ThrowIfNull(app.Version);
 
-            if (configFileContent is null)
-                return new("Failed to get content from Portainer.");
+            await using var db = await _dbContextFactory.CreateDbContextAsync();
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+            var configPath = stack.ConfigFile;
 
-            updateSteps.Add("Using Portainer-managed stack file for update");
-        }
+            if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
+                return HandleError(
+                    "Did not get config path and Portainer integration is disabled.",
+                    planOnly
+                );
 
-        var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-        var newVersion = targetVersion.VersionNumber;
-        var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
-        var versionMatch = Regex.Match(app.Version, adjustedRegex);
+            string? configFileContent;
 
-        if (versionMatch.Success)
-        {
-            newVersion = app.Version.Replace(versionMatch.Value, newVersion.TrimStart('v'));
-        }
-        else
-        {
-            adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
-            versionMatch = Regex.Match(newVersion, adjustedRegex);
+            if (!string.IsNullOrWhiteSpace(configPath))
+            {
+                updateSteps.Add($"In folder: {configPath}");
+                configFileContent = _fileService.ReadAllText(configPath);
+            }
+            else
+            {
+                configFileContent = await _portainerService.GetStackFileContentAsync(
+                    stack.StackName
+                );
+
+                if (configFileContent is null)
+                    return HandleError("Failed to get content from Portainer.", planOnly);
+
+                updateSteps.Add("Using Portainer-managed stack file for update");
+            }
+
+            var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
+            var newVersion = targetVersion.VersionNumber;
+            var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
+            var versionMatch = Regex.Match(app.Version, adjustedRegex);
 
             if (versionMatch.Success)
             {
-                var match = Regex.Match(app.Version, app.Regex);
-
-                if (!match.Success)
-                    return new(
-                        $"Could not match version pattern '{app.Regex}' against current version '{app.Version}' while updating to target version '{newVersion}'."
-                    );
-
-                newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
+                newVersion = app.Version.Replace(versionMatch.Value, newVersion.TrimStart('v'));
             }
-        }
-
-        string? envFile = null;
-        string? envFileContent = null;
-        string? resultingImage = null;
-        string? currentEnvLine = null;
-        string? targetEnvLine = null;
-
-        List<Container>? appsWithSharedEnvVersion = null;
-
-        if (matches == 0) // Did not find in main config, check .env
-        {
-            var mainImageVersionLine = Regex
-                .Matches(configFileContent, "\\${([a-zA-Z0-9\\-_]+):-[a-zA-Z0-9\\-_]+}")
-                .FirstOrDefault(x =>
-                    configFileContent.Contains(app.TargetImage.Split(':')[0] + $":{x.Value}")
-                );
-
-            if (mainImageVersionLine is not null)
+            else
             {
-                if (string.IsNullOrWhiteSpace(configPath))
+                adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
+                versionMatch = Regex.Match(newVersion, adjustedRegex);
+
+                if (versionMatch.Success)
                 {
-                    _logger.LogWarning(
-                        "Cannot update .env file for Portainer-managed stack {StackName}.",
-                        stack.StackName
-                    );
-                    return new("Cannot update .env file for Portainer-managed stacks.");
+                    var match = Regex.Match(app.Version, app.Regex);
+
+                    if (!match.Success)
+                        return HandleError(
+                            $"Could not match version pattern '{app.Regex}' against current version '{app.Version}' while updating to target version '{newVersion}'.",
+                            planOnly
+                        );
+
+                    newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
                 }
+            }
 
-                envFile = Path.Combine(Path.GetDirectoryName(configPath) ?? string.Empty, ".env");
+            string? envFile = null;
+            string? envFileContent = null;
+            string? resultingImage = null;
+            string? currentEnvLine = null;
+            string? targetEnvLine = null;
 
-                if (_fileService.Exists(envFile))
+            List<Container>? appsWithSharedEnvVersion = null;
+
+            if (matches == 0) // Did not find in main config, check .env
+            {
+                var mainImageVersionLine = Regex
+                    .Matches(configFileContent, "\\${([a-zA-Z0-9\\-_]+):-[a-zA-Z0-9\\-_]+}")
+                    .FirstOrDefault(x =>
+                        configFileContent.Contains(app.TargetImage.Split(':')[0] + $":{x.Value}")
+                    );
+
+                if (mainImageVersionLine is not null)
                 {
-                    envFileContent = _fileService.ReadAllText(envFile);
-                    var envVarRegex = Regex.Escape(mainImageVersionLine.Groups[1].Value);
-                    var targetImageSecondPortion = app.TargetImage.Split(':')[1];
-                    currentEnvLine = Regex
-                        .Match(
-                            envFileContent,
-                            $"{envVarRegex}={Regex.Escape(targetImageSecondPortion)}"
-                        )
-                        .Value;
-
-                    if (!string.IsNullOrWhiteSpace(currentEnvLine))
+                    if (string.IsNullOrWhiteSpace(configPath))
                     {
-                        targetEnvLine = currentEnvLine.Replace(
-                            targetImageSecondPortion,
-                            newVersion
+                        _logger.LogWarning(
+                            "Cannot update .env file for Portainer-managed stack {StackName}.",
+                            stack.StackName
                         );
-
-                        updateSteps.Add($"Looking at {envFile} .env file");
-                        updateSteps.Add(
-                            $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
+                        return HandleError(
+                            "Cannot update .env file for Portainer-managed stacks.",
+                            planOnly
                         );
+                    }
 
-                        if (app.MultiContainerAppId is not null)
+                    envFile = Path.Combine(
+                        Path.GetDirectoryName(configPath) ?? string.Empty,
+                        ".env"
+                    );
+
+                    if (_fileService.Exists(envFile))
+                    {
+                        envFileContent = _fileService.ReadAllText(envFile);
+                        var envVarRegex = Regex.Escape(mainImageVersionLine.Groups[1].Value);
+                        var targetImageSecondPortion = app.TargetImage.Split(':')[1];
+                        currentEnvLine = Regex
+                            .Match(
+                                envFileContent,
+                                $"{envVarRegex}={Regex.Escape(targetImageSecondPortion)}"
+                            )
+                            .Value;
+
+                        if (!string.IsNullOrWhiteSpace(currentEnvLine))
                         {
-                            var targetMultiContainer = await db
-                                .MultiContainerApps.Include(x => x.Containers)
-                                .FirstAsync(x => x.Id == app.MultiContainerAppId);
-                            appsWithSharedEnvVersion =
-                            [
-                                .. targetMultiContainer.Containers.Where(x =>
-                                    x.Id != app.Id
-                                    && configFileContent.Contains(
-                                        x.TargetImage.Split(':')[0]
-                                            + $":{mainImageVersionLine.Value}"
-                                    )
-                                ),
-                            ];
+                            targetEnvLine = currentEnvLine.Replace(
+                                targetImageSecondPortion,
+                                newVersion
+                            );
 
-                            if (appsWithSharedEnvVersion.Any())
-                                updateSteps.Add(
-                                    $"This update will also affect containers: {string.Join(", ", appsWithSharedEnvVersion.Select(x => x.Name))}"
-                                );
+                            updateSteps.Add($"Looking at {envFile} .env file");
+                            updateSteps.Add(
+                                $"Will replace {currentEnvLine} with {targetEnvLine} in the env file"
+                            );
+
+                            if (app.MultiContainerAppId is not null)
+                            {
+                                var targetMultiContainer = await db
+                                    .MultiContainerApps.Include(x => x.Containers)
+                                    .FirstAsync(x => x.Id == app.MultiContainerAppId);
+                                appsWithSharedEnvVersion =
+                                [
+                                    .. targetMultiContainer.Containers.Where(x =>
+                                        x.Id != app.Id
+                                        && configFileContent.Contains(
+                                            x.TargetImage.Split(':')[0]
+                                                + $":{mainImageVersionLine.Value}"
+                                        )
+                                    ),
+                                ];
+
+                                if (appsWithSharedEnvVersion.Any())
+                                    updateSteps.Add(
+                                        $"This update will also affect containers: {string.Join(", ", appsWithSharedEnvVersion.Select(x => x.Name))}"
+                                    );
+                            }
                         }
                     }
                 }
             }
-        }
-        else
-        {
-            resultingImage = app.TargetImage.Split(':')[0] + ':' + newVersion;
-
-            updateSteps.Add(
-                $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}"
-            );
-        }
-
-        updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
-
-        if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
-        {
-            _logger.LogWarning(
-                "Did not generate a valid update plan, actually generated: {Steps}\n"
-                    + "===================================================\n"
-                    + "configFileContent: {ConfigFileContent}\nmatches: {Matches}, newVersion: {NewVersion}, adjustedRegex: {AdjustedRegex}, versionMatch: {VersionMatch}, resultingImage: {ResultingImage}\n"
-                    + "envFile: {EnvFile}\nenvFileContent: {EnvFileContent}\ncurrentEnvLine: {CurrentEnvLine}\ntargetEnvLine: {TargetEnvLine}\n"
-                    + "===================================================",
-                updateSteps,
-                configFileContent,
-                matches,
-                newVersion,
-                adjustedRegex,
-                versionMatch.Success,
-                resultingImage,
-                envFile,
-                envFileContent,
-                currentEnvLine,
-                targetEnvLine
-            );
-            return new(
-                $"Did not generate a valid update plan. Update plan has fewer than {Constants.Limits.MINIMUM_UPDATE_STEPS} steps ({updateSteps.Count})."
-            );
-        }
-
-        if (planOnly)
-            return new(updateSteps);
-
-        if (resultingImage is not null)
-        {
-            if (string.IsNullOrWhiteSpace(configPath))
-            {
-                await _portainerService.UpdateStackFileContentAsync(
-                    stack.StackName,
-                    configFileContent.Replace(app.TargetImage, resultingImage)
-                );
-            }
             else
             {
-                _fileService.WriteAllText(
-                    configPath,
-                    configFileContent.Replace(app.TargetImage, resultingImage)
+                resultingImage = app.TargetImage.Split(':')[0] + ':' + newVersion;
+
+                updateSteps.Add(
+                    $"Will replace {matches} occurrences of {app.TargetImage} and replace them with {resultingImage}"
                 );
             }
-        }
-        else if (
-            !string.IsNullOrWhiteSpace(envFile)
-            && !string.IsNullOrWhiteSpace(envFileContent)
-            && !string.IsNullOrWhiteSpace(currentEnvLine)
-            && !string.IsNullOrWhiteSpace(targetEnvLine)
-        )
-        {
-            _fileService.WriteAllText(
-                envFile,
-                envFileContent.Replace(currentEnvLine, targetEnvLine)
-            );
-        }
 
-        string? combinedStdOuts = null;
-        string? combinedStdErrs = null;
+            updateSteps.Add($"Pull images for stack {stack.StackName} and restart");
 
-        if (!string.IsNullOrWhiteSpace(configPath))
-        {
-            var turnedOff = false;
-            try
+            if (updateSteps.Count < Constants.Limits.MINIMUM_UPDATE_STEPS)
             {
-                (string pullStdOut, string pullStdErr, int pullExitCode) =
-                    await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
-
-                combinedStdOuts += "[PULL STDOUT]\n" + pullStdOut + "\nExit code: " + pullExitCode;
-                combinedStdErrs += "[PULL STDERR]\n" + pullStdErr + "\nExit code: " + pullExitCode;
-
-                (string downStdOut, string downStdErr, int downExitCode) =
-                    await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
-
-                combinedStdOuts +=
-                    "\n[DOWN STDOUT]\n" + downStdOut + "\nExit code: " + downExitCode;
-                combinedStdErrs +=
-                    "\n[DOWN STDERR]\n" + downStdErr + "\nExit code: " + downExitCode;
-
-                turnedOff = true;
-                (string upStdOut, string upStdErr, int upExitCode) =
-                    await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
-
-                combinedStdOuts += "\n[UP STDOUT]\n" + upStdOut + "\nExit code: " + upExitCode;
-                combinedStdErrs += "\n[UP STDERR]\n" + upStdErr + "\nExit code: " + upExitCode;
+                _logger.LogWarning(
+                    "Did not generate a valid update plan, actually generated: {Steps}\n"
+                        + "===================================================\n"
+                        + "configFileContent: {ConfigFileContent}\nmatches: {Matches}, newVersion: {NewVersion}, adjustedRegex: {AdjustedRegex}, versionMatch: {VersionMatch}, resultingImage: {ResultingImage}\n"
+                        + "envFile: {EnvFile}\nenvFileContent: {EnvFileContent}\ncurrentEnvLine: {CurrentEnvLine}\ntargetEnvLine: {TargetEnvLine}\n"
+                        + "===================================================",
+                    updateSteps,
+                    configFileContent,
+                    matches,
+                    newVersion,
+                    adjustedRegex,
+                    versionMatch.Success,
+                    resultingImage,
+                    envFile,
+                    envFileContent,
+                    currentEnvLine,
+                    targetEnvLine
+                );
+                return HandleError(
+                    $"Did not generate a valid update plan. Update plan has fewer than {Constants.Limits.MINIMUM_UPDATE_STEPS} steps ({updateSteps.Count}).",
+                    planOnly
+                );
             }
-            catch (DockerCommandException ex)
+
+            if (planOnly)
+                return new(updateSteps);
+
+            if (resultingImage is not null)
             {
-                _logger.LogError(ex, "Failed to update, rolling back to previous file states");
-
-                if (resultingImage is not null)
-                    _fileService.WriteAllText(configPath, configFileContent);
-                else if (
-                    envFile is not null
-                    && envFileContent is not null
-                    && currentEnvLine is not null
-                    && targetEnvLine is not null
-                )
-                    _fileService.WriteAllText(envFile, envFileContent);
-
-                if (turnedOff)
+                if (string.IsNullOrWhiteSpace(configPath))
                 {
-                    int attemptCount = 0;
-
-                    string rollbackStdOut = string.Empty;
-                    string rollbackStdErr = string.Empty;
-
-                    while (attemptCount < MAX_DOCKER_ROLLBACK_ATTEMPTS)
+                    try
                     {
-                        (string reupStdOut, string reupStdErr, int reupExitCode) =
-                            await _dockerService.RunDockerComposeOnPath(
-                                stack,
-                                "up -d",
-                                outputCallback
-                            );
-
-                        if (reupExitCode != 0)
-                        {
-                            rollbackStdOut +=
-                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDOUT]\n"
-                                + reupStdOut
-                                + "\nExit code: "
-                                + reupExitCode;
-                            rollbackStdErr +=
-                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
-                                + reupStdErr
-                                + "\nExit code: "
-                                + reupExitCode;
-                            attemptCount++;
-                            continue;
-                        }
-
-                        db.UpdateAttempts.Add(
-                            new()
-                            {
-                                StdOut =
-                                    ex.StdOut + rollbackStdOut + "\n[UP STDOUT]\n" + reupStdOut,
-                                StdErr =
-                                    ex.StdErr + rollbackStdErr + "\n[UP STDERR]\n" + reupStdErr,
-                                ExitCode = ex.ExitCode,
-                                StartedAt = startedAt,
-                                EndedAt = DateTime.UtcNow,
-                                ContainerId = app.Id,
-                                StackId = stack.Id,
-                                FailedCommand = ex.Command,
-                                UsedPlan = string.Join(", ", updateSteps),
-                            }
+                        await _portainerService.UpdateStackFileContentAsync(
+                            stack.StackName,
+                            configFileContent.Replace(app.TargetImage, resultingImage)
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            ex,
+                            "Failed to update, rolling back to previous file states"
                         );
 
-                        break;
+                        int attemptCount = 0;
+
+                        while (attemptCount < MaxRollbackAttempts)
+                        {
+                            if (attemptCount > 0)
+                            {
+                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                                await Task.Delay(delayMs);
+                            }
+
+                            try
+                            {
+                                await _portainerService.UpdateStackFileContentAsync(
+                                    stack.StackName,
+                                    configFileContent
+                                );
+
+                                rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n";
+                                break;
+                            }
+                            catch (Exception rollbackException)
+                            {
+                                rollbackStdErr +=
+                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
+                                    + rollbackException;
+                                attemptCount++;
+                            }
+                        }
+
+                        if (attemptCount >= MaxRollbackAttempts)
+                            rollbackFailed = true;
+
+                        throw;
                     }
                 }
                 else
                 {
-                    db.UpdateAttempts.Add(
-                        new()
-                        {
-                            StdOut = ex.StdOut,
-                            StdErr = ex.StdErr,
-                            ExitCode = ex.ExitCode,
-                            StartedAt = startedAt,
-                            EndedAt = DateTime.UtcNow,
-                            ContainerId = app.Id,
-                            StackId = stack.Id,
-                            FailedCommand = ex.Command,
-                            UsedPlan = string.Join(", ", updateSteps),
-                        }
+                    _fileService.WriteAllText(
+                        configPath,
+                        configFileContent.Replace(app.TargetImage, resultingImage)
                     );
                 }
-
-                await db.SaveChangesAsync();
-
-                throw;
             }
-        }
-
-        var targetApp = await db
-            .Containers.Include(x => x.NewerVersions)
-            .FirstAsync(x => x.Id == app.Id);
-
-        var removedVersions = targetApp.NewerVersions.RemoveAll(x =>
-            targetVersion.Id == x.Id || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
-        );
-
-        var relatedApps = await db
-            .Containers.Include(x => x.NewerVersions)
-            .Where(c =>
-                c.StackId == targetApp.StackId
-                && c.Id != targetApp.Id
-                && c.TargetImage == targetApp.TargetImage
+            else if (
+                !string.IsNullOrWhiteSpace(envFile)
+                && !string.IsNullOrWhiteSpace(envFileContent)
+                && !string.IsNullOrWhiteSpace(currentEnvLine)
+                && !string.IsNullOrWhiteSpace(targetEnvLine)
             )
-            .ToListAsync();
+            {
+                _fileService.WriteAllText(
+                    envFile,
+                    envFileContent.Replace(currentEnvLine, targetEnvLine)
+                );
+            }
 
-        if (resultingImage is not null)
-        {
-            targetApp.TargetImage = resultingImage;
-        }
+            string? combinedStdOuts = null;
+            string? combinedStdErrs = null;
 
-        foreach (var related in relatedApps)
-        {
-            if (resultingImage is not null)
-                related.TargetImage = resultingImage;
+            if (!string.IsNullOrWhiteSpace(configPath))
+            {
+                var turnedOff = false;
+                try
+                {
+                    (string pullStdOut, string pullStdErr, int pullExitCode) =
+                        await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
 
-            related.NewerVersions.RemoveAll(x =>
+                    combinedStdOuts +=
+                        "[PULL STDOUT]\n" + pullStdOut + "\nExit code: " + pullExitCode;
+                    combinedStdErrs +=
+                        "[PULL STDERR]\n" + pullStdErr + "\nExit code: " + pullExitCode;
+
+                    (string downStdOut, string downStdErr, int downExitCode) =
+                        await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
+
+                    combinedStdOuts +=
+                        "\n[DOWN STDOUT]\n" + downStdOut + "\nExit code: " + downExitCode;
+                    combinedStdErrs +=
+                        "\n[DOWN STDERR]\n" + downStdErr + "\nExit code: " + downExitCode;
+
+                    turnedOff = true;
+                    (string upStdOut, string upStdErr, int upExitCode) =
+                        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+
+                    combinedStdOuts += "\n[UP STDOUT]\n" + upStdOut + "\nExit code: " + upExitCode;
+                    combinedStdErrs += "\n[UP STDERR]\n" + upStdErr + "\nExit code: " + upExitCode;
+                }
+                catch (DockerCommandException ex)
+                {
+                    _logger.LogError(ex, "Failed to update, rolling back to previous file states");
+
+                    if (resultingImage is not null)
+                        _fileService.WriteAllText(configPath, configFileContent);
+                    else if (
+                        envFile is not null
+                        && envFileContent is not null
+                        && currentEnvLine is not null
+                        && targetEnvLine is not null
+                    )
+                        _fileService.WriteAllText(envFile, envFileContent);
+
+                    if (turnedOff)
+                    {
+                        int attemptCount = 0;
+
+                        while (attemptCount < MaxRollbackAttempts)
+                        {
+                            if (attemptCount > 0)
+                            {
+                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                                await Task.Delay(delayMs);
+                            }
+
+                            (string reupStdOut, string reupStdErr, int reupExitCode) =
+                                await _dockerService.RunDockerComposeOnPath(
+                                    stack,
+                                    "up -d",
+                                    outputCallback
+                                );
+
+                            if (reupExitCode != 0)
+                            {
+                                rollbackStdOut +=
+                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDOUT]\n"
+                                    + reupStdOut
+                                    + "\nExit code: "
+                                    + reupExitCode;
+                                rollbackStdErr +=
+                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
+                                    + reupStdErr
+                                    + "\nExit code: "
+                                    + reupExitCode;
+                                attemptCount++;
+                                continue;
+                            }
+
+                            rollbackStdOut += $"\n[ROLLBACK SUCCESS]\n" + reupStdOut;
+                            rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n" + reupStdErr;
+
+                            break;
+                        }
+
+                        if (attemptCount >= MaxRollbackAttempts)
+                            rollbackFailed = true;
+                    }
+
+                    throw;
+                }
+            }
+
+            var targetApp = await db
+                .Containers.Include(x => x.NewerVersions)
+                .FirstAsync(x => x.Id == app.Id);
+
+            var removedVersions = targetApp.NewerVersions.RemoveAll(x =>
                 targetVersion.Id == x.Id || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
             );
 
-            related.Version = newVersion;
-        }
-
-        targetApp.Version = newVersion;
-
-        if (
-            !string.IsNullOrWhiteSpace(envFile)
-            && !string.IsNullOrWhiteSpace(envFileContent)
-            && !string.IsNullOrWhiteSpace(currentEnvLine)
-            && !string.IsNullOrWhiteSpace(targetEnvLine)
-            && appsWithSharedEnvVersion is not null
-        )
-        {
-            var sideEffectUpdated = await db
+            relatedApps = await db
                 .Containers.Include(x => x.NewerVersions)
-                .Where(c => appsWithSharedEnvVersion.Select(x => x.Id).Contains(c.Id))
+                .Where(c =>
+                    c.StackId == targetApp.StackId
+                    && c.Id != targetApp.Id
+                    && c.TargetImage == targetApp.TargetImage
+                )
                 .ToListAsync();
 
-            foreach (var sideApp in sideEffectUpdated)
+            if (resultingImage is not null)
             {
-                sideApp.NewerVersions.RemoveAll(x =>
-                    targetVersion.VersionNumber == x.VersionNumber
+                targetApp.TargetImage = resultingImage;
+            }
+
+            foreach (var related in relatedApps)
+            {
+                if (resultingImage is not null)
+                    related.TargetImage = resultingImage;
+
+                related.NewerVersions.RemoveAll(x =>
+                    targetVersion.Id == x.Id
                     || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
                 );
-                sideApp.Version = newVersion;
-            }
-        }
 
-        db.UpdateAttempts.Add(
-            new()
+                related.Version = newVersion;
+            }
+
+            targetApp.Version = newVersion;
+
+            if (
+                !string.IsNullOrWhiteSpace(envFile)
+                && !string.IsNullOrWhiteSpace(envFileContent)
+                && !string.IsNullOrWhiteSpace(currentEnvLine)
+                && !string.IsNullOrWhiteSpace(targetEnvLine)
+                && appsWithSharedEnvVersion is not null
+            )
             {
-                StartedAt = startedAt,
-                EndedAt = DateTime.UtcNow,
-                ContainerId = app.Id,
-                StackId = stack.Id,
-                UsedPlan = string.Join(", ", updateSteps),
-                ExitCode = 0,
-                StdErr = combinedStdErrs,
-                StdOut = combinedStdOuts,
+                sideEffectUpdated = await db
+                    .Containers.Include(x => x.NewerVersions)
+                    .Where(c => appsWithSharedEnvVersion.Select(x => x.Id).Contains(c.Id))
+                    .ToListAsync();
+
+                foreach (var sideApp in sideEffectUpdated)
+                {
+                    sideApp.NewerVersions.RemoveAll(x =>
+                        targetVersion.VersionNumber == x.VersionNumber
+                        || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
+                    );
+                    sideApp.Version = newVersion;
+                }
             }
-        );
 
-        await db.SaveChangesAsync();
+            CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 
-        _logger.LogInformation(
-            "Updated through {UpdateCount} versions from {InitialVersion} to {NewVersion}.",
-            removedVersions,
-            app.Version,
-            newVersion
-        );
+            db.UpdateAttempts.Add(
+                new()
+                {
+                    StartedAt = startedAt,
+                    EndedAt = DateTime.UtcNow,
+                    ContainerId = app.Id,
+                    StackId = stack.Id,
+                    UsedPlan = string.Join(", ", updateSteps),
+                    ExitCode = 0,
+                    StdErr = combinedStdErrs,
+                    StdOut = combinedStdOuts,
+                }
+            );
+            await db.SaveChangesAsync();
 
-        return new(updateSteps);
+            await _notificationService.SendAutoUpdateResult(
+                app,
+                targetVersion.VersionNumber,
+                true,
+                isAutomatic,
+                false
+            );
+
+            _logger.LogInformation(
+                "Updated through {UpdateCount} versions from {InitialVersion} to {NewVersion}.",
+                removedVersions,
+                app.Version,
+                newVersion
+            );
+
+            return new(updateSteps);
+        }
+        catch (DockerCommandException ex)
+        {
+            // DockerCommandException bubbles up from inner try-catch after rollback is performed
+            // This catch handles post-failure cleanup: UpdateAttempt logging, job cleanup, notifications
+            await using var db = await _dbContextFactory.CreateDbContextAsync();
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+
+            if (rollbackFailed)
+                rollbackStdErr += $"\n{LogAndGetRollbackFailedMessage()}";
+
+            db.UpdateAttempts.Add(
+                new()
+                {
+                    StdOut = ex.StdOut + rollbackStdOut,
+                    StdErr = ex.StdErr + rollbackStdErr,
+                    ExitCode = ex.ExitCode,
+                    StartedAt = startedAt,
+                    EndedAt = DateTime.UtcNow,
+                    ContainerId = app.Id,
+                    StackId = stack.Id,
+                    FailedCommand = ex.Command,
+                    UsedPlan = string.Join(", ", updateSteps),
+                }
+            );
+            await db.SaveChangesAsync();
+
+            CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
+
+            await _notificationService.SendAutoUpdateResult(
+                app,
+                targetVersion.VersionNumber,
+                false,
+                isAutomatic,
+                rollbackFailed,
+                ex.Message
+            );
+
+            throw;
+        }
+        catch (Exception ex)
+        {
+            if (!planOnly)
+            {
+                await using var db = await _dbContextFactory.CreateDbContextAsync();
+                var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+
+                db.UpdateAttempts.Add(
+                    new()
+                    {
+                        StdOut = string.Empty,
+                        StdErr =
+                            ex
+                            + (
+                                rollbackFailed
+                                    ? $"\n{LogAndGetRollbackFailedMessage()}"
+                                    : string.Empty
+                            ),
+                        ExitCode = -1,
+                        StartedAt = startedAt,
+                        EndedAt = DateTime.UtcNow,
+                        ContainerId = app.Id,
+                        StackId = stack.Id,
+                        FailedCommand = null,
+                        UsedPlan = string.Join(", ", updateSteps),
+                    }
+                );
+                await db.SaveChangesAsync();
+
+                CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
+
+                await _notificationService.SendAutoUpdateResult(
+                    app,
+                    targetVersion.VersionNumber,
+                    false,
+                    isAutomatic,
+                    rollbackFailed,
+                    ex.Message
+                );
+            }
+
+            throw;
+        }
     }
 }

@@ -11,9 +11,8 @@ public class UpdateServiceTests
     private readonly Mock<ILogger<UpdateService>> _updateLogger = new();
     private readonly Mock<IConfiguration> _configuration = new();
     private readonly Mock<IPortainerService> _portainerService = new();
-    private readonly Mock<IAppriseService> _appriseService = new();
+    private readonly Mock<INotificationService> _notificationService = new();
     private readonly Mock<IVersionService> _versionService = new();
-    private readonly Mock<IDiscordService> _discordService = new();
     private readonly Mock<IAiService> _aiService = new();
     private readonly JobRegistry _jobRegistry = new(new());
 
@@ -55,9 +54,8 @@ public class UpdateServiceTests
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
-            _appriseService.Object,
-            _discordService.Object,
-            _jobRegistry
+            _jobRegistry,
+            _notificationService.Object
         ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
         var importantTask = tasks!.Steps!.FirstOrDefault(t => t.Contains("Will"));
@@ -135,9 +133,8 @@ public class UpdateServiceTests
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
-            _appriseService.Object,
-            _discordService.Object,
-            _jobRegistry
+            _jobRegistry,
+            _notificationService.Object
         ).Update(stack.Apps[0], false, stack.Apps[0].NewerVersions[0]);
 
         var importantTask = tasks!.Steps!.FirstOrDefault(t => t.Contains("Will"));
@@ -214,13 +211,13 @@ public class UpdateServiceTests
         _portainerService
             .Setup(p => p.GetStackFileContentAsync(It.IsAny<string>()))
             .ReturnsAsync(composeContent);
-        _portainerService
-            .Setup(p => p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(true);
+        _portainerService.Setup(p =>
+            p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>())
+        );
 
         var dbContextFactory = Helper.CreateInMemoryFactory();
 
-        using var db = dbContextFactory.CreateDbContext();
+        await using var db = await dbContextFactory.CreateDbContextAsync();
 
         db.Stacks.Add(stack);
         await db.SaveChangesAsync();
@@ -249,9 +246,8 @@ public class UpdateServiceTests
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
-            _appriseService.Object,
-            _discordService.Object,
-            _jobRegistry
+            _jobRegistry,
+            _notificationService.Object
         );
 
         var tasks = await updateService.Update(
@@ -345,9 +341,8 @@ public class UpdateServiceTests
             _updateLogger.Object,
             _portainerService.Object,
             _versionService.Object,
-            _appriseService.Object,
-            _discordService.Object,
-            _jobRegistry
+            _jobRegistry,
+            _notificationService.Object
         );
 
         await using var initialCheck = await dbContextFactory.CreateDbContextAsync();
