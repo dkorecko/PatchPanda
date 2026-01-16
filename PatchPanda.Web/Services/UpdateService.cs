@@ -547,7 +547,6 @@ public class UpdateService
 
             if (!string.IsNullOrWhiteSpace(configPath))
             {
-                var turnedOff = false;
                 try
                 {
                     (string pullStdOut, string pullStdErr, int pullExitCode) =
@@ -558,15 +557,6 @@ public class UpdateService
                     combinedStdErrs +=
                         "[PULL STDERR]\n" + pullStdErr + "\nExit code: " + pullExitCode;
 
-                    (string downStdOut, string downStdErr, int downExitCode) =
-                        await _dockerService.RunDockerComposeOnPath(stack, "down", outputCallback);
-
-                    combinedStdOuts +=
-                        "\n[DOWN STDOUT]\n" + downStdOut + "\nExit code: " + downExitCode;
-                    combinedStdErrs +=
-                        "\n[DOWN STDERR]\n" + downStdErr + "\nExit code: " + downExitCode;
-
-                    turnedOff = true;
                     (string upStdOut, string upStdErr, int upExitCode) =
                         await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
 
@@ -587,50 +577,47 @@ public class UpdateService
                     )
                         _fileService.WriteAllText(envFile, envFileContent);
 
-                    if (turnedOff)
+                    int attemptCount = 0;
+
+                    while (attemptCount < MaxRollbackAttempts)
                     {
-                        int attemptCount = 0;
-
-                        while (attemptCount < MaxRollbackAttempts)
+                        if (attemptCount > 0)
                         {
-                            if (attemptCount > 0)
-                            {
-                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
-                                await Task.Delay(delayMs);
-                            }
-
-                            (string reupStdOut, string reupStdErr, int reupExitCode) =
-                                await _dockerService.RunDockerComposeOnPath(
-                                    stack,
-                                    "up -d",
-                                    outputCallback
-                                );
-
-                            if (reupExitCode != 0)
-                            {
-                                rollbackStdOut +=
-                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDOUT]\n"
-                                    + reupStdOut
-                                    + "\nExit code: "
-                                    + reupExitCode;
-                                rollbackStdErr +=
-                                    $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
-                                    + reupStdErr
-                                    + "\nExit code: "
-                                    + reupExitCode;
-                                attemptCount++;
-                                continue;
-                            }
-
-                            rollbackStdOut += $"\n[ROLLBACK SUCCESS]\n" + reupStdOut;
-                            rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n" + reupStdErr;
-
-                            break;
+                            var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                            await Task.Delay(delayMs);
                         }
 
-                        if (attemptCount >= MaxRollbackAttempts)
-                            rollbackFailed = true;
+                        (string reupStdOut, string reupStdErr, int reupExitCode) =
+                            await _dockerService.RunDockerComposeOnPath(
+                                stack,
+                                "up -d",
+                                outputCallback
+                            );
+
+                        if (reupExitCode != 0)
+                        {
+                            rollbackStdOut +=
+                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDOUT]\n"
+                                + reupStdOut
+                                + "\nExit code: "
+                                + reupExitCode;
+                            rollbackStdErr +=
+                                $"\n[ROLLBACK ATTEMPT {attemptCount + 1} STDERR]\n"
+                                + reupStdErr
+                                + "\nExit code: "
+                                + reupExitCode;
+                            attemptCount++;
+                            continue;
+                        }
+
+                        rollbackStdOut += $"\n[ROLLBACK SUCCESS]\n" + reupStdOut;
+                        rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n" + reupStdErr;
+
+                        break;
                     }
+
+                    if (attemptCount >= MaxRollbackAttempts)
+                        rollbackFailed = true;
 
                     throw;
                 }
