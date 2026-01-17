@@ -84,7 +84,11 @@ public class UpdateService
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
-            .Where(x => !x.IsSecondary && (x.GitHubRepo != null || x.OverrideGitHubRepo != null))
+            .Where(x =>
+                !x.IsSecondary
+                && !x.IgnoreContainer
+                && (x.GitHubRepo != null || x.OverrideGitHubRepo != null)
+            )
             .ToListAsync();
 
         var uniqueRepoGroups = containers
@@ -191,7 +195,8 @@ public class UpdateService
         var candidates = await db
             .Containers.Include(x => x.NewerVersions)
             .Where(x =>
-                x.NewerVersions.Any(v =>
+                !x.IgnoreContainer
+                && x.NewerVersions.Any(v =>
                     !v.Ignored
                     && !v.Breaking
                     && v.AIBreaking != true

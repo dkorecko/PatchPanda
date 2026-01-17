@@ -70,7 +70,7 @@ else
         @foreach (var context in _composeStacks.OrderBy(x => x.StackName))
         {
             var stackId = $"stack_{i}";
-            var appsWithNewerVersions = context.Apps.Where(x => x.IsSelectableForUpdate(_jobRegistry)).ToList();
+            var appsWithNewerVersions = context.Apps.Where(x => !x.IgnoreContainer && x.IsSelectableForUpdate(_jobRegistry)).ToList();
             var hasProcessing = context.Apps.Any(x => _jobRegistry.GetProcessingUpdateForContainer(x.Id) is not null);
             var queuedUpdates = context.Apps.Count(x => _jobRegistry.GetQueuedUpdateForContainer(x.Id) is not null);
             i++;
@@ -243,7 +243,14 @@ else
                                             }
                                         </td>
                                         <td>
-                                            @if(newestVersion is null)
+                                            @if (app.IgnoreContainer)
+                                            {
+                                                <span class="badge text-bg-dark" title="Version checking and notifications are disabled">
+                                                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                                                    Ignored
+                                                </span>
+                                            }
+                                            else if(newestVersion is null)
                                             {
                                                     var ignoredVersions = app.NewerVersions.Where(x => x.Ignored).ToList();
 

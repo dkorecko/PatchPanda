@@ -36,7 +36,10 @@ public class Container : AbstractEntity
 
     public required int StackId { get; set; }
 
+    public bool IgnoreContainer { get; set; }
+
     public virtual ComposeStack Stack { get; set; } = null!;
+
     public virtual List<UpdateAttempt> UpdateAttempts { get; set; } = [];
 
     public Tuple<string, string>? GetGitHubRepo() => OverrideGitHubRepo ?? GitHubRepo;
@@ -50,7 +53,8 @@ public class Container : AbstractEntity
     }
 
     public bool IsSelectableForUpdate(JobRegistry jobRegistry) =>
-        jobRegistry.GetQueuedUpdateForContainer(Id) is null
+        !IgnoreContainer
+        && jobRegistry.GetQueuedUpdateForContainer(Id) is null
         && jobRegistry.GetProcessingUpdateForContainer(Id) is null
         && NewerVersions.Any(v => !v.Ignored);
 }

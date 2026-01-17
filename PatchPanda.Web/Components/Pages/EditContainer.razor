@@ -19,6 +19,13 @@
     <InputText @bind-Value="_model.OverrideGitHubRepoName" />
     <ValidationMessage For="() => _model.OverrideGitHubRepoName" />
 
+    <div class="form-check mt-3">
+        <InputCheckbox class="form-check-input" @bind-Value="_model.IgnoreContainer" id="ignoreContainer" />
+        <label class="form-check-label" for="ignoreContainer">
+            Ignore Container (skip version checking and notifications)
+        </label>
+    </div>
+
     <button type="submit" class="btn btn-primary">Save</button>
 </EditForm>
 
@@ -44,7 +51,8 @@
         _model = new()
         {
             OverrideGitHubRepoOwner = entity.OverrideGitHubRepo?.Item1,
-            OverrideGitHubRepoName = entity.OverrideGitHubRepo?.Item2
+            OverrideGitHubRepoName = entity.OverrideGitHubRepo?.Item2,
+            IgnoreContainer = entity.IgnoreContainer
         };
 
         StateHasChanged();
@@ -68,7 +76,7 @@
         await db.Containers.Where(x => x.Id == Id).ExecuteUpdateAsync(x => x.SetProperty(
             c => c.OverrideGitHubRepo,
             result
-        ).SetProperty(c => c.GitHubVersionRegex, regex));
+        ).SetProperty(c => c.GitHubVersionRegex, regex).SetProperty(c => c.IgnoreContainer, _model.IgnoreContainer));
 
         _navigationManager.NavigateTo($"/");
     }
