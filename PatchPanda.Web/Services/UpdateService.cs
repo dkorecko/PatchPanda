@@ -492,7 +492,7 @@ public class UpdateService
                         {
                             if (attemptCount > 0)
                             {
-                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
+                                var delayMs = (int)Math.Pow(2, attemptCount) * 1000;
                                 await Task.Delay(delayMs);
                             }
 
