@@ -1,4 +1,4 @@
-﻿@page "/versions/{ContainerId:int}"
+@page "/versions/{ContainerId:int}"
 @inject IDbContextFactory<DataContext> _dbContextFactory
 @inject IVersionService _versionService
 @inject UpdateService _updateService
@@ -34,6 +34,7 @@ else
     }
     else
     {
+        var queuedUpdate = _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
         var processingUpdate = _jobRegistry.GetProcessingUpdateForContainer(_app.Id);
 
         <ul>
@@ -119,12 +120,12 @@ else
                 </div>
             }
 
-            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null || processingUpdate is not null)">
+            <button class="btn btn-primary" @onclick="ExecuteUpdate" disabled="@(queuedUpdate is not null || processingUpdate is not null)">
                 @if (processingUpdate is not null)
                 {
                     <span class="spinner-grow spinner-grow-sm" aria-hidden="true"></span>
                 }
-                else if (_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is not null)
+                else if (queuedUpdate is not null)
                 {
                     <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
                     <span>Queued</span>
@@ -231,24 +232,30 @@ else
     {
         ArgumentNullException.ThrowIfNull(_app);
 
-        if(_cts.IsCancellationRequested || _terminal is null)
+        if (_cts.IsCancellationRequested)
             return;
 
-        await InvokeAsync(StateHasChanged);
+        var processingUpdate = _jobRegistry.GetProcessingUpdateForContainer(_app.Id);
 
-        if(_currentJobSequence is null) 
+        if (processingUpdate is not null)
+            await InvokeAsync(StateHasChanged);
+
+        if (_terminal is not null)
         {
-            _currentJobSequence = _jobRegistry.GetProcessingUpdateForContainer(_app.Id) ?? _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
-        }
+            if(_currentJobSequence is null)
+            {
+                _currentJobSequence = processingUpdate ?? _jobRegistry.GetQueuedUpdateForContainer(_app.Id);
+            }
 
-        if(_currentJobSequence is null) 
-            return;
+            if(_currentJobSequence is not null)
+            {
+                var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence.Value);
 
-        var output = _jobRegistry.GetOutputSnapshot(_currentJobSequence.Value);
-
-        foreach (var line in output)
-        {
-            await _terminal.NewLine(line);
+                foreach (var line in output)
+                {
+                    await _terminal.NewLine(line);
+                }
+            }
         }
 
         if (_jobRegistry.GetQueuedUpdateForContainer(_app.Id) is null && _jobRegistry.GetProcessingUpdateForContainer(_app.Id) is null)
