@@ -69,9 +69,8 @@ AI Summarization (Ollama or compatible LLM API)
 
 Portainer
 
-- PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`). If provided and a stack does not expose a local compose config path, PatchPanda will assume the stack is Portainer-managed and use the Portainer API to read/update the compose file.
-- PORTAINER_USERNAME - (optional) Username for Portainer API authentication, must be provided if PORTAINER_URL is provided.
-- PORTAINER_PASSWORD - (optional) Password for Portainer API authentication, must be provided if PORTAINER_URL is provided.
+- PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`).
+- PORTAINER_ACCESS_TOKEN - (optional) Access token for Portainer API authentication. Generate this in Portainer under User Settings → Access Tokens.
 
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 

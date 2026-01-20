@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using PatchPanda.Web.DTOs;
@@ -11,15 +9,11 @@ public class PortainerService : IPortainerService
     private readonly HttpClient _httpClient;
     private readonly ILogger<PortainerService> _logger;
     private readonly string? _url;
-    private readonly string? _username;
-    private readonly string? _password;
-    private string? _jwt;
-    private DateTime? _jwtExpiry;
+    private readonly string? _accessToken;
 
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(_url)
-        && !string.IsNullOrWhiteSpace(_username)
-        && !string.IsNullOrWhiteSpace(_password);
+        && !string.IsNullOrWhiteSpace(_accessToken);
 
     public PortainerService(
         IHttpClientFactory httpFactory,
@@ -29,75 +23,23 @@ public class PortainerService : IPortainerService
     {
         _logger = logger;
         _url = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_URL);
-        _username = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_USERNAME);
-        _password = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_PASSWORD);
+        _accessToken = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_ACCESS_TOKEN);
         _httpClient = httpFactory.CreateClient();
 
         if (!IsConfigured)
         {
             logger.LogWarning(
-                "{Url}, {Username} or {Password} is missing. Please set all three if you wish to enable Portainer integration.",
+                "{Url} or {AccessToken} is missing. Please set both if you wish to enable Portainer integration.",
                 Constants.VariableKeys.PORTAINER_URL,
-                Constants.VariableKeys.PORTAINER_USERNAME,
-                Constants.VariableKeys.PORTAINER_PASSWORD
+                Constants.VariableKeys.PORTAINER_ACCESS_TOKEN
             );
         }
         else
         {
             _httpClient.BaseAddress = new Uri(_url!);
+            _httpClient.DefaultRequestHeaders.Add("X-API-Key", _accessToken);
             logger.LogInformation("PortainerService initialized with URL: {Url}", _url);
         }
-    }
-
-    private async Task EnsureAuthenticatedAsync()
-    {
-        if (!IsConfigured)
-            return;
-
-        if (
-            !string.IsNullOrWhiteSpace(_jwt)
-            && _jwtExpiry is not null
-            && _jwtExpiry > DateTime.UtcNow
-        )
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Bearer",
-                _jwt
-            );
-            return;
-        }
-
-        var payload = JsonSerializer.Serialize(new { username = _username, password = _password });
-        var resp = await _httpClient.PostAsync(
-            "/api/auth",
-            new StringContent(payload, Encoding.UTF8, "application/json")
-        );
-
-        if (!resp.IsSuccessStatusCode)
-        {
-            _logger.LogWarning(
-                "Portainer authentication failed with status {Status}. Make sure {UrlKey}, {UserKey} and {PassKey} are set correctly.",
-                resp.StatusCode,
-                Constants.VariableKeys.PORTAINER_URL,
-                Constants.VariableKeys.PORTAINER_USERNAME,
-                Constants.VariableKeys.PORTAINER_PASSWORD
-            );
-            return;
-        }
-
-        var json = await resp.Content.ReadFromJsonAsync<PortainerAuthResponse>();
-
-        if (json?.Jwt is not null)
-        {
-            _jwt = json.Jwt;
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Bearer",
-                _jwt
-            );
-            _jwtExpiry = DateTime.UtcNow.AddHours(8);
-        }
-        else
-            _logger.LogWarning("Failed parsing Portainer auth response");
     }
 
     private async Task<PortainerStackDto?> GetStack(string stackName)
@@ -105,15 +47,13 @@ public class PortainerService : IPortainerService
         if (!IsConfigured)
             return null;
 
-        await EnsureAuthenticatedAsync();
-
         var filters = JsonSerializer.Serialize(new { Name = stackName });
         var resp = await _httpClient.GetAsync($"/api/stacks?filters={filters}");
 
         if (!resp.IsSuccessStatusCode)
         {
             _logger.LogWarning(
-                "Could not list Portainer stacks: {Status}. Check that {UrlKey} is reachable and credentials are valid",
+                "Could not list Portainer stacks: {Status}. Check that {UrlKey} is reachable and access token is valid",
                 resp.StatusCode,
                 Constants.VariableKeys.PORTAINER_URL
             );
@@ -148,7 +88,7 @@ public class PortainerService : IPortainerService
         if (!fileResp.IsSuccessStatusCode)
         {
             _logger.LogWarning(
-                "Could not get Portainer stack file: {Status}. Ensure {UrlKey} and credentials are valid and stack exists.",
+                "Could not get Portainer stack file: {Status}. Ensure {UrlKey} and access token are valid and stack exists.",
                 fileResp.StatusCode,
                 Constants.VariableKeys.PORTAINER_URL
             );
@@ -176,7 +116,7 @@ public class PortainerService : IPortainerService
 
         if (!putResp.IsSuccessStatusCode)
             throw new(
-                $"Could not update Portainer stack file: {putResp.StatusCode}, full response: {await putResp.Content.ReadAsStringAsync()}. Check {Constants.VariableKeys.PORTAINER_URL} and credentials"
+                $"Could not update Portainer stack file: {putResp.StatusCode}, full response: {await putResp.Content.ReadAsStringAsync()}. Check {Constants.VariableKeys.PORTAINER_URL} and access token"
             );
     }
 }
