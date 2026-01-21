@@ -24,7 +24,7 @@ public class PortainerService : IPortainerService
         _logger = logger;
         _url = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_URL);
         _accessToken = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_ACCESS_TOKEN);
-        _httpClient = httpFactory.CreateClient();
+        var ignoreSsl = configuration.GetValue<bool>(Constants.VariableKeys.PORTAINER_IGNORE_SSL);
 
         if (!IsConfigured)
         {
@@ -33,10 +33,25 @@ public class PortainerService : IPortainerService
                 Constants.VariableKeys.PORTAINER_URL,
                 Constants.VariableKeys.PORTAINER_ACCESS_TOKEN
             );
+            _httpClient = new HttpClient();
         }
         else
         {
-            _httpClient.BaseAddress = new Uri(_url!);
+            var handler = new HttpClientHandler();
+
+            if (ignoreSsl)
+            {
+                handler.ServerCertificateCustomValidationCallback =
+                    HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                logger.LogWarning(
+                    "SSL certificate validation is disabled for Portainer. This is insecure and should only be used for self-signed certificates in trusted environments."
+                );
+            }
+
+            _httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri(_url!)
+            };
             _httpClient.DefaultRequestHeaders.Add("X-API-Key", _accessToken);
             logger.LogInformation("PortainerService initialized with URL: {Url}", _url);
         }

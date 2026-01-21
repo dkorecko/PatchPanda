@@ -23,6 +23,7 @@ public static class Constants
         public const string BASE_URL = "BASE_URL";
         public const string PORTAINER_URL = "PORTAINER_URL";
         public const string PORTAINER_ACCESS_TOKEN = "PORTAINER_ACCESS_TOKEN";
+        public const string PORTAINER_IGNORE_SSL = "PORTAINER_IGNORE_SSL";
         public const string OLLAMA_URL = "OLLAMA_URL";
         public const string OLLAMA_MODEL = "OLLAMA_MODEL";
         public const string OLLAMA_NUM_CTX = "OLLAMA_NUM_CTX";
