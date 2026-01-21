@@ -71,6 +71,7 @@ Portainer
 
 - PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`).
 - PORTAINER_ACCESS_TOKEN - (optional) Access token for Portainer API authentication. Generate this in Portainer under User Settings → Access Tokens.
+- PORTAINER_IGNORE_SSL - (optional) Ignore SSL certificate validation for Portainer API requests. Set to `true` to disable SSL verification.
 
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 
