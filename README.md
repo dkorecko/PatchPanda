@@ -71,9 +71,9 @@ Portainer
 
 - PORTAINER_URL - (optional) Base URL to your Portainer instance (example: `http://portainer:9000`). If provided and a stack does not expose a local compose config path, PatchPanda will assume the stack is Portainer-managed and use the Portainer API to read/update the compose file.
 - PORTAINER_IGNORE_SSL - (optional) Ignore SSL certificate validation for Portainer API requests. Set to `true` to disable SSL verification.
-- PORTAINER_ACCESS_TOKEN - (optional) Access token for Portainer API authentication. Generate this in Portainer under User Settings → Access Tokens. It must be provided if PORTAINER_URL is provided.
-- PORTAINER_USERNAME - (optional/legacy) Username for Portainer API authentication. Can be used instead of PORTAINER_ACCESS_TOKEN.
-- PORTAINER_PASSWORD - (optional/legacy) Password for Portainer API authentication. Can be used instead of PORTAINER_ACCESS_TOKEN.
+- PORTAINER_ACCESS_TOKEN - (recommended) Access token for Portainer API authentication. Generate this in Portainer under User Settings → Access Tokens. Either this or PORTAINER_USERNAME/PORTAINER_PASSWORD must be provided when PORTAINER_URL is set.
+- PORTAINER_USERNAME - (optional/legacy) Username for Portainer API authentication. Can be used instead of PORTAINER_ACCESS_TOKEN when combined with PORTAINER_PASSWORD.
+- PORTAINER_PASSWORD - (optional/legacy) Password for Portainer API authentication. Can be used instead of PORTAINER_ACCESS_TOKEN when combined with PORTAINER_USERNAME.
 
 If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-compatible LLM API to generate a short, user-friendly summary and breaking change detection for each new version's release notes. This summary is shown in the UI and included in notifications. If the variable is not set, the feature is disabled and PatchPanda will work as usual.
 
