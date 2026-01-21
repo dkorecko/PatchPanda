@@ -77,7 +77,7 @@ If you set the `OLLAMA_URL` environment variable, PatchPanda will use an Ollama-
 
 You can use any LLM API that supports the Ollama API standard for text generation. The model used can be set with `OLLAMA_MODEL` and the context size can be configured with `OLLAMA_NUM_CTX` (defaults to 32768 tokens if not set).
 
-When Portainer vars are present PatchPanda will authenticate to Portainer and use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service stores and re-uses the JWT returned by Portainer for API requests.
+When Portainer vars are present PatchPanda will use the Portainer API to fetch and update stack files for stacks that do not expose a `ConfigFile` path via Docker labels. The service authenticates requests using the Pßortainer access token.
 
 Notes about the GitHub token
 
@@ -110,8 +110,8 @@ services:
       - GITHUB_PASSWORD=yourtoken # use your GitHub personal access token here
       - BASE_URL=http://localhost:5093 # adjust to what URL you will use to access PatchPanda
       # - PORTAINER_URL=http://portainer:9000 # if you wish to include stacks fully managed by Portainer
-      # - PORTAINER_USERNAME=admin # if you wish to include stacks fully managed by Portainer
-      # - PORTAINER_PASSWORD=CHANGEME # if you wish to include stacks fully managed by Portainer
+      # - PORTAINER_ACCESS_TOKEN=your_token # Portainer access token. Generate this in Portainer under User Settings → Access Tokens.
+      # - PORTAINER_IGNORE_SSL=true # optional, only for trusted self-signed certs
       # - OLLAMA_URL=http://localhost:11434 # optional, if you wish to use Ollama or compatible LLM API for release note summarization
       # - OLLAMA_MODEL=llama3 # optional, model name to use for summarization
       # - OLLAMA_NUM_CTX=32768 # optional, context size to be used
