@@ -63,7 +63,9 @@ public sealed partial class Program
 
         app.MapControllers();
 
-        app.Run();
+        await ValidatePortainerAccessToken(app.Services.GetRequiredService<IPortainerService>());
+
+        await app.RunAsync();
     }
 
     private static void CreateDebugDatabaseAtWorkingFolder(DbContextOptionsBuilder opt)
@@ -76,5 +78,13 @@ public sealed partial class Program
     {
         Directory.CreateDirectory("/app/data");
         opt.UseSqlite($"Data Source=/app/data/{Constants.DB_NAME}");
+    }
+
+    private static async Task ValidatePortainerAccessToken(IPortainerService portainerService)
+    {
+        if (!portainerService.IsConfigured || !portainerService.IsAccessTokenConfigured)
+            return;
+
+        await portainerService.ValidateAccessTokenAsync();
     }
 }
