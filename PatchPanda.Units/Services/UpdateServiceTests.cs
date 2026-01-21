@@ -1,5 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using PatchPanda.Web;
 
 namespace PatchPanda.Units.Services;
 
@@ -9,7 +10,7 @@ public class UpdateServiceTests
     private readonly Mock<ILogger<VersionService>> _versionLogger;
     private readonly Mock<ILogger<DockerService>> _dockerLogger;
     private readonly Mock<ILogger<UpdateService>> _updateLogger;
-    private readonly Mock<IConfiguration> _configuration;
+    private readonly IConfiguration _configuration;
     private readonly Mock<IPortainerService> _portainerService;
     private readonly Mock<IAppriseService> _appriseService;
     private readonly Mock<IVersionService> _versionService;
@@ -23,15 +24,13 @@ public class UpdateServiceTests
         _versionLogger = new Mock<ILogger<VersionService>>();
         _dockerLogger = new Mock<ILogger<DockerService>>();
         _updateLogger = new Mock<ILogger<UpdateService>>();
-        _configuration = new Mock<IConfiguration>();
+        _configuration = new ConfigurationBuilder().Build();
         _portainerService = new Mock<IPortainerService>();
         _appriseService = new Mock<IAppriseService>();
         _versionService = new Mock<IVersionService>();
         _discordService = new Mock<IDiscordService>();
         _aiService = new Mock<IAiService>();
         _jobRegistry = new JobRegistry(new JobQueue());
-
-        _configuration.Setup(x => x.GetSection(It.IsAny<string>())).Returns(new Mock<IConfigurationSection>().Object);
     }
 
     private async Task GenericTestComposeVersion(ComposeStack stack, string resultImage)
@@ -60,13 +59,13 @@ public class UpdateServiceTests
                 dbContextFactory,
                 new VersionService(
                     _versionLogger.Object,
-                    _configuration.Object,
+                    _configuration,
                     dbContextFactory,
                     _aiService.Object
                 ),
                 _portainerService.Object,
                 _fileService.Object,
-                _configuration.Object
+                _configuration
             ).Object,
             dbContextFactory,
             _fileService.Object,
@@ -134,13 +133,13 @@ public class UpdateServiceTests
             dbContextFactory,
             new VersionService(
                 _versionLogger.Object,
-                _configuration.Object,
+                _configuration,
                 dbContextFactory,
                 _aiService.Object
             ),
             _portainerService.Object,
             _fileService.Object,
-            _configuration.Object
+            _configuration
         );
 
         dockerMock
@@ -249,13 +248,13 @@ public class UpdateServiceTests
             dbContextFactory,
             new VersionService(
                 _versionLogger.Object,
-                _configuration.Object,
+                _configuration,
                 dbContextFactory,
                 _aiService.Object
             ),
             _portainerService.Object,
             _fileService.Object,
-            _configuration.Object
+            _configuration
         );
 
         dockerMock
@@ -346,13 +345,13 @@ public class UpdateServiceTests
             dbContextFactory,
             new VersionService(
                 _versionLogger.Object,
-                _configuration.Object,
+                _configuration,
                 dbContextFactory,
                 _aiService.Object
             ),
             _portainerService.Object,
             _fileService.Object,
-            _configuration.Object
+            _configuration
         );
 
         dockerMock

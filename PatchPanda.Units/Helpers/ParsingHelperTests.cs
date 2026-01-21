@@ -10,13 +10,13 @@ namespace PatchPanda.Units.Helpers;
 public class ParsingHelperTests
 {
     private readonly Mock<ILogger<VersionService>> _logger;
-    private readonly Mock<IConfiguration> _configuration;
+    private readonly IConfiguration _configuration;
     private readonly Mock<IAiService> _aiService;
 
     public ParsingHelperTests()
     {
         _logger = new Mock<ILogger<VersionService>>();
-        _configuration = new Mock<IConfiguration>();
+        _configuration = new ConfigurationBuilder().Build();
         _aiService = new Mock<IAiService>();
     }
 
@@ -34,7 +34,7 @@ public class ParsingHelperTests
 
         var versionService = new VersionService(
             _logger.Object,
-            _configuration.Object,
+            _configuration,
             Helper.CreateInMemoryFactory(),
             _aiService.Object
         );
@@ -60,7 +60,7 @@ public class ParsingHelperTests
 
         var versionService = new VersionService(
             _logger.Object,
-            _configuration.Object,
+            _configuration,
             Helper.CreateInMemoryFactory(),
             _aiService.Object
         );

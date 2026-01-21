@@ -35,8 +35,6 @@ public class DockerService
         }
         else
         {
-            _dockerSocket = "unix:///var/run/docker.sock";
-
 #if DEBUG
             if (OperatingSystem.IsWindows())
             {
@@ -46,10 +44,15 @@ public class DockerService
             {
                 _dockerSocket = "unix:///var/run/docker.sock";
             }
+#else
+            _dockerSocket = "unix:///var/run/docker.sock";
 #endif
         }
 
-        _dockerTlsVerify = _configuration.GetValue<bool>(Constants.VariableKeys.DOCKER_TLS_VERIFY, true);
+        _dockerTlsVerify = _configuration.GetValue<bool>(
+            Constants.VariableKeys.DOCKER_TLS_VERIFY,
+            true
+        );
 
         _logger = logger;
         _dbContextFactory = dbContextFactory;
@@ -75,8 +78,39 @@ public class DockerService
         }
     }
 
-    private DockerClient GetClient() =>
-        new DockerClientConfiguration(new Uri(_dockerSocket)).CreateClient();
+    private DockerClientConfiguration GetDockerClientConfiguration()
+    {
+        var (endpoint, _) = GetDockerHostConfiguration();
+        return new DockerClientConfiguration(endpoint);
+    }
+
+    private DockerClient GetClient() => GetDockerClientConfiguration().CreateClient();
+
+    private (Uri endpoint, bool useTls) GetDockerHostConfiguration()
+    {
+        try
+        {
+            if (_dockerSocket.StartsWith("tcp://"))
+            {
+                if (!_dockerTlsVerify)
+                {
+                    return (new Uri(_dockerSocket), false);
+                }
+
+                return (new Uri(_dockerSocket), true);
+            }
+
+            return (new Uri(_dockerSocket), false);
+        }
+        catch (UriFormatException ex)
+        {
+            _logger.LogError(ex, "Invalid Docker socket format: {DockerSocket}", _dockerSocket);
+            throw new InvalidOperationException(
+                $"Invalid Docker socket format: {_dockerSocket}",
+                ex
+            );
+        }
+    }
 
     private async Task<IList<ContainerListResponse>?> GetAllContainers()
     {
@@ -366,13 +400,11 @@ public class DockerService
             CreateNoWindow = true,
         };
 
-        if (_dockerSocket.StartsWith("tcp://"))
+        var (endpoint, useTls) = GetDockerHostConfiguration();
+        if (endpoint.Scheme == "tcp" || endpoint.Scheme == "http" || endpoint.Scheme == "https")
         {
-            startInfo.EnvironmentVariables["DOCKER_HOST"] = _dockerSocket;
-            if (!_dockerTlsVerify)
-            {
-                startInfo.EnvironmentVariables["DOCKER_TLS_VERIFY"] = "0";
-            }
+            startInfo.EnvironmentVariables["DOCKER_HOST"] = endpoint.ToString();
+            startInfo.EnvironmentVariables["DOCKER_TLS_VERIFY"] = useTls ? "1" : "0";
         }
 
         using var process = new Process { StartInfo = startInfo };
