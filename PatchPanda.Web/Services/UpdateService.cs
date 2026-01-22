@@ -74,9 +74,9 @@ public class UpdateService
 
     public bool IsUpdateAvailable(Container app) =>
         !app.IsSecondary
-        || app.Regex is null
-        || app.GitHubVersionRegex is null
-        || app.Version is null;
+        && app.Regex is not null
+        && app.GitHubVersionRegex is not null
+        && app.Version is not null;
 
     public async Task CheckAllForUpdates()
     {
