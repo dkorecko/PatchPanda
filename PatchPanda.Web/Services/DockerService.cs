@@ -80,27 +80,17 @@ public class DockerService
 
     private DockerClientConfiguration GetDockerClientConfiguration()
     {
-        var (endpoint, _) = GetDockerHostConfiguration();
+        var endpoint = GetDockerEndpointUri();
         return new DockerClientConfiguration(endpoint);
     }
 
     private DockerClient GetClient() => GetDockerClientConfiguration().CreateClient();
 
-    private (Uri endpoint, bool useTls) GetDockerHostConfiguration()
+    private Uri GetDockerEndpointUri()
     {
         try
         {
-            if (_dockerSocket.StartsWith("tcp://"))
-            {
-                if (!_dockerTlsVerify)
-                {
-                    return (new Uri(_dockerSocket), false);
-                }
-
-                return (new Uri(_dockerSocket), true);
-            }
-
-            return (new Uri(_dockerSocket), false);
+            return new Uri(_dockerSocket);
         }
         catch (UriFormatException ex)
         {
@@ -110,6 +100,16 @@ public class DockerService
                 ex
             );
         }
+    }
+
+    private (Uri endpoint, bool useTls) GetDockerHostConfiguration()
+    {
+        var endpoint = GetDockerEndpointUri();
+        var useTls =
+            (endpoint.Scheme == "tcp" || endpoint.Scheme == "http" || endpoint.Scheme == "https")
+            && _dockerTlsVerify;
+
+        return (endpoint, useTls);
     }
 
     private async Task<IList<ContainerListResponse>?> GetAllContainers()
