@@ -255,15 +255,25 @@ public class UpdateService
 
             var allNewerVersions = container
                 .NewerVersions.Where(v => !v.Ignored && v.DateDiscovered < threshold)
-                .OrderBy(
+                .OrderByDescending(
                     v => v.VersionNumber,
                     Comparer<string>.Create(VersionHelper.NewerComparison)
                 )
                 .ToList();
 
-            var targetVersion = allNewerVersions.FirstOrDefault(v =>
-                !v.Breaking && v.AIBreaking != true && v.IsSuspectedMalicious != true
-            );
+            AppVersion? targetVersion = null;
+
+            foreach (var version in allNewerVersions)
+            {
+                if (
+                    version.Breaking
+                    || version.AIBreaking == true
+                    || version.IsSuspectedMalicious == true
+                )
+                    break;
+
+                targetVersion = version;
+            }
 
             if (targetVersion == null)
                 continue;
