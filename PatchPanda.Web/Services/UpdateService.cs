@@ -237,7 +237,7 @@ public class UpdateService
 
             if (consecutiveFailures > 0)
             {
-                var backoffHours = Math.Pow(2, consecutiveFailures);
+                var backoffHours = Math.Min(Math.Pow(2, consecutiveFailures), 72); // Cap at 72 hours (3 days)
                 var nextAllowedUpdate = lastFailureTime.AddHours(backoffHours);
 
                 if (DateTime.UtcNow < nextAllowedUpdate)
