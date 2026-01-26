@@ -214,6 +214,45 @@ public class UpdateService
             )
                 continue;
 
+            var recentAttempts = await db
+                .UpdateAttempts.Where(x => x.ContainerId == container.Id)
+                .OrderByDescending(x => x.EndedAt)
+                .Take(10)
+                .ToListAsync();
+
+            var consecutiveFailures = 0;
+            var lastFailureTime = DateTime.MinValue;
+
+            foreach (var attempt in recentAttempts)
+            {
+                if (attempt.IsFailed || attempt.ExitCode != 0)
+                {
+                    consecutiveFailures++;
+                    if (lastFailureTime == DateTime.MinValue)
+                        lastFailureTime = attempt.EndedAt;
+                }
+                else
+                    break;
+            }
+
+            if (consecutiveFailures > 0)
+            {
+                var backoffHours = Math.Min(Math.Pow(2, consecutiveFailures), 72); // Cap at 72 hours (3 days)
+                var nextAllowedUpdate = lastFailureTime.AddHours(backoffHours);
+
+                if (DateTime.UtcNow < nextAllowedUpdate)
+                {
+                    _logger.LogWarning(
+                        "Skipping auto-update for {Container} due to {Failures} consecutive failures. Backoff until {NextAllowed} (Duration: {Backoff}h)",
+                        container.Name,
+                        consecutiveFailures,
+                        nextAllowedUpdate,
+                        backoffHours
+                    );
+                    continue;
+                }
+            }
+
             var allNewerVersions = container
                 .NewerVersions.Where(v => !v.Ignored && v.DateDiscovered < threshold)
                 .OrderBy(
