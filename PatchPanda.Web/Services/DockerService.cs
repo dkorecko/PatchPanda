@@ -409,9 +409,9 @@ public class DockerService
         };
 
         var (endpoint, useTls) = GetDockerHostConfiguration();
-        if (endpoint.Scheme == "tcp" || endpoint.Scheme == "http" || endpoint.Scheme == "https")
+        startInfo.EnvironmentVariables["DOCKER_HOST"] = endpoint.ToString();
+        if (endpoint.Scheme == "tcp" || endpoint.Scheme == "https")
         {
-            startInfo.EnvironmentVariables["DOCKER_HOST"] = endpoint.ToString();
             startInfo.EnvironmentVariables["DOCKER_TLS_VERIFY"] = useTls ? "1" : "0";
         }
 
