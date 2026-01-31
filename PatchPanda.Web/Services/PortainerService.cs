@@ -137,6 +137,8 @@ public class PortainerService : IPortainerService
             return;
         }
 
+        _logger.LogInformation("Using username and password to authenticate with Portainer...");
+
         var payload = JsonSerializer.Serialize(new { username = _username, password = _password });
         var resp = await _httpClient.PostAsync(
             "/api/auth",
@@ -164,10 +166,11 @@ public class PortainerService : IPortainerService
                 "Bearer",
                 _jwt
             );
-            _jwtExpiry = DateTime.UtcNow.AddHours(8);
+            _jwtExpiry = JwtHelper.GetJwtExpiry(_jwt) ?? DateTime.UtcNow.AddHours(8);
+            _logger.LogInformation("Portainer authentication successful.");
         }
         else
-            _logger.LogWarning("Failed parsing Portainer auth response");
+            _logger.LogWarning("Failed parsing Portainer auth response.");
     }
 
     private async Task<PortainerStackDto?> GetStack(string stackName)
