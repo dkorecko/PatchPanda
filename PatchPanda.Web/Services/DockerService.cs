@@ -49,10 +49,18 @@ public class DockerService
 #endif
         }
 
-        _dockerTlsVerify = _configuration.GetValue<bool>(
-            Constants.VariableKeys.DOCKER_TLS_VERIFY,
-            true
+        var tlsVerifyValue = _configuration.GetValue<string?>(
+            Constants.VariableKeys.DOCKER_TLS_VERIFY
         );
+        _dockerTlsVerify = tlsVerifyValue switch
+        {
+            "1" => true,
+            "0" => false,
+            _ => _configuration.GetValue<bool>(
+                Constants.VariableKeys.DOCKER_TLS_VERIFY,
+                true
+            )
+        };
 
         _logger = logger;
         _dbContextFactory = dbContextFactory;
@@ -106,7 +114,7 @@ public class DockerService
     {
         var endpoint = GetDockerEndpointUri();
         var useTls =
-            (endpoint.Scheme == "tcp" || endpoint.Scheme == "http" || endpoint.Scheme == "https")
+            (endpoint.Scheme == "tcp" || endpoint.Scheme == "https")
             && _dockerTlsVerify;
 
         return (endpoint, useTls);
