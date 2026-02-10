@@ -28,4 +28,10 @@ public static class TestData
     public const string RELEASE_TAG_A = "v1.0.0";
     public const string RELEASE_TAG_B = "v2.0.0";
     public const string ALPINE_IMAGE = "alpine:3.16";
+
+    public const string SAFE_ANALYSIS = "Safe";
+    public const string AI_ERROR = "AI Error";
+    public const string PATCH_CONTENT = "patch_content";
+    public const string DUMMY_URL = "http://dummy.url";
+    public const string BODY = "body";
 }

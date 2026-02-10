@@ -35,7 +35,7 @@ public class VersionService : IVersionService
         _aiService = aiService;
     }
 
-    private GitHubClient GetClient()
+    protected virtual IGitHubClient GetClient()
     {
         var client = new GitHubClient(new ProductHeaderValue("PatchPanda"));
 
@@ -174,57 +174,85 @@ public class VersionService : IVersionService
 
             if (securityScanningEnabled && _aiService.IsInitialized())
             {
-                try
+                // Resolve the correct tag for the current version to ensure comparison works
+                // We extract the semantic version portion from the app version and use it to find the source tag
+                var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
+                var versionMatch = Regex.Match(app.Version, adjustedRegex);
+
+                if (versionMatch.Success)
                 {
-                    var client = GetClient();
+                    var currentRelease = allReleases.FirstOrDefault(r =>
+                        r.TagName is not null
+                        && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
+                    );
 
-                    // Resolve the correct tag for the current version to ensure comparison works
-                    // We extract the semantic version portion from the app version and use it to find the source tag
-                    var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
-                    var versionMatch = Regex.Match(app.Version, adjustedRegex);
-
-                    if (versionMatch.Success)
+                    if (currentRelease != null)
                     {
-                        var currentRelease = allReleases.FirstOrDefault(r =>
-                            r.TagName is not null
-                            && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
-                        );
+                        var baseTag = currentRelease.TagName;
 
-                        if (currentRelease != null)
+                        for (int i = 1; i <= Constants.Limits.MAX_OLLAMA_ATTEMPTS; i++)
                         {
-                            var baseTag = currentRelease.TagName;
-
-                            // Get the difference between the current version and the new version
-                            var diff = await client.Repository.Commit.Compare(
-                                repo.Item1,
-                                repo.Item2,
-                                baseTag,
-                                notSeenNewVersion.VersionNumber
-                            );
-
-                            var textToAnalyze = string.Concat(
-                                diff.Files.Select(f => f.Patch ?? "")
-                            );
-
-                            var analysis = await _aiService.AnalyzeDiff(textToAnalyze);
-
-                            if (analysis is not null)
+                            try
                             {
-                                notSeenNewVersion.SecurityAnalysis = analysis.Analysis;
-                                notSeenNewVersion.IsSuspectedMalicious =
-                                    analysis.IsSuspectedMalicious;
+                                var client = GetClient();
+
+                                // Get the difference between the current version and the new version
+                                var diff = await client.Repository.Commit.Compare(
+                                    repo.Item1,
+                                    repo.Item2,
+                                    baseTag,
+                                    notSeenNewVersion.VersionNumber
+                                );
+
+                                var textToAnalyze = string.Concat(
+                                    diff.Files.Select(f => f.Patch ?? "")
+                                );
+
+                                var analysis = await _aiService.AnalyzeDiff(textToAnalyze);
+
+                                if (analysis is not null)
+                                {
+                                    notSeenNewVersion.SecurityAnalysis = analysis.Analysis;
+                                    notSeenNewVersion.IsSuspectedMalicious =
+                                        analysis.IsSuspectedMalicious;
+                                    break;
+                                }
+                                else
+                                {
+                                    _logger.LogWarning(
+                                        "Attempting to perform security scan for {Repo} version {Version}, attempt {Count} out of {Max} resulted in null analysis.",
+                                        $"{repo.Item1}/{repo.Item2}",
+                                        notSeenNewVersion.VersionNumber,
+                                        i,
+                                        Constants.Limits.MAX_OLLAMA_ATTEMPTS
+                                    );
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                if (i == Constants.Limits.MAX_OLLAMA_ATTEMPTS)
+                                {
+                                    _logger.LogError(
+                                        ex,
+                                        "Failed to perform security scan for {Repo} version {Version}",
+                                        $"{repo.Item1}/{repo.Item2}",
+                                        notSeenNewVersion.VersionNumber
+                                    );
+                                }
+                                else
+                                {
+                                    _logger.LogWarning(
+                                        ex,
+                                        "Attempting to perform security scan for {Repo} version {Version}, attempt {Count} out of {Max} failed.",
+                                        $"{repo.Item1}/{repo.Item2}",
+                                        notSeenNewVersion.VersionNumber,
+                                        i,
+                                        Constants.Limits.MAX_OLLAMA_ATTEMPTS
+                                    );
+                                }
                             }
                         }
                     }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "Failed to perform security scan for {Repo} version {Version}",
-                        $"{repo.Item1}/{repo.Item2}",
-                        notSeenNewVersion.VersionNumber
-                    );
                 }
             }
 
