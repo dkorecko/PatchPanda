@@ -1,5 +1,6 @@
 using PatchPanda.Web.Components;
 using PatchPanda.Web.Services.Background;
+using PatchPanda.Services;
 
 namespace PatchPanda.Web;
 
@@ -27,6 +28,7 @@ public sealed partial class Program
         builder.Services.AddSingleton<JobQueue>();
         builder.Services.AddHostedService<VersionCheckHostedService>();
         builder.Services.AddHostedService<UpdateBackgroundService>();
+        builder.Services.AddSingleton<HookService>();
 
         var baseUrl = builder.Configuration.GetValue<string?>(Constants.VariableKeys.BASE_URL);
 

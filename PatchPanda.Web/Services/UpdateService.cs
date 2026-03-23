@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PatchPanda.Services;
 
 namespace PatchPanda.Web.Services;
 
@@ -14,6 +15,7 @@ public class UpdateService
     private readonly IVersionService _versionService;
     private readonly JobRegistry _jobRegistry;
     private readonly INotificationService _notificationService;
+    private readonly HookService _hookService;
 
     public UpdateService(
         DockerService dockerService,
@@ -23,7 +25,8 @@ public class UpdateService
         IPortainerService portainerService,
         IVersionService versionService,
         JobRegistry jobRegistry,
-        INotificationService notificationService
+        INotificationService notificationService,
+        HookService hookService
     )
     {
         _dockerService = dockerService;
@@ -34,6 +37,7 @@ public class UpdateService
         _versionService = versionService;
         _jobRegistry = jobRegistry;
         _notificationService = notificationService;
+        _hookService = hookService;
     }
 
     private void CleanUpContainerJobs(int containerId)
@@ -353,10 +357,12 @@ public class UpdateService
             ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
             ArgumentNullException.ThrowIfNull(app.Version);
 
+            var oldVersion = app.Version;
+
             await using var db = await _dbContextFactory.CreateDbContextAsync(
-                CancellationToken.None
+                cancellationToken
             );
-            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, CancellationToken.None);
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, cancellationToken);
             var configPath = stack.ConfigFile;
 
             if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
@@ -797,6 +803,33 @@ public class UpdateService
                 app.Version,
                 newVersion
             );
+
+            if (!string.IsNullOrWhiteSpace(targetApp.PostUpdateHook))
+            {
+                try
+                {
+                    await _hookService.ExecuteHookAsync(
+                        targetApp.PostUpdateHook,
+                        stack.ConfigFile ?? string.Empty,
+                        targetApp.Name,
+                        oldVersion ?? string.Empty,
+                        newVersion
+                    );
+
+                    _logger.LogInformation(
+                        "Post-update hook executed for container {Container}",
+                        targetApp.Name
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Post-update hook failed for container {Container}",
+                        targetApp.Name
+                    );
+                }
+            }
 
             return new(updateSteps);
         }

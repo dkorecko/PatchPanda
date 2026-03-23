@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Docker.DotNet;
+using PatchPanda.Services;
 
 namespace PatchPanda.Web.Services;
 
@@ -14,13 +15,15 @@ public class DockerService
     private readonly IVersionService _versionService;
     private readonly IPortainerService _portainerService;
     private readonly IFileService _fileService;
+    private readonly HookService _hookService;
 
     public DockerService(
         ILogger<DockerService> logger,
         IDbContextFactory<DataContext> dbContextFactory,
         IVersionService versionService,
         IPortainerService portainerService,
-        IFileService fileService
+        IFileService fileService,
+        HookService hookService
     )
     {
         DockerSocket = "unix:///var/run/docker.sock";
@@ -40,6 +43,7 @@ public class DockerService
         _versionService = versionService;
         _portainerService = portainerService;
         _fileService = fileService;
+        _hookService = hookService;
     }
 
     /// <summary>
@@ -173,6 +177,12 @@ public class DockerService
                     Regex = string.Empty,
                     Stack = existingStack,
                     StackId = existingStack.Id,
+                    PostUpdateHook = container.Labels.TryGetValue(
+                        "patchpanda.hook.post_update",
+                        out var hookPath
+                    )
+                        ? hookPath
+                        : null,
                 };
 
                 if (
