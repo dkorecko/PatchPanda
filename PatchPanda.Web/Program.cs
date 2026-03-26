@@ -90,3 +90,4 @@ public sealed partial class Program
         await portainerService.ValidateAccessTokenAsync();
     }
 }
+
