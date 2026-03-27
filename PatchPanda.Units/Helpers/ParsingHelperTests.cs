@@ -170,7 +170,7 @@ public class ParsingHelperTests
         var response = new ContainerListResponse
         {
             Image =
-                $"ghcr.io/{TestData.GITHUB_OWNER}/{TestData.GITHUB_REPO}:1.0,https://github.com/{TestData.OWNER_B}/{TestData.REPO_B}"
+                $"ghcr.io/{TestData.GITHUB_OWNER}/{TestData.GITHUB_REPO}:1.0,https://github.com/{TestData.OWNER_B}/{TestData.REPO_B}",
         };
 
         var sharedRelease = CreateRelease(TestData.RELEASE_TAG, TestData.GITHUB_URL);
@@ -208,6 +208,45 @@ public class ParsingHelperTests
         Assert.Null(container.SecondaryGitHubRepos);
         Assert.Equal(
             VersionHelper.BuildRegexFromVersion(TestData.RELEASE_TAG),
+            container.GitHubVersionRegex
+        );
+    }
+
+    [Fact]
+    public async Task SetGitHubRepo_SetsRepo_WhenRepositoryContainsDot()
+    {
+        var image = $"ghcr.io/{TestData.DOT_OWNER}/{TestData.DOT_REPO}:{TestData.VERSION}";
+        var repoUrl = $"https://github.com/{TestData.DOT_OWNER}/{TestData.DOT_REPO}";
+
+        var stack = Helper.GetTestStack(TestData.VERSION, null, image);
+        var container = stack.Apps[0];
+
+        var response = new ContainerListResponse { Image = image };
+
+        var release = CreateRelease(TestData.NEW_VERSION, repoUrl);
+
+        var versionServiceMock = new Mock<IVersionService>();
+
+        versionServiceMock
+            .Setup(vs =>
+                vs.GetVersions(
+                    It.Is<Tuple<string, string>>(t =>
+                        t.Item1 == TestData.DOT_OWNER && t.Item2 == TestData.DOT_REPO
+                    )
+                )
+            )
+            .ReturnsAsync([release]);
+
+        var logger = new Mock<ILogger>().Object;
+
+        await container.SetGitHubRepo(response, versionServiceMock.Object, logger);
+
+        Assert.Equal(
+            new Tuple<string, string>(TestData.DOT_OWNER, TestData.DOT_REPO),
+            container.GitHubRepo
+        );
+        Assert.Equal(
+            VersionHelper.BuildRegexFromVersion(TestData.NEW_VERSION),
             container.GitHubVersionRegex
         );
     }
