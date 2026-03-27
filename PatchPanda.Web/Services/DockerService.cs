@@ -287,7 +287,10 @@ public class DockerService
                     existingContainer.Version = runningContainer.Version;
                     existingContainer.TargetImage = runningContainer.TargetImage;
                     existingContainer.Regex = runningContainer.Regex;
-                    if (existingContainer.OverrideGitHubRepo is null)
+                    if (
+                        existingContainer.OverrideGitHubRepo is null
+                        || existingContainer.GitHubVersionRegex is null
+                    )
                         existingContainer.GitHubVersionRegex = runningContainer.GitHubVersionRegex;
 
                     if (runningContainer.Version is not null)
