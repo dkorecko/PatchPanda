@@ -21,15 +21,15 @@ public static class ParsingHelper
 
         var githubMatches = Regex.Matches(
             fullResponse,
-            @"https://github.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)"
+            @"https://github.com\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)"
         );
 
         var ghcrMatches = Regex.Matches(
             fullResponse,
-            @"ghcr.io\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)"
+            @"ghcr.io\/([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)"
         );
 
-        var imageMatches = Regex.Matches(response.Image, @"([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+):");
+        var imageMatches = Regex.Matches(response.Image, @"([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+):");
 
         Dictionary<Tuple<string, string>, IReadOnlyList<Octokit.Release>> versionCounts = [];
 

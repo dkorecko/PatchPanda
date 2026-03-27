@@ -28,4 +28,7 @@ public static class TestData
     public const string RELEASE_TAG_A = "v1.0.0";
     public const string RELEASE_TAG_B = "v2.0.0";
     public const string ALPINE_IMAGE = "alpine:3.16";
+
+    public const string DOT_OWNER = "dgtlmoon";
+    public const string DOT_REPO = "changedetection.io";
 }
