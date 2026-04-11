@@ -563,7 +563,7 @@ public class UpdateService
                             if (attemptCount > 0)
                             {
                                 var delayMs = (int)Math.Pow(2, attemptCount) * 1000;
-                                await Task.Delay(delayMs, cancellationToken);
+                                await Task.Delay(delayMs, CancellationToken.None);
                             }
 
                             try
@@ -571,7 +571,7 @@ public class UpdateService
                                 await _portainerService.UpdateStackFileContentAsync(
                                     stack.StackName,
                                     configFileContent,
-                                    cancellationToken
+                                    CancellationToken.None
                                 );
 
                                 rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n";
@@ -665,7 +665,7 @@ public class UpdateService
                         if (attemptCount > 0)
                         {
                             var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
-                            await Task.Delay(delayMs, cancellationToken);
+                            await Task.Delay(delayMs, CancellationToken.None);
                         }
 
                         (string reupStdOut, string reupStdErr, int reupExitCode) =
@@ -673,7 +673,7 @@ public class UpdateService
                                 stack,
                                 "up -d",
                                 outputCallback,
-                                cancellationToken
+                                CancellationToken.None
                             );
 
                         if (reupExitCode != 0)

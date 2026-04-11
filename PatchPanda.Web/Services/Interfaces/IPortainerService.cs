@@ -6,7 +6,7 @@ public interface IPortainerService
 
     bool IsAccessTokenConfigured { get; }
 
-    Task<bool> ValidateAccessTokenAsync();
+    Task<bool> ValidateAccessTokenAsync(CancellationToken cancellationToken = default);
 
     Task<string?> GetStackFileContentAsync(
         string stackName,

@@ -88,14 +88,14 @@ public class PortainerService : IPortainerService
         logger.LogInformation("PortainerService initialized with URL: {Url}", _url);
     }
 
-    public async Task<bool> ValidateAccessTokenAsync()
+    public async Task<bool> ValidateAccessTokenAsync(CancellationToken cancellationToken = default)
     {
         if (!IsConfigured || !IsAccessTokenConfigured || _httpClient is null)
             return false;
 
         try
         {
-            var response = await _httpClient.GetAsync("/api/motd");
+            var response = await _httpClient.GetAsync("/api/motd", cancellationToken);
             
             if (response.IsSuccessStatusCode)
             {
