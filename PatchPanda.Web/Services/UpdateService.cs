@@ -803,8 +803,10 @@ public class UpdateService
         {
             // DockerCommandException bubbles up from inner try-catch after rollback is performed
             // This catch handles post-failure cleanup: UpdateAttempt logging, job cleanup, notifications
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, cancellationToken);
+            await using var db = await _dbContextFactory.CreateDbContextAsync(
+                CancellationToken.None
+            );
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, CancellationToken.None);
 
             if (rollbackFailed)
                 rollbackStdErr += $"\n{LogAndGetRollbackFailedMessage()}";
@@ -823,7 +825,7 @@ public class UpdateService
                     UsedPlan = string.Join(", ", updateSteps),
                 }
             );
-            await db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(CancellationToken.None);
 
             CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 

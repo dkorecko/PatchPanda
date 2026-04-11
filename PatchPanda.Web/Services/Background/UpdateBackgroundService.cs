@@ -230,7 +230,9 @@ public class UpdateBackgroundService(
                                     IDbContextFactory<DataContext>
                                 >();
 
-                                using var db = dbFactory.CreateDbContext();
+                                await using var db = await dbFactory.CreateDbContextAsync(
+                                    jobCancellationToken
+                                );
                                 var stack = await db
                                     .Stacks.Include(x => x.Apps)
                                     .FirstOrDefaultAsync(

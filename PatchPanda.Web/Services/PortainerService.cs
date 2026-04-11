@@ -201,7 +201,9 @@ public class PortainerService : IPortainerService
             return null;
         }
 
-        var stacks = await resp.Content.ReadFromJsonAsync<PortainerStackDto[]>();
+        var stacks = await resp.Content.ReadFromJsonAsync<PortainerStackDto[]>(
+            cancellationToken: cancellationToken
+        );
 
         if (stacks is null || stacks.Length == 0)
         {
@@ -240,7 +242,9 @@ public class PortainerService : IPortainerService
             return null;
         }
 
-        var fileDto = await fileResp.Content.ReadFromJsonAsync<PortainerStackFileDto>();
+        var fileDto = await fileResp.Content.ReadFromJsonAsync<PortainerStackFileDto>(
+            cancellationToken: cancellationToken
+        );
         return fileDto?.StackFileContent;
     }
 
