@@ -394,8 +394,11 @@ public class DockerService
         {
             await process.WaitForExitAsync(cancellationToken);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            if (cancellationToken.IsCancellationRequested)
+                throw;
+
             try
             {
                 if (!process.HasExited)
@@ -410,7 +413,8 @@ public class DockerService
             }
 
             throw new TimeoutException(
-                $"Docker compose command '{fileName} {arguments}' timed out or was cancelled."
+                $"Docker compose command '{fileName} {arguments}' timed out.",
+                ex
             );
         }
 

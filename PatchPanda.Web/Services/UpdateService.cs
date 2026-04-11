@@ -353,8 +353,10 @@ public class UpdateService
             ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
             ArgumentNullException.ThrowIfNull(app.Version);
 
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, cancellationToken);
+            await using var db = await _dbContextFactory.CreateDbContextAsync(
+                CancellationToken.None
+            );
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, CancellationToken.None);
             var configPath = stack.ConfigFile;
 
             if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
@@ -778,7 +780,7 @@ public class UpdateService
                     StdOut = combinedStdOuts,
                 }
             );
-            await db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(CancellationToken.None);
 
             await _notificationService.SendAutoUpdateResult(
                 app,
@@ -840,8 +842,13 @@ public class UpdateService
         {
             if (!planOnly)
             {
-                await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-                var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, cancellationToken);
+                await using var db = await _dbContextFactory.CreateDbContextAsync(
+                    CancellationToken.None
+                );
+                var stack = await db.Stacks.FirstAsync(
+                    x => x.Id == app.StackId,
+                    CancellationToken.None
+                );
 
                 db.UpdateAttempts.Add(
                     new()
@@ -863,7 +870,7 @@ public class UpdateService
                         UsedPlan = string.Join(", ", updateSteps),
                     }
                 );
-                await db.SaveChangesAsync(cancellationToken);
+                await db.SaveChangesAsync(CancellationToken.None);
 
                 CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 

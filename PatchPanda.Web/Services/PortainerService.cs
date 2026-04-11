@@ -158,7 +158,9 @@ public class PortainerService : IPortainerService
             return;
         }
 
-        var json = await resp.Content.ReadFromJsonAsync<PortainerAuthResponse>();
+        var json = await resp.Content.ReadFromJsonAsync<PortainerAuthResponse>(
+            cancellationToken: cancellationToken
+        );
 
         if (json?.Jwt is not null)
         {

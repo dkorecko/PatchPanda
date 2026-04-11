@@ -80,13 +80,33 @@ public class JobRegistry(JobQueue updateQueue)
 
     public async Task MarkForRestartStack(int stackId)
     {
-        var seq = GetNextSequence();
+        await TryMarkForRestartStack(stackId);
+    }
 
-        var pending = new PendingRestartStack { StackId = stackId, Sequence = seq };
+    public async Task<bool> TryMarkForRestartStack(int stackId)
+    {
+        PendingRestartStack? pending;
 
-        _pending.TryAdd(seq, pending);
+        lock (_processingLock)
+        {
+            if (_pending.Values.Any(p => p is PendingRestartStack rs && rs.StackId == stackId))
+                return false;
 
-        await updateQueue.EnqueueAsync(new RestartStackJob(seq, stackId));
+            var seq = GetNextSequence();
+            pending = new() { StackId = stackId, Sequence = seq };
+            _pending.TryAdd(seq, pending);
+        }
+
+        try
+        {
+            await updateQueue.EnqueueAsync(new RestartStackJob(pending.Sequence, stackId));
+            return true;
+        }
+        catch
+        {
+            _pending.TryRemove(pending.Sequence, out _);
+            throw;
+        }
     }
 
     public async Task<bool> TryMarkForResetAll()
@@ -99,7 +119,7 @@ public class JobRegistry(JobQueue updateQueue)
                 return false;
 
             var seq = GetNextSequence();
-            pending = new PendingResetAll { Sequence = seq };
+            pending = new() { Sequence = seq };
             _pending.TryAdd(seq, pending);
         }
 
@@ -125,7 +145,7 @@ public class JobRegistry(JobQueue updateQueue)
                 return false;
 
             var seq = GetNextSequence();
-            pending = new PendingCheckForUpdatesAll { Sequence = seq };
+            pending = new() { Sequence = seq };
             _pending.TryAdd(seq, pending);
         }
 
