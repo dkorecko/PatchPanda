@@ -41,6 +41,7 @@ public class PortainerService : IPortainerService
         var ignoreSsl = configuration.GetValue<bool>(Constants.VariableKeys.PORTAINER_IGNORE_SSL);
         _username = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_USERNAME);
         _password = configuration.GetValue<string?>(Constants.VariableKeys.PORTAINER_PASSWORD);
+        var timeoutSeconds = Constants.Limits.PORTAINER_HTTP_TIMEOUT_SECONDS;
 
         if (!IsUrlConfigured)
         {
@@ -75,7 +76,8 @@ public class PortainerService : IPortainerService
 
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri(_url!)
+            BaseAddress = new Uri(_url!),
+            Timeout = TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds))
         };
 
         if (IsAccessTokenConfigured)
@@ -119,7 +121,7 @@ public class PortainerService : IPortainerService
         }
     }
 
-    private async Task EnsureAuthenticatedAsync()
+    private async Task EnsureAuthenticatedAsync(CancellationToken cancellationToken = default)
     {
         if (!IsUrlConfigured || IsAccessTokenConfigured || !IsUsernamePasswordConfigured || _httpClient is null)
             return;
@@ -140,7 +142,8 @@ public class PortainerService : IPortainerService
         var payload = JsonSerializer.Serialize(new { username = _username, password = _password });
         var resp = await _httpClient.PostAsync(
             "/api/auth",
-            new StringContent(payload, Encoding.UTF8, "application/json")
+            new StringContent(payload, Encoding.UTF8, "application/json"),
+            cancellationToken
         );
 
         if (!resp.IsSuccessStatusCode)
@@ -170,15 +173,21 @@ public class PortainerService : IPortainerService
             _logger.LogWarning("Failed parsing Portainer auth response");
     }
 
-    private async Task<PortainerStackDto?> GetStack(string stackName)
+    private async Task<PortainerStackDto?> GetStack(
+        string stackName,
+        CancellationToken cancellationToken = default
+    )
     {
         if (!IsConfigured || _httpClient is null)
             return null;
 
-        await EnsureAuthenticatedAsync();
+        await EnsureAuthenticatedAsync(cancellationToken);
 
         var filters = JsonSerializer.Serialize(new { Name = stackName });
-        var resp = await _httpClient.GetAsync($"/api/stacks?filters={filters}");
+        var resp = await _httpClient.GetAsync(
+            $"/api/stacks?filters={filters}",
+            cancellationToken
+        );
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -204,15 +213,19 @@ public class PortainerService : IPortainerService
         return stacks[0];
     }
 
-    public async Task<string?> GetStackFileContentAsync(string stackName)
+    public async Task<string?> GetStackFileContentAsync(
+        string stackName,
+        CancellationToken cancellationToken = default
+    )
     {
-        var first = await GetStack(stackName);
+        var first = await GetStack(stackName, cancellationToken);
 
         if (first is null)
             return null;
 
         var fileResp = await _httpClient!.GetAsync(
-            $"/api/stacks/{first.Id}/file?endpointId={first.EndpointId}"
+            $"/api/stacks/{first.Id}/file?endpointId={first.EndpointId}",
+            cancellationToken
         );
 
         if (!fileResp.IsSuccessStatusCode)
@@ -229,9 +242,13 @@ public class PortainerService : IPortainerService
         return fileDto?.StackFileContent;
     }
 
-    public async Task UpdateStackFileContentAsync(string stackName, string newFileContent)
+    public async Task UpdateStackFileContentAsync(
+        string stackName,
+        string newFileContent,
+        CancellationToken cancellationToken = default
+    )
     {
-        var first = await GetStack(stackName);
+        var first = await GetStack(stackName, cancellationToken);
 
         if (first is null)
             throw new("No such stack found.");
@@ -241,7 +258,8 @@ public class PortainerService : IPortainerService
         );
         var putResp = await _httpClient!.PutAsync(
             $"/api/stacks/{first.Id}?endpointId={first.EndpointId}",
-            new StringContent(payload, Encoding.UTF8, "application/json")
+            new StringContent(payload, Encoding.UTF8, "application/json"),
+            cancellationToken
         );
 
         if (!putResp.IsSuccessStatusCode)

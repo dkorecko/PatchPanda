@@ -8,7 +8,14 @@ public interface IPortainerService
 
     Task<bool> ValidateAccessTokenAsync();
 
-    Task<string?> GetStackFileContentAsync(string stackName);
+    Task<string?> GetStackFileContentAsync(
+        string stackName,
+        CancellationToken cancellationToken = default
+    );
 
-    Task UpdateStackFileContentAsync(string stackName, string newFileContent);
+    Task UpdateStackFileContentAsync(
+        string stackName,
+        string newFileContent,
+        CancellationToken cancellationToken = default
+    );
 }

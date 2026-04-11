@@ -62,14 +62,17 @@ public class DockerService
     private DockerClient GetClient() =>
         new DockerClientConfiguration(new Uri(DockerSocket)).CreateClient();
 
-    private async Task<IList<ContainerListResponse>?> GetAllContainers()
+    private async Task<IList<ContainerListResponse>?> GetAllContainers(
+        CancellationToken cancellationToken = default
+    )
     {
         try
         {
             using var dockerClient = GetClient();
 
             var containers = await dockerClient.Containers.ListContainersAsync(
-                new ContainersListParameters { All = true, Limit = 999 }
+                new ContainersListParameters { All = true, Limit = 999 },
+                cancellationToken
             );
 
             return containers;
@@ -81,9 +84,11 @@ public class DockerService
         }
     }
 
-    private async Task<List<ComposeStack>?> GetRunningStacks()
+    private async Task<List<ComposeStack>?> GetRunningStacks(
+        CancellationToken cancellationToken = default
+    )
     {
-        var containers = await GetAllContainers();
+        var containers = await GetAllContainers(cancellationToken);
 
         if (containers is null)
         {
@@ -125,7 +130,8 @@ public class DockerService
                     )
                     {
                         var stackFileContent = await _portainerService.GetStackFileContentAsync(
-                            stackName
+                            stackName,
+                            cancellationToken
                         );
                         _logger.LogInformation(
                             "Retrieved stack file content for {StackName}, length: {Length}",
@@ -230,9 +236,11 @@ public class DockerService
     /// Resets current list of containers and fills it with existing containers.
     /// </summary>
     /// <returns><see langword="true"/> if successfully reset, otherwise <see langword="false"/>.</returns>
-    public async Task<bool> ResetComposeStacks()
+    public async Task<bool> ResetComposeStacks(CancellationToken cancellationToken = default)
     {
         using var db = _dbContextFactory.CreateDbContext();
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!await IsAliveAsync())
         {
@@ -242,9 +250,9 @@ public class DockerService
         var existingStacks = await db
             .Stacks.Include(x => x.Apps)
                 .ThenInclude(x => x.NewerVersions)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
-        var runningStacks = await GetRunningStacks();
+        var runningStacks = await GetRunningStacks(cancellationToken);
 
         if (runningStacks is null)
         {
@@ -273,9 +281,9 @@ public class DockerService
 
             foreach (var runningContainer in runningStack.Apps)
             {
-                var existingContainer = existingStack
-                    .Apps.Where(x => x.Name == runningContainer.Name)
-                    .FirstOrDefault();
+                var existingContainer = existingStack.Apps.FirstOrDefault(x =>
+                    x.Name == runningContainer.Name
+                );
                 var foundApps = new List<Container>();
 
                 if (existingContainer is not null)
@@ -324,13 +332,13 @@ public class DockerService
 
         db.MultiContainerApps.RemoveRange(db.MultiContainerApps);
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
-        var stacks = await db.Stacks.Include(x => x.Apps).ToListAsync();
+        var stacks = await db.Stacks.Include(x => x.Apps).ToListAsync(cancellationToken);
 
         stacks.ForEach(x => MultiContainerAppDetector.FillMultiContainerApps(x, db));
 
-        await db.SaveChangesAsync();
+        await db.SaveChangesAsync(cancellationToken);
 
         return true;
     }
@@ -338,7 +346,8 @@ public class DockerService
     public virtual async Task<(string stdOut, string stdErr, int exitCode)> RunDockerComposeOnPath(
         ComposeStack stack,
         string command,
-        Action<string>? outputCallback = null
+        Action<string>? outputCallback = null,
+        CancellationToken cancellationToken = default
     )
     {
         var fileName = "docker";
@@ -381,7 +390,29 @@ public class DockerService
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync();
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(true);
+            }
+            catch (Exception killException)
+            {
+                _logger.LogWarning(
+                    killException,
+                    "Failed killing timed out docker compose process"
+                );
+            }
+
+            throw new TimeoutException(
+                $"Docker compose command '{fileName} {arguments}' timed out or was cancelled."
+            );
+        }
 
         var stdOut = standardOutput.ToString();
         var stdErr = standardError.ToString();

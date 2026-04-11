@@ -123,7 +123,14 @@ public class UpdateServiceTests
         );
 
         dockerMock
-            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Setup(x =>
+                x.RunDockerComposeOnPath(
+                    It.IsAny<ComposeStack>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Action<string>?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var tasks = await new UpdateService(
@@ -209,10 +216,14 @@ public class UpdateServiceTests
 
         _portainerService.Setup(p => p.IsConfigured).Returns(true);
         _portainerService
-            .Setup(p => p.GetStackFileContentAsync(It.IsAny<string>()))
+            .Setup(p => p.GetStackFileContentAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(composeContent);
         _portainerService.Setup(p =>
-            p.UpdateStackFileContentAsync(It.IsAny<string>(), It.IsAny<string>())
+            p.UpdateStackFileContentAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()
+            )
         );
 
         var dbContextFactory = Helper.CreateInMemoryFactory();
@@ -236,7 +247,14 @@ public class UpdateServiceTests
         );
 
         dockerMock
-            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Setup(x =>
+                x.RunDockerComposeOnPath(
+                    It.IsAny<ComposeStack>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Action<string>?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var updateService = new UpdateService(
@@ -258,12 +276,16 @@ public class UpdateServiceTests
 
         Assert.NotNull(tasks);
 
-        _portainerService.Verify(p => p.GetStackFileContentAsync(stack.StackName), Times.Once);
+        _portainerService.Verify(
+            p => p.GetStackFileContentAsync(stack.StackName, It.IsAny<CancellationToken>()),
+            Times.Once
+        );
         _portainerService.Verify(
             p =>
                 p.UpdateStackFileContentAsync(
                     stack.StackName,
-                    It.Is<string>(s => s.Contains(TestData.IMAGE_NEW_VERSION))
+                    It.Is<string>(s => s.Contains(TestData.IMAGE_NEW_VERSION)),
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Once
         );
@@ -331,7 +353,14 @@ public class UpdateServiceTests
         );
 
         dockerMock
-            .Setup(x => x.RunDockerComposeOnPath(It.IsAny<ComposeStack>(), It.IsAny<string>()))
+            .Setup(x =>
+                x.RunDockerComposeOnPath(
+                    It.IsAny<ComposeStack>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Action<string>?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
             .ReturnsAsync((string.Empty, string.Empty, 0));
 
         var updateService = new UpdateService(

@@ -35,17 +35,11 @@ public class PendingCheckForUpdatesAll : PendingUpdate
     public override string Kind => "CheckForUpdatesAll";
 }
 
-public class JobRegistry
+public class JobRegistry(JobQueue updateQueue)
 {
     private readonly ConcurrentDictionary<long, PendingUpdate> _pending = new();
-    private readonly JobQueue _updateQueue;
     private long _sequenceCounter;
-    private readonly object _processingLock = new();
-
-    public JobRegistry(JobQueue updateQueue)
-    {
-        _updateQueue = updateQueue;
-    }
+    private readonly Lock _processingLock = new();
 
     private long GetNextSequence() => Interlocked.Increment(ref _sequenceCounter);
 
@@ -64,36 +58,24 @@ public class JobRegistry
             TargetVersionId = targetVersionId,
             TargetVersionNumber = targetVersionNumber,
             IsAutomatic = isAutomatic,
-            Sequence = seq
+            Sequence = seq,
         };
 
         _pending.TryAdd(seq, pending);
 
-        await _updateQueue.EnqueueAsync(
+        await updateQueue.EnqueueAsync(
             new UpdateJob(seq, containerId, targetVersionId, targetVersionNumber, isAutomatic)
         );
     }
 
     public async Task MarkForResetAll()
     {
-        var seq = GetNextSequence();
-
-        var pending = new PendingResetAll { Sequence = seq };
-
-        _pending.TryAdd(seq, pending);
-
-        await _updateQueue.EnqueueAsync(new ResetAllJob(seq));
+        await TryMarkForResetAll();
     }
 
     public async Task MarkForCheckUpdatesAll()
     {
-        var seq = GetNextSequence();
-
-        var pending = new PendingCheckForUpdatesAll { Sequence = seq };
-
-        _pending.TryAdd(seq, pending);
-
-        await _updateQueue.EnqueueAsync(new CheckForUpdatesAllJob(seq));
+        await TryMarkForCheckUpdatesAll();
     }
 
     public async Task MarkForRestartStack(int stackId)
@@ -104,7 +86,59 @@ public class JobRegistry
 
         _pending.TryAdd(seq, pending);
 
-        await _updateQueue.EnqueueAsync(new RestartStackJob(seq, stackId));
+        await updateQueue.EnqueueAsync(new RestartStackJob(seq, stackId));
+    }
+
+    public async Task<bool> TryMarkForResetAll()
+    {
+        PendingResetAll? pending;
+
+        lock (_processingLock)
+        {
+            if (_pending.Values.Any(p => p is PendingResetAll))
+                return false;
+
+            var seq = GetNextSequence();
+            pending = new PendingResetAll { Sequence = seq };
+            _pending.TryAdd(seq, pending);
+        }
+
+        try
+        {
+            await updateQueue.EnqueueAsync(new ResetAllJob(pending.Sequence));
+            return true;
+        }
+        catch
+        {
+            _pending.TryRemove(pending.Sequence, out _);
+            throw;
+        }
+    }
+
+    public async Task<bool> TryMarkForCheckUpdatesAll()
+    {
+        PendingCheckForUpdatesAll? pending;
+
+        lock (_processingLock)
+        {
+            if (_pending.Values.Any(p => p is PendingCheckForUpdatesAll))
+                return false;
+
+            var seq = GetNextSequence();
+            pending = new PendingCheckForUpdatesAll { Sequence = seq };
+            _pending.TryAdd(seq, pending);
+        }
+
+        try
+        {
+            await updateQueue.EnqueueAsync(new CheckForUpdatesAllJob(pending.Sequence));
+            return true;
+        }
+        catch
+        {
+            _pending.TryRemove(pending.Sequence, out _);
+            throw;
+        }
     }
 
     public bool TryStartProcessing(long sequence)
@@ -188,7 +222,7 @@ public class JobRegistry
                     TargetVersionNumber = pendingUpdateJob.TargetVersionNumber,
                     IsAutomatic = pendingUpdateJob.IsAutomatic,
                     IsProcessing = pendingUpdateJob.IsProcessing,
-                    Sequence = pendingUpdateJob.Sequence
+                    Sequence = pendingUpdateJob.Sequence,
                 };
 
                 lock (pendingUpdateJob.Output)
@@ -204,7 +238,7 @@ public class JobRegistry
                 {
                     StackId = pendingRestartStack.StackId,
                     IsProcessing = pendingRestartStack.IsProcessing,
-                    Sequence = pendingRestartStack.Sequence
+                    Sequence = pendingRestartStack.Sequence,
                 };
 
                 lock (pendingRestartStack.Output)
@@ -231,7 +265,7 @@ public class JobRegistry
         var copy = new TPending
         {
             IsProcessing = pending.IsProcessing,
-            Sequence = pending.Sequence
+            Sequence = pending.Sequence,
         };
         lock (pending.Output)
         {
