@@ -1,11 +1,12 @@
 namespace PatchPanda.Web.Services.Hosted;
 
-public class VersionCheckHostedService : IHostedService
+public class VersionCheckHostedService : IHostedService, IDisposable
 {
     private readonly ILogger<VersionCheckHostedService> _logger;
     private readonly JobRegistry _jobRegistry;
 
     private Timer? _timer;
+    private int _isRunning;
 
     public VersionCheckHostedService(
         ILogger<VersionCheckHostedService> logger,
@@ -50,9 +51,37 @@ public class VersionCheckHostedService : IHostedService
         return Task.CompletedTask;
     }
 
-    public async void DoWork(object? state)
+    private async void DoWork(object? state)
     {
-        await _jobRegistry.MarkForResetAll();
-        await _jobRegistry.MarkForCheckUpdatesAll();
+        if (Interlocked.Exchange(ref _isRunning, 1) == 1)
+        {
+            _logger.LogInformation(
+                "Skipping scheduled version check because a previous run is still enqueueing jobs."
+            );
+            return;
+        }
+
+        try
+        {
+            var queuedReset = await _jobRegistry.TryMarkForResetAll();
+            if (!queuedReset)
+                _logger.LogInformation(
+                    "Skipping ResetAll enqueue because one is already queued or processing."
+                );
+
+            var queuedCheck = await _jobRegistry.TryMarkForCheckUpdatesAll();
+            if (!queuedCheck)
+                _logger.LogInformation(
+                    "Skipping CheckForUpdatesAll enqueue because one is already queued or processing."
+                );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while enqueueing scheduled version check jobs");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isRunning, 0);
+        }
     }
 }

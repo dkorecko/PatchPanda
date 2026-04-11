@@ -6,9 +6,16 @@ public interface IPortainerService
 
     bool IsAccessTokenConfigured { get; }
 
-    Task<bool> ValidateAccessTokenAsync();
+    Task<bool> ValidateAccessTokenAsync(CancellationToken cancellationToken = default);
 
-    Task<string?> GetStackFileContentAsync(string stackName);
+    Task<string?> GetStackFileContentAsync(
+        string stackName,
+        CancellationToken cancellationToken = default
+    );
 
-    Task UpdateStackFileContentAsync(string stackName, string newFileContent);
+    Task UpdateStackFileContentAsync(
+        string stackName,
+        string newFileContent,
+        CancellationToken cancellationToken = default
+    );
 }

@@ -2,24 +2,15 @@ using System.Text.Json;
 
 namespace PatchPanda.Web.Services.Background;
 
-public class UpdateBackgroundService : IHostedService, IDisposable
+public class UpdateBackgroundService(
+    IServiceScopeFactory serviceProvider,
+    JobRegistry jobRegistry,
+    JobQueue queue
+) : IHostedService, IDisposable
 {
-    private readonly IServiceScopeFactory _serviceProvider;
-    private readonly JobRegistry _jobRegistry;
-    private readonly JobQueue _queue;
+    private const int JobTimeoutSeconds = Constants.Limits.UPDATE_JOB_TIMEOUT_SECONDS;
     private CancellationTokenSource? _cts;
     private Task? _processingTask;
-
-    public UpdateBackgroundService(
-        IServiceScopeFactory serviceProvider,
-        JobRegistry jobRegistry,
-        JobQueue queue
-    )
-    {
-        _serviceProvider = serviceProvider;
-        _jobRegistry = jobRegistry;
-        _queue = queue;
-    }
 
     public void Dispose()
     {
@@ -30,7 +21,7 @@ public class UpdateBackgroundService : IHostedService, IDisposable
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = serviceProvider.CreateScope();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<UpdateBackgroundService>>();
 
         logger.LogInformation("Update background service starting (queue consumer)");
@@ -43,7 +34,7 @@ public class UpdateBackgroundService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceProvider.CreateScope();
+        using var scope = serviceProvider.CreateScope();
         var logger = scope.ServiceProvider.GetService<ILogger<UpdateBackgroundService>>();
 
         logger?.LogInformation("Update background service stopping");
@@ -62,23 +53,54 @@ public class UpdateBackgroundService : IHostedService, IDisposable
     private async Task ProcessJob<TJob>(
         TJob job,
         ILogger<UpdateBackgroundService> logger,
-        IServiceScope scope,
-        Func<string, Task> function
+        CancellationToken cancellationToken,
+        Func<string, CancellationToken, Task> function
     )
         where TJob : AbstractJob
     {
-        if (!_jobRegistry.TryStartProcessing(job.Sequence))
+        if (!jobRegistry.TryStartProcessing(job.Sequence))
             return;
 
         var jobName = job.GetType().Name;
 
-        _jobRegistry.AppendOutput(job.Sequence, $"Starting job type {jobName} (queued)...");
+        jobRegistry.AppendOutput(job.Sequence, $"Starting job type {jobName} (queued)...");
+
+        using var timeoutCts = new CancellationTokenSource(
+            TimeSpan.FromSeconds(Math.Max(1, JobTimeoutSeconds))
+        );
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCts.Token
+        );
 
         try
         {
-            await function.Invoke(jobName);
+            await function.Invoke(jobName, linkedCts.Token);
 
-            _jobRegistry.AppendOutput(job.Sequence, $"{jobName} finished.");
+            jobRegistry.AppendOutput(job.Sequence, $"{jobName} finished.");
+        }
+        catch (OperationCanceledException ex) when (timeoutCts.IsCancellationRequested)
+        {
+            logger.LogError(
+                ex,
+                "Job {JobName} timed out after {TimeoutSeconds} seconds",
+                jobName,
+                JobTimeoutSeconds
+            );
+            jobRegistry.AppendOutput(
+                job.Sequence,
+                $"{jobName} timed out after {JobTimeoutSeconds} seconds."
+            );
+        }
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogInformation(ex, "Job {JobName} cancelled due to host shutdown", jobName);
+            jobRegistry.AppendOutput(job.Sequence, $"{jobName} cancelled due to host shutdown.");
+        }
+        catch (TimeoutException ex)
+        {
+            logger.LogError(ex, "Job {JobName} timed out", jobName);
+            jobRegistry.AppendOutput(job.Sequence, $"{jobName} timed out: " + ex.Message);
         }
         catch (Exception ex)
         {
@@ -88,159 +110,169 @@ public class UpdateBackgroundService : IHostedService, IDisposable
                 jobName,
                 JsonSerializer.Serialize(job)
             );
-            _jobRegistry.AppendOutput(job.Sequence, $"{jobName} failed: " + ex.Message);
+            jobRegistry.AppendOutput(job.Sequence, $"{jobName} failed: " + ex.Message);
         }
         finally
         {
-            _jobRegistry.FinishProcessing(job.Sequence);
+            jobRegistry.FinishProcessing(job.Sequence);
         }
     }
 
     private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
-        await foreach (var job in _queue.Reader.ReadAllAsync(cancellationToken))
+        try
         {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            using var scope = _serviceProvider.CreateScope();
-            var logger = scope.ServiceProvider.GetRequiredService<
-                ILogger<UpdateBackgroundService>
-            >();
-
-            switch (job)
+            await foreach (var job in queue.Reader.ReadAllAsync(cancellationToken))
             {
-                case UpdateJob updateJob:
-                    await ProcessJob(
-                        updateJob,
-                        logger,
-                        scope,
-                        async (string jobName) =>
-                        {
-                            var updateService =
-                                scope.ServiceProvider.GetRequiredService<UpdateService>();
-                            var dbFactory = scope.ServiceProvider.GetRequiredService<
-                                IDbContextFactory<DataContext>
-                            >();
+                if (cancellationToken.IsCancellationRequested)
+                    break;
 
-                            await using var db = await dbFactory.CreateDbContextAsync(
-                                cancellationToken
-                            );
-                            var app = await db
-                                .Containers.Include(x => x.NewerVersions)
-                                .FirstOrDefaultAsync(
-                                    x => x.Id == updateJob.ContainerId,
-                                    cancellationToken
-                                );
+                using var scope = serviceProvider.CreateScope();
+                var logger = scope.ServiceProvider.GetRequiredService<
+                    ILogger<UpdateBackgroundService>
+                >();
 
-                            if (app is null)
+                switch (job)
+                {
+                    case UpdateJob updateJob:
+                        await ProcessJob(
+                            updateJob,
+                            logger,
+                            cancellationToken,
+                            async (string jobName, CancellationToken jobCancellationToken) =>
                             {
-                                logger.LogInformation(
-                                    "Disregarding job for missing container {ContainerId}",
-                                    updateJob.ContainerId
+                                var updateService =
+                                    scope.ServiceProvider.GetRequiredService<UpdateService>();
+                                var dbFactory = scope.ServiceProvider.GetRequiredService<
+                                    IDbContextFactory<DataContext>
+                                >();
+
+                                await using var db = await dbFactory.CreateDbContextAsync(
+                                    jobCancellationToken
                                 );
-                                _jobRegistry.AppendOutput(
-                                    updateJob.Sequence,
-                                    "Container not found."
+                                var app = await db
+                                    .Containers.Include(x => x.NewerVersions)
+                                    .FirstOrDefaultAsync(
+                                        x => x.Id == updateJob.ContainerId,
+                                        jobCancellationToken
+                                    );
+
+                                if (app is null)
+                                {
+                                    logger.LogInformation(
+                                        "Disregarding job for missing container {ContainerId}",
+                                        updateJob.ContainerId
+                                    );
+                                    jobRegistry.AppendOutput(
+                                        updateJob.Sequence,
+                                        "Container not found."
+                                    );
+                                    return;
+                                }
+
+                                var targetVersion = app.NewerVersions.FirstOrDefault(v =>
+                                    v.Id == updateJob.TargetVersionId
                                 );
-                                _jobRegistry.FinishProcessing(updateJob.Sequence);
-                                return;
+
+                                if (targetVersion is null)
+                                    return;
+
+                                await updateService.Update(
+                                    app,
+                                    false,
+                                    targetVersion,
+                                    (line) => jobRegistry.AppendOutput(updateJob.Sequence, line),
+                                    updateJob.IsAutomatic,
+                                    jobCancellationToken
+                                );
                             }
+                        );
+                        break;
 
-                            var targetVersion = app.NewerVersions.FirstOrDefault(v =>
-                                v.Id == updateJob.TargetVersionId
-                            );
-
-                            if (targetVersion is null)
-                                return;
-
-                            await updateService.Update(
-                                app,
-                                false,
-                                targetVersion,
-                                (line) => _jobRegistry.AppendOutput(updateJob.Sequence, line),
-                                updateJob.IsAutomatic
-                            );
-                        }
-                    );
-                    break;
-
-                case ResetAllJob resetAllJob:
-                    await ProcessJob(
-                        resetAllJob,
-                        logger,
-                        scope,
-                        async (string jobName) =>
-                        {
-                            var dockerService =
-                                scope.ServiceProvider.GetRequiredService<DockerService>();
-                            await dockerService.ResetComposeStacks();
-                        }
-                    );
-                    break;
-
-                case CheckForUpdatesAllJob checkForUpdatesAllJob:
-                    await ProcessJob(
-                        checkForUpdatesAllJob,
-                        logger,
-                        scope,
-                        async (string jobName) =>
-                        {
-                            var updateService =
-                                scope.ServiceProvider.GetRequiredService<UpdateService>();
-                            await updateService.CheckAllForUpdates();
-                        }
-                    );
-                    break;
-
-                case RestartStackJob restartStackJob:
-                    await ProcessJob(
-                        restartStackJob,
-                        logger,
-                        scope,
-                        async (string jobName) =>
-                        {
-                            var dockerService =
-                                scope.ServiceProvider.GetRequiredService<DockerService>();
-                            var dbFactory = scope.ServiceProvider.GetRequiredService<
-                                IDbContextFactory<DataContext>
-                            >();
-
-                            using var db = dbFactory.CreateDbContext();
-                            var stack = await db
-                                .Stacks.Include(x => x.Apps)
-                                .FirstOrDefaultAsync(
-                                    x => x.Id == restartStackJob.StackId,
-                                    cancellationToken
-                                );
-
-                            if (stack is null)
+                    case ResetAllJob resetAllJob:
+                        await ProcessJob(
+                            resetAllJob,
+                            logger,
+                            cancellationToken,
+                            async (string jobName, CancellationToken jobCancellationToken) =>
                             {
-                                logger.LogInformation(
-                                    "Disregarding job for missing stack {StackId}",
-                                    restartStackJob.StackId
-                                );
-                                _jobRegistry.AppendOutput(
-                                    restartStackJob.Sequence,
-                                    "Stack not found."
-                                );
-                                _jobRegistry.FinishProcessing(restartStackJob.Sequence);
-                                return;
+                                var dockerService =
+                                    scope.ServiceProvider.GetRequiredService<DockerService>();
+                                await dockerService.ResetComposeStacks(jobCancellationToken);
                             }
+                        );
+                        break;
 
-                            await dockerService.RunDockerComposeOnPath(
-                                stack,
-                                "restart",
-                                (line) => _jobRegistry.AppendOutput(restartStackJob.Sequence, line)
-                            );
-                        }
-                    );
-                    break;
+                    case CheckForUpdatesAllJob checkForUpdatesAllJob:
+                        await ProcessJob(
+                            checkForUpdatesAllJob,
+                            logger,
+                            cancellationToken,
+                            async (string jobName, CancellationToken jobCancellationToken) =>
+                            {
+                                var updateService =
+                                    scope.ServiceProvider.GetRequiredService<UpdateService>();
+                                await updateService.CheckAllForUpdates(jobCancellationToken);
+                            }
+                        );
+                        break;
 
-                default:
-                    logger.LogError("Disregarding unknown job type {JobType}", job.GetType().Name);
-                    break;
+                    case RestartStackJob restartStackJob:
+                        await ProcessJob(
+                            restartStackJob,
+                            logger,
+                            cancellationToken,
+                            async (string jobName, CancellationToken jobCancellationToken) =>
+                            {
+                                var dockerService =
+                                    scope.ServiceProvider.GetRequiredService<DockerService>();
+                                var dbFactory = scope.ServiceProvider.GetRequiredService<
+                                    IDbContextFactory<DataContext>
+                                >();
+
+                                await using var db = await dbFactory.CreateDbContextAsync(
+                                    jobCancellationToken
+                                );
+                                var stack = await db
+                                    .Stacks.Include(x => x.Apps)
+                                    .FirstOrDefaultAsync(
+                                        x => x.Id == restartStackJob.StackId,
+                                        jobCancellationToken
+                                    );
+
+                                if (stack is null)
+                                {
+                                    logger.LogInformation(
+                                        "Disregarding job for missing stack {StackId}",
+                                        restartStackJob.StackId
+                                    );
+                                    jobRegistry.AppendOutput(
+                                        restartStackJob.Sequence,
+                                        "Stack not found."
+                                    );
+                                    return;
+                                }
+
+                                await dockerService.RunDockerComposeOnPath(
+                                    stack,
+                                    "restart",
+                                    (line) =>
+                                        jobRegistry.AppendOutput(restartStackJob.Sequence, line),
+                                    jobCancellationToken
+                                );
+                            }
+                        );
+                        break;
+
+                    default:
+                        logger.LogError(
+                            "Disregarding unknown job type {JobType}",
+                            job.GetType().Name
+                        );
+                        break;
+                }
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 }

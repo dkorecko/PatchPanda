@@ -78,9 +78,9 @@ public class UpdateService
         && app.GitHubVersionRegex is not null
         && app.Version is not null;
 
-    public async Task CheckAllForUpdates()
+    public async Task CheckAllForUpdates(CancellationToken cancellationToken = default)
     {
-        await using var db = await _dbContextFactory.CreateDbContextAsync();
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var containers = await db
             .Containers.Include(x => x.NewerVersions)
@@ -89,7 +89,7 @@ public class UpdateService
                 && !x.IgnoreContainer
                 && (x.GitHubRepo != null || x.OverrideGitHubRepo != null)
             )
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var uniqueRepoGroups = containers
             .GroupBy(x => x.GetGitHubRepo()!)
@@ -97,6 +97,8 @@ public class UpdateService
 
         foreach (var uniqueRepoGroup in uniqueRepoGroups)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             _logger.LogDebug("Checking unique repo group: {Repo}", uniqueRepoGroup.Key);
 
             var currentVersionGroups = uniqueRepoGroup
@@ -131,7 +133,7 @@ public class UpdateService
                     {
                         var container = await db
                             .Containers.Include(x => x.NewerVersions)
-                            .FirstAsync(x => x.Id == mainApp.Id);
+                            .FirstAsync(x => x.Id == mainApp.Id, cancellationToken);
                         var toNotify = container.NewerVersions.Where(x => !x.Notified).ToList();
 
                         var result = await _notificationService.SendNewVersion(
@@ -147,7 +149,7 @@ public class UpdateService
                                 foreach (var v in toNotify)
                                     v.Notified = true;
 
-                                await db.SaveChangesAsync();
+                                await db.SaveChangesAsync(cancellationToken);
                             }
                             catch (Exception ex)
                             {
@@ -171,12 +173,19 @@ public class UpdateService
             }
         }
 
-        await ProcessAutoUpdates(db);
+        await ProcessAutoUpdates(db, cancellationToken);
     }
 
-    private async Task ProcessAutoUpdates(DataContext db)
+    private async Task ProcessAutoUpdates(
+        DataContext db,
+        CancellationToken cancellationToken = default
+    )
     {
-        var settings = await db.AppSettings.ToDictionaryAsync(x => x.Key, x => x.Value);
+        var settings = await db.AppSettings.ToDictionaryAsync(
+            x => x.Key,
+            x => x.Value,
+            cancellationToken
+        );
 
         if (
             !settings.TryGetValue(Constants.SettingsKeys.AUTO_UPDATE_ENABLED, out var enabledStr)
@@ -204,10 +213,12 @@ public class UpdateService
                     && v.DateDiscovered < threshold
                 )
             )
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         foreach (var container in candidates)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (
                 _jobRegistry.GetQueuedUpdateForContainer(container.Id) is not null
                 || _jobRegistry.GetProcessingUpdateForContainer(container.Id) is not null
@@ -218,7 +229,7 @@ public class UpdateService
                 .UpdateAttempts.Where(x => x.ContainerId == container.Id)
                 .OrderByDescending(x => x.EndedAt)
                 .Take(10)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var consecutiveFailures = 0;
             var lastFailureTime = DateTime.MinValue;
@@ -278,7 +289,7 @@ public class UpdateService
             if (targetVersion == null)
                 continue;
 
-            var plan = await Update(container, true, targetVersion);
+            var plan = await Update(container, true, targetVersion, cancellationToken: cancellationToken);
 
             if (plan.Steps is null)
                 continue;
@@ -319,7 +330,8 @@ public class UpdateService
         bool planOnly,
         AppVersion targetVersion,
         Action<string>? outputCallback = null,
-        bool isAutomatic = false
+        bool isAutomatic = false,
+        CancellationToken cancellationToken = default
     )
     {
         if (!IsUpdateAvailable(app))
@@ -341,8 +353,10 @@ public class UpdateService
             ArgumentNullException.ThrowIfNull(app.GitHubVersionRegex);
             ArgumentNullException.ThrowIfNull(app.Version);
 
-            await using var db = await _dbContextFactory.CreateDbContextAsync();
-            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+            await using var db = await _dbContextFactory.CreateDbContextAsync(
+                CancellationToken.None
+            );
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, CancellationToken.None);
             var configPath = stack.ConfigFile;
 
             if (configPath is null && (!stack.PortainerManaged || !_portainerService.IsConfigured))
@@ -361,7 +375,8 @@ public class UpdateService
             else
             {
                 configFileContent = await _portainerService.GetStackFileContentAsync(
-                    stack.StackName
+                    stack.StackName,
+                    cancellationToken
                 );
 
                 if (configFileContent is null)
@@ -461,7 +476,7 @@ public class UpdateService
                             {
                                 var targetMultiContainer = await db
                                     .MultiContainerApps.Include(x => x.Containers)
-                                    .FirstAsync(x => x.Id == app.MultiContainerAppId);
+                                    .FirstAsync(x => x.Id == app.MultiContainerAppId, cancellationToken);
                                 appsWithSharedEnvVersion =
                                 [
                                     .. targetMultiContainer.Containers.Where(x =>
@@ -530,7 +545,8 @@ public class UpdateService
                     {
                         await _portainerService.UpdateStackFileContentAsync(
                             stack.StackName,
-                            configFileContent.Replace(app.TargetImage, resultingImage)
+                            configFileContent.Replace(app.TargetImage, resultingImage),
+                            cancellationToken
                         );
                     }
                     catch (Exception ex)
@@ -547,14 +563,15 @@ public class UpdateService
                             if (attemptCount > 0)
                             {
                                 var delayMs = (int)Math.Pow(2, attemptCount) * 1000;
-                                await Task.Delay(delayMs);
+                                await Task.Delay(delayMs, CancellationToken.None);
                             }
 
                             try
                             {
                                 await _portainerService.UpdateStackFileContentAsync(
                                     stack.StackName,
-                                    configFileContent
+                                    configFileContent,
+                                    CancellationToken.None
                                 );
 
                                 rollbackStdErr += $"\n[ROLLBACK SUCCESS]\n";
@@ -604,7 +621,12 @@ public class UpdateService
                 try
                 {
                     (string pullStdOut, string pullStdErr, int pullExitCode) =
-                        await _dockerService.RunDockerComposeOnPath(stack, "pull", outputCallback);
+                        await _dockerService.RunDockerComposeOnPath(
+                            stack,
+                            "pull",
+                            outputCallback,
+                            cancellationToken
+                        );
 
                     combinedStdOuts +=
                         "[PULL STDOUT]\n" + pullStdOut + "\nExit code: " + pullExitCode;
@@ -612,7 +634,12 @@ public class UpdateService
                         "[PULL STDERR]\n" + pullStdErr + "\nExit code: " + pullExitCode;
 
                     (string upStdOut, string upStdErr, int upExitCode) =
-                        await _dockerService.RunDockerComposeOnPath(stack, "up -d", outputCallback);
+                        await _dockerService.RunDockerComposeOnPath(
+                            stack,
+                            "up -d",
+                            outputCallback,
+                            cancellationToken
+                        );
 
                     combinedStdOuts += "\n[UP STDOUT]\n" + upStdOut + "\nExit code: " + upExitCode;
                     combinedStdErrs += "\n[UP STDERR]\n" + upStdErr + "\nExit code: " + upExitCode;
@@ -638,14 +665,15 @@ public class UpdateService
                         if (attemptCount > 0)
                         {
                             var delayMs = (int)Math.Pow(2, attemptCount) * 1000; // 2s, 4s, 8s
-                            await Task.Delay(delayMs);
+                            await Task.Delay(delayMs, CancellationToken.None);
                         }
 
                         (string reupStdOut, string reupStdErr, int reupExitCode) =
                             await _dockerService.RunDockerComposeOnPath(
                                 stack,
                                 "up -d",
-                                outputCallback
+                                outputCallback,
+                                CancellationToken.None
                             );
 
                         if (reupExitCode != 0)
@@ -679,7 +707,7 @@ public class UpdateService
 
             var targetApp = await db
                 .Containers.Include(x => x.NewerVersions)
-                .FirstAsync(x => x.Id == app.Id);
+                .FirstAsync(x => x.Id == app.Id, cancellationToken);
 
             var removedVersions = targetApp.NewerVersions.RemoveAll(x =>
                 targetVersion.Id == x.Id || targetVersion.VersionNumber.IsNewerThan(x.VersionNumber)
@@ -692,7 +720,7 @@ public class UpdateService
                     && c.Id != targetApp.Id
                     && c.TargetImage == targetApp.TargetImage
                 )
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             if (resultingImage is not null)
             {
@@ -725,7 +753,7 @@ public class UpdateService
                 sideEffectUpdated = await db
                     .Containers.Include(x => x.NewerVersions)
                     .Where(c => appsWithSharedEnvVersion.Select(x => x.Id).Contains(c.Id))
-                    .ToListAsync();
+                    .ToListAsync(cancellationToken);
 
                 foreach (var sideApp in sideEffectUpdated)
                 {
@@ -752,7 +780,7 @@ public class UpdateService
                     StdOut = combinedStdOuts,
                 }
             );
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(CancellationToken.None);
 
             await _notificationService.SendAutoUpdateResult(
                 app,
@@ -775,8 +803,10 @@ public class UpdateService
         {
             // DockerCommandException bubbles up from inner try-catch after rollback is performed
             // This catch handles post-failure cleanup: UpdateAttempt logging, job cleanup, notifications
-            await using var db = await _dbContextFactory.CreateDbContextAsync();
-            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+            await using var db = await _dbContextFactory.CreateDbContextAsync(
+                CancellationToken.None
+            );
+            var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId, CancellationToken.None);
 
             if (rollbackFailed)
                 rollbackStdErr += $"\n{LogAndGetRollbackFailedMessage()}";
@@ -795,7 +825,7 @@ public class UpdateService
                     UsedPlan = string.Join(", ", updateSteps),
                 }
             );
-            await db.SaveChangesAsync();
+            await db.SaveChangesAsync(CancellationToken.None);
 
             CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 
@@ -814,8 +844,13 @@ public class UpdateService
         {
             if (!planOnly)
             {
-                await using var db = await _dbContextFactory.CreateDbContextAsync();
-                var stack = await db.Stacks.FirstAsync(x => x.Id == app.StackId);
+                await using var db = await _dbContextFactory.CreateDbContextAsync(
+                    CancellationToken.None
+                );
+                var stack = await db.Stacks.FirstAsync(
+                    x => x.Id == app.StackId,
+                    CancellationToken.None
+                );
 
                 db.UpdateAttempts.Add(
                     new()
@@ -837,7 +872,7 @@ public class UpdateService
                         UsedPlan = string.Join(", ", updateSteps),
                     }
                 );
-                await db.SaveChangesAsync();
+                await db.SaveChangesAsync(CancellationToken.None);
 
                 CleanUpAllContainerJobs(app.Id, relatedApps, sideEffectUpdated);
 

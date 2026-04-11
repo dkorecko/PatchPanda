@@ -43,5 +43,7 @@ public static class Constants
     {
         public const int MAX_OLLAMA_ATTEMPTS = 3;
         public const int MINIMUM_UPDATE_STEPS = 3;
+        public const int PORTAINER_HTTP_TIMEOUT_SECONDS = 60;
+        public const int UPDATE_JOB_TIMEOUT_SECONDS = 300;
     }
 }
