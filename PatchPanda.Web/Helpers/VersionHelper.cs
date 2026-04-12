@@ -52,6 +52,58 @@ public static class VersionHelper
         return regex;
     }
 
+    public static string? ExtractVersionSegment(string input, params string?[] regexes)
+    {
+        foreach (var regex in regexes.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct())
+        {
+            var match = Regex.Match(input, regex!.TrimStart('^').TrimEnd('$'));
+
+            if (match.Success)
+                return match.Value;
+        }
+
+        return null;
+    }
+
+    public static string? ReplaceVersionSegment(
+        string currentVersion,
+        string targetVersion,
+        string currentVersionRegex,
+        string githubVersionRegex
+    )
+    {
+        var currentSegment = ExtractVersionSegment(
+            currentVersion,
+            currentVersionRegex,
+            githubVersionRegex
+        );
+
+        if (currentSegment is null)
+            return null;
+
+        var targetSegment = ExtractVersionSegment(targetVersion, currentVersionRegex);
+
+        if (targetSegment is not null)
+            return currentVersion.Replace(currentSegment, targetSegment);
+
+        var targetComparableVersion = Regex.Match(targetVersion, @"\d+(?:\.\d+)+").Value;
+
+        if (string.IsNullOrWhiteSpace(targetComparableVersion))
+            return null;
+
+        var currentComparableVersionMatch = Regex.Match(currentSegment, @"\d+(?:\.\d+)+");
+
+        if (!currentComparableVersionMatch.Success)
+            return currentVersion.Replace(currentSegment, targetComparableVersion);
+
+        var updatedSegment =
+            currentSegment[..currentComparableVersionMatch.Index]
+            + targetComparableVersion
+            + currentSegment[(currentComparableVersionMatch.Index + currentComparableVersionMatch.Length)..];
+
+        return currentVersion.Replace(currentSegment, updatedSegment);
+    }
+
     public static bool IsSameVersionAs(this string version1, string version2)
     {
         string cleanedVersion1 = version1.TrimStart('v');

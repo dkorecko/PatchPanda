@@ -180,14 +180,21 @@ public class VersionService : IVersionService
 
                     // Resolve the correct tag for the current version to ensure comparison works
                     // We extract the semantic version portion from the app version and use it to find the source tag
-                    var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
-                    var versionMatch = Regex.Match(app.Version, adjustedRegex);
+                    var currentVersionSegment = VersionHelper.ExtractVersionSegment(
+                        app.Version,
+                        app.Regex,
+                        app.GitHubVersionRegex
+                    );
 
-                    if (versionMatch.Success)
+                    if (currentVersionSegment is not null)
                     {
                         var currentRelease = allReleases.FirstOrDefault(r =>
                             r.TagName is not null
-                            && Regex.IsMatch(r.TagName, Regex.Escape(versionMatch.Value))
+                            && VersionHelper.ExtractVersionSegment(
+                                r.TagName,
+                                app.Regex,
+                                app.GitHubVersionRegex
+                            ) == currentVersionSegment
                         );
 
                         if (currentRelease != null)

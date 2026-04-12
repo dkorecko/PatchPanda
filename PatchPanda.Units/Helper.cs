@@ -16,6 +16,21 @@ public static class Helper
         string version,
         string? githubNewVersion,
         string targetImage
+    ) =>
+        GetTestStack(
+            version,
+            githubNewVersion,
+            targetImage,
+            VersionHelper.BuildRegexFromVersion(version),
+            githubNewVersion is null ? null : VersionHelper.BuildRegexFromVersion(githubNewVersion)
+        );
+
+    public static ComposeStack GetTestStack(
+        string version,
+        string? githubNewVersion,
+        string targetImage,
+        string regex,
+        string? githubVersionRegex
     )
     {
         var stack = new ComposeStack
@@ -30,10 +45,8 @@ public static class Helper
                     Id = 1,
                     Name = "TestApp",
                     IsSecondary = false,
-                    Regex = VersionHelper.BuildRegexFromVersion(version),
-                    GitHubVersionRegex = githubNewVersion is null
-                        ? null
-                        : VersionHelper.BuildRegexFromVersion(githubNewVersion),
+                    Regex = regex,
+                    GitHubVersionRegex = githubVersionRegex,
                     Version = version,
                     TargetImage = targetImage,
                     StackId = 1,

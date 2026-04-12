@@ -386,31 +386,32 @@ public class UpdateService
             }
 
             var matches = Regex.Matches(configFileContent, app.TargetImage).Count;
-            var newVersion = targetVersion.VersionNumber;
-            var adjustedRegex = app.GitHubVersionRegex.TrimStart('^', 'v').TrimEnd('$');
-            var versionMatch = Regex.Match(app.Version, adjustedRegex);
+            var matchedCurrentVersionSegment = VersionHelper.ExtractVersionSegment(
+                app.Version,
+                app.Regex,
+                app.GitHubVersionRegex
+            );
+            var matchedTargetVersionSegment = VersionHelper.ExtractVersionSegment(
+                targetVersion.VersionNumber,
+                app.Regex,
+                app.GitHubVersionRegex
+            );
+            var newVersion = VersionHelper.ReplaceVersionSegment(
+                app.Version,
+                targetVersion.VersionNumber,
+                app.Regex,
+                app.GitHubVersionRegex
+            );
 
-            if (versionMatch.Success)
+            if (newVersion is null)
             {
-                newVersion = app.Version.Replace(versionMatch.Value, newVersion.TrimStart('v'));
-            }
-            else
-            {
-                adjustedRegex = "(" + app.Regex.TrimStart('^').TrimEnd('$') + ")";
-                versionMatch = Regex.Match(newVersion, adjustedRegex);
+                if (matchedCurrentVersionSegment is null)
+                    return HandleError(
+                        $"Could not determine which part of current version '{app.Version}' matches regex '{app.Regex}' or GitHub regex '{app.GitHubVersionRegex}'.",
+                        planOnly
+                    );
 
-                if (versionMatch.Success)
-                {
-                    var match = Regex.Match(app.Version, app.Regex);
-
-                    if (!match.Success)
-                        return HandleError(
-                            $"Could not match version pattern '{app.Regex}' against current version '{app.Version}' while updating to target version '{newVersion}'.",
-                            planOnly
-                        );
-
-                    newVersion = app.Version.Replace(match.Value, versionMatch.Groups[1].Value);
-                }
+                newVersion = targetVersion.VersionNumber;
             }
 
             string? envFile = null;
@@ -513,15 +514,15 @@ public class UpdateService
                 _logger.LogWarning(
                     "Did not generate a valid update plan, actually generated: {Steps}\n"
                         + "===================================================\n"
-                        + "configFileContent: {ConfigFileContent}\nmatches: {Matches}, newVersion: {NewVersion}, adjustedRegex: {AdjustedRegex}, versionMatch: {VersionMatch}, resultingImage: {ResultingImage}\n"
+                        + "configFileContent: {ConfigFileContent}\nmatches: {Matches}, newVersion: {NewVersion}, matchedCurrentVersionSegment: {MatchedCurrentVersionSegment}, matchedTargetVersionSegment: {MatchedTargetVersionSegment}, resultingImage: {ResultingImage}\n"
                         + "envFile: {EnvFile}\nenvFileContent: {EnvFileContent}\ncurrentEnvLine: {CurrentEnvLine}\ntargetEnvLine: {TargetEnvLine}\n"
                         + "===================================================",
                     updateSteps,
                     configFileContent,
                     matches,
                     newVersion,
-                    adjustedRegex,
-                    versionMatch.Success,
+                    matchedCurrentVersionSegment,
+                    matchedTargetVersionSegment,
                     resultingImage,
                     envFile,
                     envFileContent,
