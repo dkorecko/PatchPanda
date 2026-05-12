@@ -28,6 +28,9 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
+      - name: Lowercase repo name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -50,7 +53,7 @@ jobs:
           push: true
           build-args: |
             RELEASE_VERSION=unstable-${{ github.sha }}
-          tags: ghcr.io/${{ github.repository }}:unstable
+          tags: ghcr.io/${{ env.REPO_LC }}:unstable
 
   test-multi-arch:
     needs: build-and-push
@@ -60,8 +63,11 @@ jobs:
       packages: read
     strategy:
       matrix:
-        arch: [amd64, arm64, arm/v7] # Standardized ARM naming
+        arch: [amd64, arm64, arm/v7]
     steps:
+      - name: Lowercase repo name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -75,5 +81,5 @@ jobs:
       - name: Test image on ${{ matrix.arch }}
         run: |
           docker run --rm --platform linux/${{ matrix.arch }} \
-            ghcr.io/${{ github.repository }}:unstable \
+            ghcr.io/${{ env.REPO_LC }}:unstable \
             dotnet --version
