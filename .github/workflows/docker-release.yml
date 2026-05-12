@@ -1,4 +1,4 @@
-name: Build and Publish Docker image to GHCR
+name: Build and publish Docker image
 
 on:
   release:
@@ -10,13 +10,16 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # Required for v7 attestations
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Lowercase repo name
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -35,6 +38,10 @@ jobs:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           file: ./Dockerfile
           push: true
+          build-args: |
+            RELEASE_VERSION=${{ github.event.release.tag_name }}
           tags: |
             ghcr.io/${{ env.REPO_LC }}:latest
             ghcr.io/${{ env.REPO_LC }}:${{ github.event.release.tag_name }}
+          provenance: true
+          sbom: true
