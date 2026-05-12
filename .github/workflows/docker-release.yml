@@ -2,7 +2,7 @@ name: Build and publish Docker image
 
 on:
   release:
-    types: [published]
+    types: [released]
 
 jobs:
   build-and-push:
