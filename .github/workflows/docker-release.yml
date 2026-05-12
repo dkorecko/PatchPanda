@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
+      id-token: write # Required for security attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,3 +45,5 @@ jobs:
             ghcr.io/${{ env.REPO_LC }}:${{ github.event.release.tag_name }}
           provenance: true
           sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
