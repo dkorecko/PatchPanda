@@ -26,6 +26,7 @@ USER app
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 ARG TARGETARCH
+ARG TARGETVARIANT
 WORKDIR /src
 
 # Copy project file and restore specifically for the target architecture
@@ -34,7 +35,7 @@ COPY ["PatchPanda.Web/PatchPanda.Web.csproj", "PatchPanda.Web/"]
 RUN export DOTNET_ARCH=$(case ${TARGETARCH} in \
     "amd64") echo "x64" ;; \
     "arm64") echo "arm64" ;; \
-    "arm") echo "arm" ;; \
+    "arm") [ "${TARGETVARIANT}" = "v7" ] && echo "arm" || { echo "ERROR: Unsupported ARM variant '${TARGETVARIANT}'"; exit 1; } ;; \
     *) echo "ERROR: Unsupported architecture '${TARGETARCH}'"; exit 1 ;; \
     esac) && \
     dotnet restore "PatchPanda.Web/PatchPanda.Web.csproj" \
@@ -43,11 +44,11 @@ RUN export DOTNET_ARCH=$(case ${TARGETARCH} in \
 # Copy remaining source code
 COPY . .
 
-# Publish the Release binary with explicit architecture mapping error handling
+# Publish the Release binary with strict ARMv7 validation
 RUN export DOTNET_ARCH=$(case ${TARGETARCH} in \
     "amd64") echo "x64" ;; \
     "arm64") echo "arm64" ;; \
-    "arm") echo "arm" ;; \
+    "arm") [ "${TARGETVARIANT}" = "v7" ] && echo "arm" || { echo "ERROR: Unsupported ARM variant '${TARGETVARIANT}'"; exit 1; } ;; \
     *) echo "ERROR: Unsupported architecture '${TARGETARCH}'"; exit 1 ;; \
     esac) && \
     dotnet publish "PatchPanda.Web/PatchPanda.Web.csproj" \
@@ -68,22 +69,24 @@ ARG ENABLE_DIAGNOSTICS=0
 ENV APP_VERSION=$RELEASE_VERSION
 ENV DOTNET_EnableDiagnostics=${ENABLE_DIAGNOSTICS}
 
-# Install Docker CLI using Ubuntu 'resolute' repo (Matches May 2026 .NET 10 base)
+# Install Docker CLI using Ubuntu 'resolute' repo
 USER root
 RUN mkdir -m 0755 -p /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
-    # Using 'resolute' for the 26.04 LTS release
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu resolute stable" > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends docker-ce-cli && \
-    # Create data directory and fix permissions
-    mkdir -p /app/data && \
-    chown -R app:app /app/data /app && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+# Copy artifacts first (owned by root for security)
 COPY --from=build /app/publish .
+
+# Create data directory and fix permissions AFTER artifacts are copied
+# Narrowed chown ensures binaries stay read-only while data is writable
+RUN mkdir -p /app/data && \
+    chown -R app:app /app/data
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/ || exit 1
