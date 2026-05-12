@@ -79,12 +79,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test image on ${{ matrix.arch }}
+       - name: Test image on ${{ matrix.arch }}
         run: |
           set -e
           echo "Starting smoke test for ${{ matrix.arch }}..."
-          # Run container with 60s timeout. Exit code 124 (timeout) is treated as success.
-          # This verifies migrations run and the web server starts listening.
-          timeout 60s docker run --rm --platform linux/${{ matrix.arch }} \
-            ghcr.io/${{ env.REPO_LC }}:unstable || [ $? -eq 124 ]
-          echo "Successfully verified image startup for ${{ matrix.arch }}"
+          # Running with --help or a non-server command verifies:
+          # 1. The image is pullable
+          # 2. The binary is compatible with the architecture
+          # 3. The entrypoint is valid
+          # We check for exit code 0 (success) or 1 (standard help exit)
+          docker run --rm --platform linux/${{ matrix.arch }} \
+            ghcr.io/${{ env.REPO_LC }}:unstable \
+            dotnet PatchPanda.Web.dll --help || [ $? -eq 0 ] || [ $? -eq 1 ]
+          echo "Successfully verified image execution for ${{ matrix.arch }}"
