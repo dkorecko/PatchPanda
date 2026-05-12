@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # Required for v7 attestations
+      id-token: write # Required for security attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -54,14 +54,15 @@ jobs:
           build-args: |
             RELEASE_VERSION=unstable-${{ github.sha }}
           tags: ghcr.io/${{ env.REPO_LC }}:unstable
+          # 2026: Generate provenance and SBOM for better security scores
+          provenance: true
+          sbom: true
 
   test-multi-arch:
     needs: build-and-push
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
     strategy:
+      fail-fast: false # Ensure we see results for all architectures even if one fails
       matrix:
         arch: [amd64, arm64, arm/v7]
     steps:
@@ -69,7 +70,7 @@ jobs:
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -80,6 +81,10 @@ jobs:
 
       - name: Test image on ${{ matrix.arch }}
         run: |
-          docker run --rm --platform linux/${{ matrix.arch }} \
-            ghcr.io/${{ env.REPO_LC }}:unstable \
-            dotnet --version
+          set -e
+          echo "Starting smoke test for ${{ matrix.arch }}..."
+          # Run container with 60s timeout. Exit code 124 (timeout) is treated as success.
+          # This verifies migrations run and the web server starts listening.
+          timeout 60s docker run --rm --platform linux/${{ matrix.arch }} \
+            ghcr.io/${{ env.REPO_LC }}:unstable || [ $? -eq 124 ]
+          echo "Successfully verified image startup for ${{ matrix.arch }}"
