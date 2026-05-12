@@ -82,10 +82,8 @@ jobs:
         run: |
           set -e
           echo "Starting smoke test for ${{ matrix.arch }}..."
-          # Verification Strategy: 
-          # Runs 'dotnet --help' to verify the binary is compatible with the target CPU.
-          # This confirms the image is valid without hitting QEMU emulation timeouts.
-          docker run --rm --platform linux/${{ matrix.arch }} \
-            ghcr.io/${{ env.REPO_LC }}:unstable \
-            dotnet PatchPanda.Web.dll --help || [ $? -eq 0 ] || [ $? -eq 1 ]
+          # We use a 3-minute timeout to allow slow arm/v7 emulation to boot fully.
+          # Exit code 124 means the timeout hit, which confirms the app stayed up.
+          timeout 180s docker run --rm --platform linux/${{ matrix.arch }} \
+            ghcr.io/${{ env.REPO_LC }}:unstable || [ $? -eq 124 ]
           echo "Successfully verified image execution for ${{ matrix.arch }}"
