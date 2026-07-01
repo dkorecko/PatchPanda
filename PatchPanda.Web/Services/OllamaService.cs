@@ -58,7 +58,11 @@ public class OllamaService : IAiService
 
     public bool IsInitialized() => _isInitialized;
 
-    private async Task<T?> SendPrompt<T>(string prompt, string? enforceFormat = null)
+    private async Task<T?> SendPrompt<T>(
+        string prompt,
+        string? enforceFormat = null,
+        string? systemPrompt = null
+    )
         where T : class, IAiResult
     {
         if (!_isInitialized)
@@ -73,6 +77,7 @@ public class OllamaService : IAiService
         var request = new
         {
             model = _model,
+            system = systemPrompt,
             prompt = prompt + (enforceFormatString ?? string.Empty),
             stream = false,
             options = new { num_ctx = _contextSize },
@@ -112,7 +117,8 @@ public class OllamaService : IAiService
         Func<T, string> extractChunkSummary,
         Func<List<string>, string> buildFinalPrompt,
         Func<List<T>, T> buildFallback,
-        string? jsonTemplate = null
+        string? jsonTemplate = null,
+        string? systemPrompt = null
     )
         where T : class, IAiResult
     {
@@ -127,7 +133,7 @@ public class OllamaService : IAiService
             maxCharsPerChunk = 4096; // Fallback
 
         if (text.Length <= maxCharsPerChunk)
-            return await SendPrompt<T>(buildPrompt(text), jsonTemplate);
+            return await SendPrompt<T>(buildPrompt(text), jsonTemplate, systemPrompt);
 
         _logger.LogInformation(
             "Text is too large ({Length} chars), splitting into chunks...",
@@ -145,7 +151,7 @@ public class OllamaService : IAiService
         for (var i = 0; i < chunks.Count; i++)
         {
             _logger.LogInformation("Processing chunk {Current}/{Total}...", i + 1, chunks.Count);
-            var result = await SendPrompt<T>(buildPrompt(chunks[i]), jsonTemplate);
+            var result = await SendPrompt<T>(buildPrompt(chunks[i]), jsonTemplate, systemPrompt);
             if (result == null)
                 continue;
 
@@ -159,7 +165,7 @@ public class OllamaService : IAiService
         _logger.LogInformation("Requesting final summary of all chunk summaries from the model...");
 
         var finalPrompt = buildFinalPrompt(perChunkSummaries);
-        var finalResult = await SendPrompt<T>(finalPrompt, jsonTemplate);
+        var finalResult = await SendPrompt<T>(finalPrompt, jsonTemplate, systemPrompt);
 
         return finalResult ?? buildFallback(perChunkResults);
     }
@@ -190,6 +196,8 @@ public class OllamaService : IAiService
 
     public async Task<SecurityAnalysisResult?> AnalyzeDiff(string diff)
     {
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
         return await SendPromptWithChunking<SecurityAnalysisResult>(
             diff,
             whole =>
@@ -207,7 +215,8 @@ public class OllamaService : IAiService
                 Analysis = string.Join("\n\n", results.Select(r => r.Analysis)),
                 IsSuspectedMalicious = results.Any(r => r.IsSuspectedMalicious),
             },
-            "{\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}"
+            "{\"analysis\": string (short summary of findings), \"isSuspectedMalicious\": bool}",
+            $"You are a security expert reviewing git diffs for supply-chain and malware risks. Today's date is {today}. Treat date-based version numbers and release tags around this date as normal unless there is other evidence of malicious intent."
         );
     }
 
