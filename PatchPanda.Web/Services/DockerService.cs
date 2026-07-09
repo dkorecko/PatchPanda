@@ -173,6 +173,12 @@ public class DockerService
                     Regex = string.Empty,
                     Stack = existingStack,
                     StackId = existingStack.Id,
+                    PostUpdateHook = container.Labels.TryGetValue(
+                        "patchpanda.hook.post_update",
+                        out var hookPath
+                    )
+                        ? hookPath
+                        : null,
                 };
 
                 if (
