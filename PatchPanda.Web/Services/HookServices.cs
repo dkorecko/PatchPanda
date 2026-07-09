@@ -8,13 +8,21 @@ public class HookService
 
     public HookService(ILogger<HookService> logger) => _logger = logger;
 
-    public async Task ExecuteHookAsync(string scriptPath, string composePath, string name, string oldVer, string newVer)
+    public async Task ExecuteHookAsync(
+        string scriptPath,
+        string? composePath,
+        string name,
+        string oldVer,
+        string newVer
+    )
     {
-        if (string.IsNullOrEmpty(scriptPath))
+        if (string.IsNullOrWhiteSpace(scriptPath))
         {
             _logger.LogWarning("Hook script path is empty for {Name} ({ComposePath})", name, composePath);
             return;
         }
+
+        scriptPath = scriptPath.Trim();
 
         if (!File.Exists(scriptPath))
         {
@@ -26,14 +34,27 @@ public class HookService
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = "/bin/bash",
-            Arguments = $"-c \"{scriptPath}\"",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
 
-        startInfo.EnvironmentVariables["PP_PROJECT_DIR"] = Path.GetDirectoryName(composePath) ?? string.Empty;
+        if (OperatingSystem.IsWindows())
+        {
+            startInfo.FileName = "cmd.exe";
+            startInfo.ArgumentList.Add("/C");
+            startInfo.ArgumentList.Add(scriptPath);
+        }
+        else
+        {
+            startInfo.FileName = "/bin/bash";
+            startInfo.ArgumentList.Add(scriptPath);
+        }
+
+        startInfo.EnvironmentVariables["PP_PROJECT_DIR"] =
+            string.IsNullOrWhiteSpace(composePath)
+                ? string.Empty
+                : Path.GetDirectoryName(composePath) ?? string.Empty;
         startInfo.EnvironmentVariables["PP_NAME"] = name;
         startInfo.EnvironmentVariables["PP_OLD_VERSION"] = oldVer;
         startInfo.EnvironmentVariables["PP_NEW_VERSION"] = newVer;
@@ -46,10 +67,10 @@ public class HookService
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync();
+        await Task.WhenAll(stdoutTask, stderrTask, process.WaitForExitAsync());
 
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
+        var stdout = stdoutTask.Result;
+        var stderr = stderrTask.Result;
 
         _logger.LogInformation("Hook stdout: {Stdout}", string.IsNullOrWhiteSpace(stdout) ? "(empty)" : stdout);
 
@@ -57,7 +78,9 @@ public class HookService
             _logger.LogWarning("Hook stderr: {Stderr}", stderr);
 
         if (process.ExitCode != 0)
-            _logger.LogError("Hook exited {ExitCode} for {ScriptPath}", process.ExitCode, scriptPath);
+            throw new InvalidOperationException(
+                $"Hook exited with code {process.ExitCode} for {scriptPath}."
+            );
         else
             _logger.LogInformation("Hook completed successfully ({ScriptPath})", scriptPath);
     }

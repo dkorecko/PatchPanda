@@ -212,7 +212,9 @@ dotnet ef database update --project PatchPanda.Web --startup-project PatchPanda.
 - Notifications are posted to the configured Discord webhook and Apprise notification URLs. PatchPanda will chunk long messages (Discord limits message length) and mark versions as notified once it posted them.
 
 ## Post-hooks
+
 After a successful update, PatchPanda can execute an optional post-update hook by calling a user-defined script. Define the script path using a Docker label in your `docker-compose.yml`.
+
 ```yaml
 services:
     myservice:
@@ -222,6 +224,7 @@ services:
 ```
 
 PatchPanda sets these variables for your script:
+
 - `PP_PROJECT_DIR`: Directory of the compose file
 - `PP_NAME`: Container name to be updated
 - `PP_OLD_VERSION`: Previous image version
@@ -230,13 +233,16 @@ PatchPanda sets these variables for your script:
 
 Keep in mind the update script runs within the PatchPanda container and not on the host itself. However, you have access to the host file system via volumes
 
+When a stack is managed via Portainer and no local compose path is available, post-update hooks are skipped.
+
 ## Example post-update hook script
+
 ```bash
 #!/bin/bash
-cd $PP_PROJECT_DIR
+cd "$PP_PROJECT_DIR"
 apt-get update
 apt-get install -y git
-git config --global --add safe.directory $PP_PROJECT_DIR
+git config --global --add safe.directory "$PP_PROJECT_DIR"
 git config --global user.email "none@none"
 git config --global user.name "PatchPanda Updater"
 git add docker-compose.yml

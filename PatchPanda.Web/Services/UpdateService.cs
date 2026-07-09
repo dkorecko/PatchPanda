@@ -806,28 +806,38 @@ public class UpdateService
 
             if (!string.IsNullOrWhiteSpace(targetApp.PostUpdateHook))
             {
-                try
+                if (string.IsNullOrWhiteSpace(stack.ConfigFile))
                 {
-                    await _hookService.ExecuteHookAsync(
-                        targetApp.PostUpdateHook,
-                        stack.ConfigFile ?? string.Empty,
-                        targetApp.Name,
-                        oldVersion ?? string.Empty,
-                        newVersion
-                    );
-
-                    _logger.LogInformation(
-                        "Post-update hook executed for container {Container}",
+                    _logger.LogWarning(
+                        "Skipping post-update hook for container {Container} because compose file path is unavailable (Portainer-managed stack).",
                         targetApp.Name
                     );
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(
-                        ex,
-                        "Post-update hook failed for container {Container}",
-                        targetApp.Name
-                    );
+                    try
+                    {
+                        await _hookService.ExecuteHookAsync(
+                            targetApp.PostUpdateHook,
+                            stack.ConfigFile,
+                            targetApp.Name,
+                            oldVersion ?? string.Empty,
+                            newVersion
+                        );
+
+                        _logger.LogInformation(
+                            "Post-update hook executed for container {Container}",
+                            targetApp.Name
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(
+                            ex,
+                            "Post-update hook failed for container {Container}",
+                            targetApp.Name
+                        );
+                    }
                 }
             }
 
