@@ -26,6 +26,8 @@ public class Container : AbstractEntity
 
     public int? MultiContainerAppId { get; set; }
 
+    public string? PostUpdateHook { get; set; }
+
     public virtual MultiContainerApp? MultiContainerApp { get; set; }
 
     public bool IsSecondary { get; set; }

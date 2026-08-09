@@ -50,7 +50,8 @@ public class UpdateServiceTests
             _portainerService.Object,
             _versionService.Object,
             _jobRegistry,
-            _notificationService.Object
+            _notificationService.Object,
+            new HookService(new Mock<ILogger<HookService>>().Object)
         );
     }
 

@@ -154,6 +154,9 @@ namespace PatchPanda.Web.Migrations
                     b.Property<string>("OverrideGitHubRepo")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PostUpdateHook")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Regex")
                         .HasColumnType("TEXT");
 

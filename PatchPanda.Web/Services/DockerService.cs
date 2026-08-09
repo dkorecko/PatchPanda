@@ -173,6 +173,12 @@ public class DockerService
                     Regex = string.Empty,
                     Stack = existingStack,
                     StackId = existingStack.Id,
+                    PostUpdateHook = container.Labels.TryGetValue(
+                        "patchpanda.hook.post_update",
+                        out var hookPath
+                    )
+                        ? hookPath
+                        : null,
                 };
 
                 if (
@@ -295,6 +301,7 @@ public class DockerService
                     existingContainer.Version = runningContainer.Version;
                     existingContainer.TargetImage = runningContainer.TargetImage;
                     existingContainer.Regex = runningContainer.Regex;
+                    existingContainer.PostUpdateHook = runningContainer.PostUpdateHook;
                     if (
                         existingContainer.OverrideGitHubRepo is null
                         || existingContainer.GitHubVersionRegex is null
